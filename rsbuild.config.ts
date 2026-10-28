@@ -34,6 +34,12 @@ export default defineConfig(({ command }) => ({
     sourceMap: command === 'dev' ? { js: 'source-map' } : false,
     // 不生成 *.js.LICENSE.txt（默认 'linked' 会把三方库的 license 注释抽成单独文件）
     legalComments: 'none',
+    // 输出 ES Module：产物为 .mjs + <script type="module">，去掉 IIFE 包装和 chunk 注册表
+    module: true,
+    // 模块脚本必须按真实 MIME 提供，Cloudflare 静态资源按扩展名推断，.mjs → text/javascript
+    filename: {
+      js: '[name].[contenthash:8].mjs',
+    },
   },
 
   server: {
