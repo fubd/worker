@@ -1,7 +1,7 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
 
   source: {
@@ -29,10 +29,9 @@ export default defineConfig({
     // 让 Worker 静态资源绑定直接读取 dist 目录
     cleanDistPath: true,
     assetPrefix: '/',
-    // 便于在 Worker 端调试
-    sourceMap: {
-      js: 'source-map',
-    },
+    // 生产环境不打 source map：体积占 dist 的 80%，而且会被公开访问，
+    // 等于把源码送到浏览器。需要排查线上问题时改成 'hidden-source-map' 并私有托管。
+    sourceMap: command === 'dev' ? { js: 'source-map' } : false,
   },
 
   server: {
@@ -52,4 +51,4 @@ export default defineConfig({
       strategy: 'split-by-experience',
     },
   },
-});
+}));
