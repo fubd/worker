@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "bun run --parallel dev:api dev:web",
     "dev:api": "wrangler dev",
-    "dev:web": "rsbuild dev",
-    "build": "rsbuild build",
+    "dev:web": "bun run vendor && rsbuild dev",
+    "vendor": "bun run scripts/build-vendor.ts",
+    "build": "bun run vendor && rsbuild build",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun check",

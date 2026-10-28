@@ -45,7 +45,8 @@ bun run dev
 bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
-bun run build           # 构建前端到 dist/
+bun run vendor          # 生成 public/vendor 下的 react 系 ESM 模块
+bun run build           # vendor + 构建前端到 dist/
 bun run check           # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
 bun run fmt:check       # 只检查不写入，CI 用
@@ -71,7 +72,10 @@ swan-worker/
 ├── seed/                  # 演示数据，不属于迁移
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
-│   └── _headers           # 缓存策略与安全头
+│   ├── _headers           # 缓存策略与安全头
+│   └── vendor/            # 构建时生成，react 系模块（已 gitignore）
+├── scripts/
+│   └── build-vendor.ts    # 把 react/react-dom 打成 ESM 供 importmap 使用
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
 │   ├── client/            # 前端
@@ -124,6 +128,10 @@ swan-worker/
 **错误不泄漏内部信息。** Worker 的 `onError` 只把堆栈写日志，响应里返回 `{ error, traceId }`（`traceId` 取 `cf-ray`，方便回查）；前端 `request()` 对非 JSON 响应做了兜底，边缘层直接吐 HTML 错误页时不会变成 `SyntaxError`。
 
 **产物是 ES Module。** `output.module: true`，产物为 `.mjs` + `<script type="module">`，没有 IIFE 包装和 `rspackChunks` 注册表。Workers 静态资源对 `.mjs` 返回 `text/javascript`，模块能正常执行。
+
+**react 系模块不打进产物。** 生产构建通过 `output.externals` 把 `react` / `react-dom` / `react/jsx-runtime` 外部化，由 `index.html` 里的 **importmap** 指向 `/vendor/*.mjs`。这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default）。
+
+> 想换成 R2 / 任意 CDN：把 `scripts/build-vendor.ts` 的产物上传到桶里，再把 `src/client/index.html` 里 importmap 的四个 URL 换成对应域名即可，代码不用动。注意 `react` 与 `react/jsx-runtime` 必须来自同一份 bundle，否则会出现两个 React 实例（症状：Invalid hook call）。
 
 **首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
 

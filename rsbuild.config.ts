@@ -36,6 +36,17 @@ export default defineConfig(({ command }) => ({
     legalComments: 'none',
     // 输出 ES Module：产物为 .mjs + <script type="module">，去掉 IIFE 包装和 chunk 注册表
     module: true,
+    // 生产构建把 react 系模块外部化，改由 importmap + public/vendor 提供；
+    // dev 不外部化，保证 HMR 与依赖解析走 bundler
+    externals:
+      command === 'build'
+        ? {
+            react: 'react',
+            'react/jsx-runtime': 'react/jsx-runtime',
+            'react-dom': 'react-dom',
+            'react-dom/client': 'react-dom/client',
+          }
+        : undefined,
     // 模块脚本必须按真实 MIME 提供，Cloudflare 静态资源按扩展名推断，.mjs → text/javascript
     filename: {
       js: '[name].[contenthash:8].mjs',

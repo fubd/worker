@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
+    <!-- react 系模块不打进产物，由 importmap 指向独立文件（public/vendor，构建时生成） -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "/vendor/react.mjs",
+          "react/jsx-runtime": "/vendor/react-jsx-runtime.mjs",
+          "react-dom": "/vendor/react-dom.mjs",
+          "react-dom/client": "/vendor/react-dom-client.mjs"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

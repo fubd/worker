@@ -6,3 +6,5 @@ dist/
 .DS_Store
 *.log
 bun.lockb
+# 由 scripts/build-vendor.ts 生成
+public/vendor/
