@@ -61,6 +61,8 @@ bun run db:seed:remote    # 线上写入 seed/seed.sql
 
 ```
 swan-worker/
+├── .github/workflows/
+│   └── deploy.yml         # push 到 main 自动构建并部署
 ├── migrations/            # D1 迁移（按文件名顺序执行）
 │   ├── 0001_init.sql
 │   └── 0002_index_optimize.sql
@@ -140,6 +142,21 @@ bun run deploy
 ```
 
 `wrangler.jsonc` 里已填入线上库 `swan-worker-db` 的 `database_id`（`972f2269-…`）。换账号或重建库时，替换成 `db:create` 返回的新 ID。
+
+### 自动部署（GitHub Actions）
+
+`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `wrangler deploy`。
+
+启用前在仓库 **Settings → Secrets and variables → Actions** 加两个 secret：
+
+| Secret | 值 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | 带 `Workers Scripts:Edit` + `D1:Edit` 权限的 API Token |
+| `CLOUDFLARE_ACCOUNT_ID` | 账号 ID，`wrangler whoami` 可查 |
+
+数据库迁移**不会**自动执行，结构变更仍需手动 `bun run db:migrate:remote`，避免 CI 误改线上数据。
+
+> 另一条路是 Cloudflare 自带的 Workers Builds：在 dashboard 里 Worker → Settings → Builds 连接 GitHub 仓库，构建命令填 `bun run build`、部署命令填 `npx wrangler deploy`。两种方式二选一即可，不要同时开，否则一次 push 会部署两次。
 
 ## 备注
 
