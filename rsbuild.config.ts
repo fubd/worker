@@ -32,6 +32,8 @@ export default defineConfig(({ command }) => ({
     // 生产环境不打 source map：体积占 dist 的 80%，而且会被公开访问，
     // 等于把源码送到浏览器。需要排查线上问题时改成 'hidden-source-map' 并私有托管。
     sourceMap: command === 'dev' ? { js: 'source-map' } : false,
+    // 不生成 *.js.LICENSE.txt（默认 'linked' 会把三方库的 license 注释抽成单独文件）
+    legalComments: 'none',
   },
 
   server: {
