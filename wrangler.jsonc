@@ -24,7 +24,7 @@
     {
       "binding": "DB",
       "database_name": "swan-worker-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "972f2269-ed6b-4787-aef9-673b37bdf801",
       "migrations_dir": "migrations"
     }
   ],

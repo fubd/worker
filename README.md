@@ -2,6 +2,8 @@
 
 一个可直接上手的最小全栈模板：**React 19 + Ant Design 6 前端** 与 **Hono API + Cloudflare D1** 跑在同一个 Cloudflare Worker 上。
 
+**线上演示**：https://swan-worker.312bdf.workers.dev
+
 - 前端由 **Rsbuild** 打包，产物 `dist/` 直接作为 Workers 静态资源托管
 - `/api/*` 由 Worker 内的 **Hono** 应用处理，数据落在 **D1**（边缘 SQLite）
 - 全程用 **Bun** 安装依赖与执行脚本，不需要 Node.js
