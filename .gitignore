@@ -6,5 +6,5 @@ dist/
 .DS_Store
 *.log
 bun.lockb
-# 由 scripts/build-vendor.ts 生成
-public/vendor/
+# 由 scripts/build-vendor.ts 生成，只用于上传 R2（不进 dist，故不在 public/ 下）
+vendor/

@@ -5,7 +5,8 @@
     <title>Swan Worker</title>
     <!-- react 系模块不打进产物，由 importmap 指向 Cloudflare R2 自定义域名
          桶：swan-vendor（APAC），域名：fbd-oss.cc.cd（已配 CORS + 1 年 immutable 缓存）
-         回退方案：把下面 4 个 URL 改回 /vendor/*.mjs 即走同源静态资源 -->
+         vendor 文件由 scripts/build-vendor.ts 生成在 vendor/，只上传 R2，不进 dist。
+         若 R2 不可用，改回同源需两步：把 vendor/ 拷进 public/，再把下面 4 个 URL 换成 /vendor/*.mjs -->
     <script type="importmap">
       {
         "imports": {

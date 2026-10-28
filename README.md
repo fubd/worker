@@ -45,7 +45,7 @@ bun run dev
 bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
-bun run vendor          # 生成 public/vendor 下的 react 系 ESM 模块
+bun run vendor          # 生成 vendor/ 下的 react 系 ESM 模块（用于上传 R2）
 bun run build           # vendor + 构建前端到 dist/
 bun run check           # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
@@ -72,8 +72,7 @@ swan-worker/
 ├── seed/                  # 演示数据，不属于迁移
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
-│   ├── _headers           # 缓存策略与安全头
-│   └── vendor/            # 构建时生成，react 系模块（已 gitignore）
+│   └── _headers           # 缓存策略与安全头
 ├── scripts/
 │   └── build-vendor.ts    # 把 react/react-dom 打成 ESM 供 importmap 使用
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
@@ -92,6 +91,7 @@ swan-worker/
 │       ├── routes/        # todos / stats 路由
 │       ├── types.ts       # Env 绑定类型
 │       └── index.ts       # Hono 应用 + 静态资源兜底
+├── vendor/                # 构建时生成，react 系 ESM 模块（已 gitignore，只上传 R2）
 ├── rsbuild.config.ts
 ├── wrangler.jsonc
 └── tsconfig.json
@@ -142,7 +142,7 @@ swan-worker/
 
 ```bash
 bun run vendor
-for f in public/vendor/*.mjs; do
+for f in vendor/*.mjs; do
   wrangler r2 object put "swan-vendor/$(basename $f)" --file="$f" \
     --content-type=text/javascript \
     --cache-control="public, max-age=31536000, immutable" --remote
@@ -161,7 +161,11 @@ wrangler r2 bucket domain add swan-vendor \
 wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
 ```
 
-换域名时同步改 `index.html` 里 importmap 的 4 个 URL。**回退方案**：改回 `/vendor/*.mjs` 即走同源静态资源（文件仍在 `public/vendor/`，不需要任何外部依赖）。
+换域名时同步改 `index.html` 里 importmap 的 4 个 URL。
+
+`vendor/` 刻意放在 `public/` 之外——`public/` 会被整个拷进 `dist`，而线上从不加载这些文件（importmap 指向 R2），放进 `dist` 只是白占一份静态资源、每次部署多传约 224 kB。R2 本身提供 11 个 9 的持久性，不做同源冗余。
+
+真要走同源，两步：把 `vendor/` 拷进 `public/`，再把 importmap 的 4 个 URL 换成 `/vendor/*.mjs`。
 
 **首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
 

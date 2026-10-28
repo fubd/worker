@@ -36,7 +36,7 @@ export default defineConfig(({ command }) => ({
     legalComments: 'none',
     // 输出 ES Module：产物为 .mjs + <script type="module">，去掉 IIFE 包装和 chunk 注册表
     module: true,
-    // 生产构建把 react 系模块外部化，改由 importmap + public/vendor 提供；
+    // 生产构建把 react 系模块外部化，改由 importmap 指向 R2 上的 vendor 文件提供；
     // dev 不外部化，保证 HMR 与依赖解析走 bundler
     externals:
       command === 'build'

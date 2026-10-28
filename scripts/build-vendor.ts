@@ -1,5 +1,8 @@
 /**
- * 把 react / react-dom 打成可独立加载的 ESM 模块，输出到 public/vendor/。
+ * 把 react / react-dom 打成可独立加载的 ESM 模块，输出到 vendor/。
+ *
+ * 注意输出目录刻意放在 public/ 之外：public/ 会被 Rsbuild 整个拷进 dist，
+ * 而这些文件只用于上传 R2，进 dist 只会白占一份静态资源（线上从不加载）。
  *
  * 为什么要这一步：
  * - react 和 react-dom 的 npm 包只有 CJS 产物，浏览器不能直接 import
@@ -13,7 +16,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
-const OUT = join(ROOT, 'public/vendor');
+const OUT = join(ROOT, 'vendor');
 const TMP = join(ROOT, '.vendor-entry');
 
 const IMPORTABLE = /^[A-Za-z_$][\w$]*$/;

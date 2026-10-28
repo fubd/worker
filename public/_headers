@@ -4,10 +4,6 @@
 /static/*
   Cache-Control: public, max-age=31536000, immutable
 
-# 外部化的 react 系模块：文件名固定，升级时改 importmap 或加版本号，同样可以长缓存
-/vendor/*
-  Cache-Control: public, max-age=31536000, immutable
-
 # HTML 入口必须每次回源校验，否则发版后用户会拿到旧壳
 /
   Cache-Control: no-cache
