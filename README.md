@@ -2,15 +2,6 @@
 
 一个可直接上手的最小全栈模板：**React 19 + Ant Design 6 前端** 与 **Hono API + Cloudflare D1** 跑在同一个 Cloudflare Worker 上。
 
-**线上演示**：https://swan-worker.312bdf.workers.dev
-
-- 前端由 **Rsbuild** 打包，产物 `dist/` 直接作为 Workers 静态资源托管
-- `/api/*` 由 Worker 内的 **Hono** 应用处理，数据落在 **D1**（边缘 SQLite）
-- 全程用 **Bun** 安装依赖与执行脚本，不需要 Node.js
-- 客户端路由用 **React Router 8**（`createBrowserRouter`）
-
-![首页](docs/screenshot-home.png)
-
 ## 技术栈
 
 | 层次 | 技术 | 版本 |
@@ -77,9 +68,7 @@ swan-worker/
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
 │   └── _headers           # 缓存策略与安全头
-├── docs/
-│   ├── API.md             # 接口文档（参数 / 响应 / 错误码）
-│   └── screenshot-*.png   # 界面截图
+├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
 │   ├── client/            # 前端
 │   │   ├── api/client.ts  # /api 请求封装
@@ -102,7 +91,7 @@ swan-worker/
 
 ## 接口
 
-完整接口说明（参数、响应示例、错误码）见 **[docs/API.md](docs/API.md)**。
+完整接口说明（参数、响应示例、错误码）见 **[API.md](API.md)**。
 
 ## 关键设计
 
@@ -150,13 +139,7 @@ bun run db:migrate:remote
 bun run deploy
 ```
 
-`wrangler.jsonc` 里的 `database_id` 目前是占位 UUID，部署前必须替换。
-
-## 界面
-
-| 概览 | 待办 Demo | 技术栈 |
-| --- | --- | --- |
-| ![概览](docs/screenshot-home.png) | ![待办](docs/screenshot-todos.png) | ![技术栈](docs/screenshot-about.png) |
+`wrangler.jsonc` 里已填入线上库 `swan-worker-db` 的 `database_id`（`972f2269-…`）。换账号或重建库时，替换成 `db:create` 返回的新 ID。
 
 ## 备注
 
