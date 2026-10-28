@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import type { TodoStats } from '@/shared/types';
 
-const STACK_TAGS = ['Bun', 'React 19', 'React Router 8', 'Ant Design 6', 'Rsbuild', 'Hono', 'D1'];
+const STACK_TAGS = ['Bun', 'React 19', 'React Router 8', 'Ant Design 6', 'Rsbuild', 'Hono', 'D1', 'CCC'];
 
 const CHAIN_STEPS = [
   { title: '浏览器', description: 'React 19 + antd 6' },
