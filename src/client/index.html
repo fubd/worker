@@ -3,14 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- react 系模块不打进产物，由 importmap 指向独立文件（public/vendor，构建时生成） -->
+    <!-- react 系模块不打进产物，由 importmap 指向 Cloudflare R2（桶 swan-vendor，apac）
+         回退方案：改回 /vendor/*.mjs 即走同源静态资源 -->
     <script type="importmap">
       {
         "imports": {
-          "react": "/vendor/react.mjs",
-          "react/jsx-runtime": "/vendor/react-jsx-runtime.mjs",
-          "react-dom": "/vendor/react-dom.mjs",
-          "react-dom/client": "/vendor/react-dom-client.mjs"
+          "react": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react.mjs",
+          "react/jsx-runtime": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-jsx-runtime.mjs",
+          "react-dom": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-dom.mjs",
+          "react-dom/client": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-dom-client.mjs"
         }
       }
     </script>

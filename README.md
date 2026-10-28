@@ -129,9 +129,29 @@ swan-worker/
 
 **产物是 ES Module。** `output.module: true`，产物为 `.mjs` + `<script type="module">`，没有 IIFE 包装和 `rspackChunks` 注册表。Workers 静态资源对 `.mjs` 返回 `text/javascript`，模块能正常执行。
 
-**react 系模块不打进产物。** 生产构建通过 `output.externals` 把 `react` / `react-dom` / `react/jsx-runtime` 外部化，由 `index.html` 里的 **importmap** 指向 `/vendor/*.mjs`。这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default）。
+**react 系模块不打进产物，走 Cloudflare R2。** 生产构建用 `output.externals` 把 `react` / `react-dom` / `react/jsx-runtime` 外部化，`index.html` 的 **importmap** 指向 R2 桶里的独立文件：
 
-> 想换成 R2 / 任意 CDN：把 `scripts/build-vendor.ts` 的产物上传到桶里，再把 `src/client/index.html` 里 importmap 的四个 URL 换成对应域名即可，代码不用动。注意 `react` 与 `react/jsx-runtime` 必须来自同一份 bundle，否则会出现两个 React 实例（症状：Invalid hook call）。
+| 项       | 值                                                                        |
+| -------- | ------------------------------------------------------------------------- |
+| 桶       | `swan-vendor`（location hint: `apac`）                                    |
+| 公开地址 | `https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev`                     |
+| CORS     | `scripts/r2-cors.json`，允许 `GET/HEAD`，`Access-Control-Allow-Origin: *` |
+| 缓存     | 对象级 `Cache-Control: public, max-age=31536000, immutable`               |
+
+这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default）。更新版本时：
+
+```bash
+bun run vendor
+for f in public/vendor/*.mjs; do
+  wrangler r2 object put "swan-vendor/$(basename $f)" --file="$f" \
+    --content-type=text/javascript \
+    --cache-control="public, max-age=31536000, immutable" --remote
+done
+```
+
+> 跨域加载 ES Module **必须**有 CORS 头，否则浏览器直接拒绝（`Failed to fetch dynamically imported module`）。r2.dev 默认不返回该头，需要 `wrangler r2 bucket cors set swan-vendor --file=scripts/r2-cors.json`。
+>
+> r2.dev 是开发用公开域名，有速率限制、无 SLA。生产环境应给桶绑自定义域名，再把 importmap 的 4 个 URL 换掉。回退方案：改回 `/vendor/*.mjs` 即走同源静态资源（文件仍在 `public/vendor/`）。
 
 **首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
 
