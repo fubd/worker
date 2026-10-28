@@ -79,7 +79,7 @@ swan-worker/
 ├── src/
 │   ├── client/            # 前端
 │   │   ├── api/client.ts  # /api 请求封装
-│   │   ├── layouts/       # RootLayout（Sider + Header + Outlet）
+│   │   ├── layouts/       # RootLayout（桌面 Sider / 移动端 Drawer + Header + Outlet）
 │   │   ├── pages/         # HomePage / TodosPage / AboutPage / NotFound / Error
 │   │   ├── router.tsx     # createBrowserRouter 路由表
 │   │   ├── main.tsx       # 入口：ConfigProvider + antd App

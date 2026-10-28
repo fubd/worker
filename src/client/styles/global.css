@@ -241,6 +241,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  .swan-header {
+    padding: 0 16px !important;
+  }
+
   .swan-content {
     padding: 16px;
   }
