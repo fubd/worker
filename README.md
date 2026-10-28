@@ -123,6 +123,8 @@ swan-worker/
 
 **产物是 ES Module。** `output.module: true`，产物为 `.mjs` + `<script type="module">`，没有 IIFE 包装和 `rspackChunks` 注册表。Workers 静态资源对 `.mjs` 返回 `text/javascript`，模块能正常执行。
 
+**首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
+
 **antd 6 的用法。** 通过 `<ConfigProvider locale={zhCN}>` + `<App>` 包裹，`message` / `modal` 从 `App.useApp()` 取，不再用静态方法。
 
 **Bun 只负责装依赖和跑脚本，不执行 Worker 代码。** 前端构建走 Rsbuild（Rspack），Worker 由 `wrangler dev` 拉起本地 workerd 运行。`bun run --parallel` 是 Bun 1.4 才有的能力，所以 `engines.bun` 要求 `>=1.4.0`。

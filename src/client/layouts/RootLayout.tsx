@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Button, Layout, Menu, Tag, Tooltip, Typography } from 'antd';
+import { Suspense, useMemo, useState } from 'react';
+import { Button, Layout, Menu, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import {
   ApiOutlined,
   CheckSquareOutlined,
@@ -101,7 +101,16 @@ export default function RootLayout() {
 
         <Content className="swan-content">
           <div className="swan-content-inner">
-            <Outlet />
+            {/* 懒加载路由的加载态：只在首次进入 /todos、/about 时短暂出现 */}
+            <Suspense
+              fallback={
+                <div className="swan-card" style={{ padding: 24 }}>
+                  <Skeleton active paragraph={{ rows: 6 }} />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </div>
         </Content>
 
