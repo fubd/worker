@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "swan-worker",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+
+  // 前端构建产物（rsbuild 输出到 ./dist），由 Workers 静态资源直接托管
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Cloudflare D1 数据库绑定
+  // 首次部署前执行：bun run db:create
+  // 然后把输出的 database_id 替换到下面
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "swan-worker-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "dev": {
+    "port": 8787
+  }
+}

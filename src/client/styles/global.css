@@ -1,0 +1,250 @@
+:root {
+  --swan-bg: #f4f7fb;
+  --swan-panel: #ffffff;
+  --swan-border: rgba(15, 23, 42, 0.08);
+  --swan-text: #0f172a;
+  --swan-text-muted: #64748b;
+  --swan-brand: #1677ff;
+  --swan-brand-soft: rgba(22, 119, 255, 0.08);
+  --swan-radius: 14px;
+  --swan-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--swan-bg);
+  color: var(--swan-text);
+  font-family:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 布局 ---------- */
+.swan-shell {
+  min-height: 100vh;
+  background: var(--swan-bg);
+}
+
+.swan-sider {
+  background: var(--swan-panel) !important;
+  border-right: 1px solid var(--swan-border);
+}
+
+.swan-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 64px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--swan-border);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.swan-logo-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #1677ff, #6f4bff);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.swan-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.swan-logo-text small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--swan-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.swan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 28px !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--swan-border);
+}
+
+.swan-content {
+  padding: 28px;
+}
+
+.swan-content-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* ---------- 通用块 ---------- */
+.swan-card {
+  background: var(--swan-panel);
+  border: 1px solid var(--swan-border);
+  border-radius: var(--swan-radius);
+  box-shadow: var(--swan-shadow);
+}
+
+.swan-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 36px;
+  border-radius: var(--swan-radius);
+  background:
+    radial-gradient(900px 260px at 88% -30%, rgba(111, 75, 255, 0.22), transparent 60%),
+    radial-gradient(700px 240px at 6% 120%, rgba(22, 119, 255, 0.18), transparent 62%),
+    #ffffff;
+  border: 1px solid var(--swan-border);
+  box-shadow: var(--swan-shadow);
+}
+
+.swan-hero h1 {
+  margin: 12px 0 8px;
+  font-size: 30px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.swan-hero p {
+  margin: 0;
+  max-width: 620px;
+  color: var(--swan-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.swan-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 30px 0 14px;
+}
+
+.swan-section-title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.swan-section-title span {
+  color: var(--swan-text-muted);
+  font-size: 12px;
+}
+
+.swan-stat {
+  height: 100%;
+  padding: 18px 20px;
+  border-radius: var(--swan-radius);
+  background: var(--swan-panel);
+  border: 1px solid var(--swan-border);
+  box-shadow: var(--swan-shadow);
+}
+
+.swan-stat-label {
+  color: var(--swan-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.swan-stat-value {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.swan-todo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+}
+
+.swan-todo-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-todo-title.is-done {
+  color: var(--swan-text-muted);
+  text-decoration: line-through;
+}
+
+.swan-todo-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.swan-todo-row:hover .swan-todo-actions {
+  opacity: 1;
+}
+
+/* 触屏设备没有 hover，操作按钮必须常驻，否则无法删除 */
+@media (hover: none) {
+  .swan-todo-actions {
+    opacity: 1;
+  }
+}
+
+.swan-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+.swan-code-block {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.75;
+  overflow-x: auto;
+}
+
+.swan-footer {
+  padding: 20px 28px 28px;
+  color: var(--swan-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .swan-content {
+    padding: 16px;
+  }
+
+  .swan-hero {
+    padding: 24px;
+  }
+
+  .swan-hero h1 {
+    font-size: 24px;
+  }
+}
