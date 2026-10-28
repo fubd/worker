@@ -11,6 +11,8 @@
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun check",
+    "fmt": "bun fmt --no-script",
+    "fmt:check": "bun fmt --check --no-script",
     "db:create": "wrangler d1 create swan-worker-db",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",

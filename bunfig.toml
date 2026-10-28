@@ -1,0 +1,4 @@
+[fmt]
+# 与现有代码风格保持一致：100 列、单引号、保留分号
+printWidth = 100
+singleQuote = true

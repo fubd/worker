@@ -4,18 +4,18 @@
 
 ## 技术栈
 
-| 层次 | 技术 | 版本 |
-| --- | --- | --- |
-| 运行时 / 包管理 | Bun | 1.4.4 |
-| 语言 | TypeScript（Bun 直接执行，无需 tsc） | 5.x 语法 |
-| 类型检查 | Bun 内置 `bun check` | 1.4 |
-| 视图 | React | 19.3 |
-| 路由 | React Router | 8.5 |
-| UI 组件库 | Ant Design + @ant-design/icons | 6.6 / 6.3 |
-| 构建 | Rsbuild（Rspack） | 2.2 |
-| 服务端框架 | Hono | 4.13 |
-| 数据库 | Cloudflare D1 | 边缘 SQLite |
-| 部署 | Wrangler | 4.154 |
+| 层次            | 技术                                 | 版本        |
+| --------------- | ------------------------------------ | ----------- |
+| 运行时 / 包管理 | Bun                                  | 1.4.4       |
+| 语言            | TypeScript（Bun 直接执行，无需 tsc） | 5.x 语法    |
+| 类型检查        | Bun 内置 `bun check`                 | 1.4         |
+| 视图            | React                                | 19.3        |
+| 路由            | React Router                         | 8.5         |
+| UI 组件库       | Ant Design + @ant-design/icons       | 6.6 / 6.3   |
+| 构建            | Rsbuild（Rspack）                    | 2.2         |
+| 服务端框架      | Hono                                 | 4.13        |
+| 数据库          | Cloudflare D1                        | 边缘 SQLite |
+| 部署            | Wrangler                             | 4.154       |
 
 ## 快速开始
 
@@ -47,6 +47,8 @@ bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
 bun run build           # 构建前端到 dist/
 bun run check           # 类型检查（bun check，约 80ms，无需安装 typescript）
+bun run fmt             # 格式化（Bun 内置，零依赖）
+bun run fmt:check       # 只检查不写入，CI 用
 bun run preview         # 构建 + 本地以生产形态运行
 bun run deploy          # 构建 + wrangler deploy
 
@@ -153,10 +155,10 @@ bun run deploy
 
 启用前在仓库 **Settings → Secrets and variables → Actions** 加两个 secret：
 
-| Secret | 值 |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | 带 `Workers Scripts:Edit` + `D1:Edit` 权限的 API Token |
-| `CLOUDFLARE_ACCOUNT_ID` | 账号 ID，`wrangler whoami` 可查 |
+| Secret                  | 值                                                     |
+| ----------------------- | ------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | 带 `Workers Scripts:Edit` + `D1:Edit` 权限的 API Token |
+| `CLOUDFLARE_ACCOUNT_ID` | 账号 ID，`wrangler whoami` 可查                        |
 
 数据库迁移**不会**自动执行，结构变更仍需手动 `bun run db:migrate:remote`，避免 CI 误改线上数据。
 
@@ -166,6 +168,7 @@ bun run deploy
 
 - 本地数据库文件在 `.wrangler/state/`，已加入 `.gitignore`；删掉目录重新 `db:migrate:local` 即可重置
 - `seed/` 刻意与 `migrations/` 分开：迁移是结构变更，种子数据可以随时重跑
+- 格式化用 Bun 内置的 `bun fmt`（零依赖，不用装 prettier/biome），风格写在 `bunfig.toml` 的 `[fmt]` 段（100 列、单引号）；脚本里必须带 `--no-script`，否则 `bun fmt` 会去执行 `package.json` 的 `fmt` 脚本，自己调自己
 - 类型检查用 `bun run check`（Bun 1.4 内置，读同一份 `tsconfig.json`，输出与 tsc 一致）；项目不依赖 `typescript` 包，需要产出 `.d.ts` 时再 `bun add -d typescript`
 - Bun 执行 `.ts` / `.tsx` 时只擦除类型、不做检查，能跑 ≠ 类型没问题，提交前记得 `bun run check`
 - `tsconfig.json` 虽然不再给编译器用，但仍是必需的：`bun check` 靠它拿 `lib` / `types` / `paths`，编辑器靠它做类型提示；删掉它会立刻冒出「找不到 document」「找不到 @/shared/types」这类错误

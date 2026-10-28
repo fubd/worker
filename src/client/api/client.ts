@@ -68,10 +68,10 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
-  deleteTodo: (id: number) => request<{ ok: boolean; id: number }>(`/todos/${id}`, {
-    method: 'DELETE',
-  }),
+  deleteTodo: (id: number) =>
+    request<{ ok: boolean; id: number }>(`/todos/${id}`, {
+      method: 'DELETE',
+    }),
 
-  clearCompleted: () =>
-    request<{ removed: number }>('/todos/completed', { method: 'DELETE' }),
+  clearCompleted: () => request<{ removed: number }>('/todos/completed', { method: 'DELETE' }),
 };

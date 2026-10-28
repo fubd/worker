@@ -4,11 +4,11 @@ Swan Worker 的 HTTP 接口，全部挂在 `/api` 下，由 Worker 里的 Hono �
 
 ## 环境
 
-| 环境 | Base URL |
-| --- | --- |
-| 本地 Worker（wrangler dev） | `http://127.0.0.1:8787` |
-| 本地前端代理（rsbuild dev） | `http://localhost:3000` |
-| 线上 | `https://swan-worker.312bdf.workers.dev` |
+| 环境                        | Base URL                                 |
+| --------------------------- | ---------------------------------------- |
+| 本地 Worker（wrangler dev） | `http://127.0.0.1:8787`                  |
+| 本地前端代理（rsbuild dev） | `http://localhost:3000`                  |
+| 线上                        | `https://swan-worker.312bdf.workers.dev` |
 
 ## 约定
 
@@ -32,15 +32,15 @@ interface Todo {
 
 ## 接口一览
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/stats` | 任务统计（总数 / 已完成 / 完成率） |
-| GET | `/api/todos?status=all\|active\|completed&q=&limit=&offset=` | 列表 |
-| POST | `/api/todos` | 新建，body `{ "title": "..." }` |
-| PATCH | `/api/todos/:id` | 更新，body `{ "title"?, "completed"? }` |
-| DELETE | `/api/todos/:id` | 删除单条 |
-| DELETE | `/api/todos/completed` | 清空已完成 |
+| 方法   | 路径                                                         | 说明                                    |
+| ------ | ------------------------------------------------------------ | --------------------------------------- |
+| GET    | `/api/health`                                                | 健康检查                                |
+| GET    | `/api/stats`                                                 | 任务统计（总数 / 已完成 / 完成率）      |
+| GET    | `/api/todos?status=all\|active\|completed&q=&limit=&offset=` | 列表                                    |
+| POST   | `/api/todos`                                                 | 新建，body `{ "title": "..." }`         |
+| PATCH  | `/api/todos/:id`                                             | 更新，body `{ "title"?, "completed"? }` |
+| DELETE | `/api/todos/:id`                                             | 删除单条                                |
+| DELETE | `/api/todos/completed`                                       | 清空已完成                              |
 
 ---
 
@@ -89,12 +89,12 @@ curl http://127.0.0.1:8787/api/stats
 
 列表查询，按「未完成在前、id 倒序」排序。
 
-| 参数 | 类型 | 默认 | 说明 |
-| --- | --- | --- | --- |
+| 参数     | 类型                             | 默认  | 说明                          |
+| -------- | -------------------------------- | ----- | ----------------------------- |
 | `status` | `all` \| `active` \| `completed` | `all` | 过滤状态，非法值按 `all` 处理 |
-| `q` | string | 空 | 标题模糊匹配（`LIKE %q%`） |
-| `limit` | number | 100 | 每页条数，最大 500 |
-| `offset` | number | 0 | 偏移量 |
+| `q`      | string                           | 空    | 标题模糊匹配（`LIKE %q%`）    |
+| `limit`  | number                           | 100   | 每页条数，最大 500            |
+| `offset` | number                           | 0     | 偏移量                        |
 
 ```bash
 curl "http://127.0.0.1:8787/api/todos?status=active&limit=10"
@@ -121,9 +121,9 @@ curl "http://127.0.0.1:8787/api/todos?status=active&limit=10"
 
 新建任务。
 
-| 字段 | 类型 | 必填 | 约束 |
-| --- | --- | --- | --- |
-| `title` | string | 是 | 去除首尾空格后长度 1~200 |
+| 字段    | 类型   | 必填 | 约束                     |
+| ------- | ------ | ---- | ------------------------ |
+| `title` | string | 是   | 去除首尾空格后长度 1~200 |
 
 ```bash
 curl -X POST http://127.0.0.1:8787/api/todos \
@@ -163,10 +163,10 @@ curl -X PATCH http://127.0.0.1:8787/api/todos/6 \
 
 错误：
 
-| 状态码 | 场景 |
-| --- | --- |
-| `400` | `id` 非法 / 请求体不是合法 JSON / `title` 非法 / `completed` 不是布尔 |
-| `404` | `{ "error": "Todo 不存在" }` |
+| 状态码 | 场景                                                                  |
+| ------ | --------------------------------------------------------------------- |
+| `400`  | `id` 非法 / 请求体不是合法 JSON / `title` 非法 / `completed` 不是布尔 |
+| `404`  | `{ "error": "Todo 不存在" }`                                          |
 
 ## DELETE /api/todos/:id
 

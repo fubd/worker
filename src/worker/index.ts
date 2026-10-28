@@ -35,10 +35,7 @@ app.onError((err, c) => {
   const rayId = c.req.header('cf-ray') ?? 'local';
   console.error(`[worker] unhandled error (ray=${rayId}):`, err);
 
-  return c.json(
-    { error: 'Internal Server Error', traceId: rayId },
-    500,
-  );
+  return c.json({ error: 'Internal Server Error', traceId: rayId }, 500);
 });
 
 /**

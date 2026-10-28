@@ -11,11 +11,7 @@ export default function ErrorPage() {
   const isResponse = isRouteErrorResponse(error);
   const status = isResponse ? error.status : 500;
   const title = isResponse ? `${error.status} ${error.statusText}` : '页面出错了';
-  const detail = isResponse
-    ? error.data
-    : error instanceof Error
-      ? error.message
-      : '未知错误';
+  const detail = isResponse ? error.data : error instanceof Error ? error.message : '未知错误';
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>

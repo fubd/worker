@@ -6,7 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
+    "head_sampling_rate": 1,
   },
 
   // 前端构建产物（rsbuild 输出到 ./dist），由 Workers 静态资源直接托管
@@ -14,7 +14,7 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*"],
   },
 
   // Cloudflare D1 数据库绑定
@@ -25,11 +25,11 @@
       "binding": "DB",
       "database_name": "swan-worker-db",
       "database_id": "972f2269-ed6b-4787-aef9-673b37bdf801",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
 
   "dev": {
-    "port": 8787
-  }
+    "port": 8787,
+  },
 }

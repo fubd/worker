@@ -214,8 +214,8 @@ export default function AboutPage() {
           </Typography.Text>
           <Typography.Text>
             <Tag color="blue">开发代理</Tag>
-            Rsbuild dev server 把 <code>/api</code> 代理到 <code>127.0.0.1:8787</code>，
-            前端 HMR 与 Worker 热重启互不干扰。
+            Rsbuild dev server 把 <code>/api</code> 代理到 <code>127.0.0.1:8787</code>， 前端 HMR 与
+            Worker 热重启互不干扰。
           </Typography.Text>
         </Space>
       </Card>

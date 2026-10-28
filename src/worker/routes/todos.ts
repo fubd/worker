@@ -21,8 +21,7 @@ function parseId(value: string): number | null {
 /** GET /api/todos?status=all|active|completed&q=keyword&limit=&offset= */
 todoRoutes.get('/', async (c) => {
   const statusParam = c.req.query('status');
-  const status =
-    statusParam === 'active' || statusParam === 'completed' ? statusParam : 'all';
+  const status = statusParam === 'active' || statusParam === 'completed' ? statusParam : 'all';
 
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);

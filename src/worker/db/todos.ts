@@ -55,9 +55,7 @@ export async function listTodos(db: D1Database, options: ListOptions = {}) {
     )
     .bind(...params, limit, offset);
 
-  const countStmt = db
-    .prepare(`SELECT COUNT(*) AS total FROM todos ${whereSql}`)
-    .bind(...params);
+  const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM todos ${whereSql}`).bind(...params);
 
   const [listResult, countResult] = await Promise.all([
     listStmt.all<TodoRow>(),

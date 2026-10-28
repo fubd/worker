@@ -55,8 +55,8 @@ export default function HomePage() {
         </Tag>
         <h1>全栈跑在边缘节点上的 Swan Worker</h1>
         <p>
-          一个可直接上手的最小全栈模板：Rsbuild 打包 React 19 + Ant Design 6 前端，Hono 提供
-          API，D1 作为边缘数据库，全部由同一个 Worker 对外服务。
+          一个可直接上手的最小全栈模板：Rsbuild 打包 React 19 + Ant Design 6 前端，Hono 提供 API，D1
+          作为边缘数据库，全部由同一个 Worker 对外服务。
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
           <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => navigate('/todos')}>
