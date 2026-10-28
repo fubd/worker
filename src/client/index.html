@@ -3,15 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- react 系模块不打进产物，由 importmap 指向 Cloudflare R2（桶 swan-vendor，apac）
-         回退方案：改回 /vendor/*.mjs 即走同源静态资源 -->
+    <!-- react 系模块不打进产物，由 importmap 指向 Cloudflare R2 自定义域名
+         桶：swan-vendor（APAC），域名：fbd-oss.cc.cd（已配 CORS + 1 年 immutable 缓存）
+         回退方案：把下面 4 个 URL 改回 /vendor/*.mjs 即走同源静态资源 -->
     <script type="importmap">
       {
         "imports": {
-          "react": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react.mjs",
-          "react/jsx-runtime": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-jsx-runtime.mjs",
-          "react-dom": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-dom.mjs",
-          "react-dom/client": "https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev/react-dom-client.mjs"
+          "react": "https://fbd-oss.cc.cd/react.mjs",
+          "react/jsx-runtime": "https://fbd-oss.cc.cd/react-jsx-runtime.mjs",
+          "react-dom": "https://fbd-oss.cc.cd/react-dom.mjs",
+          "react-dom/client": "https://fbd-oss.cc.cd/react-dom-client.mjs"
         }
       }
     </script>

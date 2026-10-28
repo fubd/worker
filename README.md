@@ -134,7 +134,7 @@ swan-worker/
 | 项       | 值                                                                        |
 | -------- | ------------------------------------------------------------------------- |
 | 桶       | `swan-vendor`（location hint: `apac`）                                    |
-| 公开地址 | `https://pub-6941bd852cbd4c7681ac76bd819c1781.r2.dev`                     |
+| 公开地址 | `https://fbd-oss.cc.cd`（桶绑定的自定义域名）                             |
 | CORS     | `scripts/r2-cors.json`，允许 `GET/HEAD`，`Access-Control-Allow-Origin: *` |
 | 缓存     | 对象级 `Cache-Control: public, max-age=31536000, immutable`               |
 
@@ -149,9 +149,19 @@ for f in public/vendor/*.mjs; do
 done
 ```
 
-> 跨域加载 ES Module **必须**有 CORS 头，否则浏览器直接拒绝（`Failed to fetch dynamically imported module`）。r2.dev 默认不返回该头，需要 `wrangler r2 bucket cors set swan-vendor --file=scripts/r2-cors.json`。
->
-> r2.dev 是开发用公开域名，有速率限制、无 SLA。生产环境应给桶绑自定义域名，再把 importmap 的 4 个 URL 换掉。回退方案：改回 `/vendor/*.mjs` 即走同源静态资源（文件仍在 `public/vendor/`）。
+跨域加载 ES Module **必须**有 CORS 头，否则浏览器直接拒绝（`Failed to fetch dynamically imported module`）。r2.dev 默认不返回该头，需要 `wrangler r2 bucket cors set swan-vendor --file=scripts/r2-cors.json`。
+
+桶默认只有 `*.r2.dev` 这个开发用公开域名（有速率限制、无 SLA），生产环境给它绑了自定义域名 `fbd-oss.cc.cd`：
+
+```bash
+wrangler r2 bucket domain add swan-vendor \
+  --domain=fbd-oss.cc.cd \
+  --zone-id=69651488344539c2ba29ca2d09ac56eb -y
+
+wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
+```
+
+换域名时同步改 `index.html` 里 importmap 的 4 个 URL。**回退方案**：改回 `/vendor/*.mjs` 即走同源静态资源（文件仍在 `public/vendor/`，不需要任何外部依赖）。
 
 **首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
 
