@@ -77,6 +77,9 @@ swan-worker/
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
 │   └── _headers           # 缓存策略与安全头
+├── docs/
+│   ├── API.md             # 接口文档（参数 / 响应 / 错误码）
+│   └── screenshot-*.png   # 界面截图
 ├── src/
 │   ├── client/            # 前端
 │   │   ├── api/client.ts  # /api 请求封装
@@ -97,23 +100,9 @@ swan-worker/
 └── tsconfig.json
 ```
 
-## API
+## 接口
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/stats` | 任务统计（总数 / 已完成 / 完成率） |
-| GET | `/api/todos?status=all\|active\|completed&q=&limit=&offset=` | 列表 |
-| POST | `/api/todos` | 新建，body `{ "title": "..." }` |
-| PATCH | `/api/todos/:id` | 更新，body `{ "title"?, "completed"? }` |
-| DELETE | `/api/todos/:id` | 删除单条 |
-| DELETE | `/api/todos/completed` | 清空已完成 |
-
-```bash
-curl http://127.0.0.1:8787/api/todos
-curl -X POST http://127.0.0.1:8787/api/todos \
-  -H 'Content-Type: application/json' -d '{"title":"写点东西"}'
-```
+完整接口说明（参数、响应示例、错误码）见 **[docs/API.md](docs/API.md)**。
 
 ## 关键设计
 
