@@ -7,6 +7,21 @@
          桶：swan-vendor（APAC），域名：fbd-oss.cc.cd（已配 CORS + 1 年 immutable 缓存）
          vendor 文件由 scripts/build-vendor.ts 生成在 vendor/，只上传 R2，不进 dist。
          若 R2 不可用，改回同源需两步：把 vendor/ 拷进 public/，再把下面 4 个 URL 换成 /vendor/*.mjs -->
+    <!-- 外部化之后这些依赖不在打包器的依赖图里，它不会替它们注入 preload；
+         不预加载就要等 index.mjs 下载并解析完，才知道接下来要请求哪几个文件，白等一段。
+         跨源模块按 CORS 模式取，crossorigin 必须带，否则预取的那份会被丢弃重下。 -->
+    <link rel="modulepreload" href="https://fbd-oss.cc.cd/react.mjs" crossorigin="anonymous" />
+    <link
+      rel="modulepreload"
+      href="https://fbd-oss.cc.cd/react-jsx-runtime.mjs"
+      crossorigin="anonymous"
+    />
+    <link rel="modulepreload" href="https://fbd-oss.cc.cd/react-dom.mjs" crossorigin="anonymous" />
+    <link
+      rel="modulepreload"
+      href="https://fbd-oss.cc.cd/react-dom-client.mjs"
+      crossorigin="anonymous"
+    />
     <script type="importmap">
       {
         "imports": {
