@@ -3,30 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- react 系模块不打进产物，由 importmap 指向 Cloudflare R2 自定义域名
-         桶：swan-vendor（APAC），域名：fbd-oss.cc.cd（已配 CORS + 1 年 immutable 缓存）
-         vendor 文件由 scripts/build-vendor.ts 生成在 vendor/，只上传 R2，不进 dist。
-         若 R2 不可用，改回同源需两步：把 vendor/ 拷进 public/，再把下面 4 个 URL 换成 /vendor/*.mjs -->
-    <!-- 外部化之后这些依赖不在打包器的依赖图里，它不会替它们注入 preload；
-         不预加载就要等 index.mjs 下载并解析完，才知道接下来要请求哪几个文件，白等一段。
-         跨源模块按 CORS 模式取，crossorigin 必须带，否则预取的那份会被丢弃重下。 -->
-    <link
-      rel="modulepreload"
-      href="https://fbd-oss.cc.cd/react-19.3.1.mjs"
-      crossorigin="anonymous"
-    />
-    <link
-      rel="modulepreload"
-      href="https://fbd-oss.cc.cd/react-dom-19.3.1.mjs"
-      crossorigin="anonymous"
-    />
+    <!-- react 系模块不打进产物，由 importmap 指向 Worker 的同源路径 /vendor/*，
+         Worker 从 R2 桶（swan-vendor）读出来再返回。走同源是为了避开第二个域名的
+         DNS/TLS 开销与内网网关拦截，压缩也交给 Cloudflare 对 Worker 响应处理。
+         vendor 文件由 scripts/build-vendor.ts 生成在 vendor/，只上传 R2，不进 dist。 -->
+    <!-- 外部化后这些依赖不在打包器依赖图里，它不会自动注入 preload；
+         不预加载就要等 index.mjs 下载并解析完才知道要请求它们，多一段串行等待。
+         同源预取不要加 crossorigin，否则会按 CORS 模式再取一次。 -->
+    <link rel="modulepreload" href="/vendor/react-19.3.1.mjs" />
+    <link rel="modulepreload" href="/vendor/react-dom-19.3.1.mjs" />
     <script type="importmap">
       {
         "imports": {
-          "react": "https://fbd-oss.cc.cd/react-19.3.1.mjs",
-          "react/jsx-runtime": "https://fbd-oss.cc.cd/react-19.3.1.mjs",
-          "react-dom": "https://fbd-oss.cc.cd/react-dom-19.3.1.mjs",
-          "react-dom/client": "https://fbd-oss.cc.cd/react-dom-19.3.1.mjs"
+          "react": "/vendor/react-19.3.1.mjs",
+          "react/jsx-runtime": "/vendor/react-19.3.1.mjs",
+          "react-dom": "/vendor/react-dom-19.3.1.mjs",
+          "react-dom/client": "/vendor/react-dom-19.3.1.mjs"
         }
       }
     </script>
