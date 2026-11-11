@@ -1,20 +1,6 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 
-// R2 上的 react 系模块。换域名时这里和 src/client/index.html 的 importmap 要一起改
-const VENDOR_ORIGIN = 'https://fbd-oss.cc.cd';
-const VENDOR_ENTRIES = [
-  // 先列 impl：它们是真正的实现，体积最大，且是 wrapper 的依赖。
-  // modulepreload 不会递归预加载依赖，不显式列出就会晚一个 RTT 才被发现
-  'react.impl.mjs',
-  'react-dom.impl.mjs',
-  // wrapper：把 importmap 的裸模块名映射到 impl
-  'react.mjs',
-  'react-jsx-runtime.mjs',
-  'react-dom.mjs',
-  'react-dom-client.mjs',
-];
-
 export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
 
@@ -34,41 +20,8 @@ export default defineConfig(({ command }) => ({
       viewport: 'width=device-width, initial-scale=1',
       'theme-color': '#ffffff',
     },
-    // importmap 里的模块只能等浏览器解析到 app chunk 的 import 才发现。
-    // 这里按「先建连、再预加载」的顺序注入：preconnect → dns-prefetch → modulepreload，
-    // 让 React 与首屏 JS 并行下载。modulepreload 不会递归预加载依赖，
-    // 所以 impl 文件必须显式列在 VENDOR_ENTRIES 里。
-    // dev 下 react 由 bundler 解析，不需要这些标签
-    tags:
-      command === 'build'
-        ? [
-            {
-              tag: 'link',
-              attrs: { rel: 'preconnect', href: VENDOR_ORIGIN, crossorigin: true },
-              head: true,
-              append: false,
-              publicPath: false,
-            },
-            {
-              tag: 'link',
-              attrs: { rel: 'dns-prefetch', href: VENDOR_ORIGIN },
-              head: true,
-              append: false,
-              publicPath: false,
-            },
-            ...VENDOR_ENTRIES.map((file) => ({
-              tag: 'link',
-              attrs: {
-                rel: 'modulepreload',
-                href: `${VENDOR_ORIGIN}/${file}`,
-                crossorigin: true,
-              },
-              head: true,
-              append: false,
-              publicPath: false,
-            })),
-          ]
-        : undefined,
+    // vendor 的 modulepreload 写在 src/client/index.html 里：
+    // 现在是同源 /vendor/*，由 Worker 从 R2 转发，不需要 preconnect/dns-prefetch
   },
 
   output: {
