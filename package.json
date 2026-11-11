@@ -8,7 +8,9 @@
     "dev:api": "wrangler dev",
     "dev:web": "bun run vendor && rsbuild dev",
     "vendor": "bun run scripts/build-vendor.ts",
-    "build": "bun run vendor && rsbuild build",
+    "build": "bun run vendor && rsbuild build && bun run build:first-screen",
+    "build:first-screen": "bun scripts/first-screen/index.ts",
+    "check:first-screen": "bun scripts/first-screen/check.ts",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun check",
@@ -35,6 +37,7 @@
     "@rsbuild/plugin-react": "^2.1.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "playwright-core": "^1.65.0",
     "wrangler": "^4.154.0"
   },
   "engines": {

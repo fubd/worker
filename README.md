@@ -46,8 +46,10 @@ bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
 bun run vendor          # 生成 vendor/ 下的 react 系 ESM 模块（用于上传 R2）
-bun run build           # vendor + 构建前端到 dist/
-bun run check           # 类型检查（bun check，约 80ms，无需安装 typescript）
+bun run build                # vendor + 构建前端到 dist/（含静态首屏快照）
+bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
+bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
+bun run check                # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
 bun run fmt:check       # 只检查不写入，CI 用
 bun run preview         # 构建 + 本地以生产形态运行
@@ -74,7 +76,8 @@ swan-worker/
 ├── public/                # 静态资源，构建时拷到 dist/
 │   └── _headers           # 缓存策略与安全头
 ├── scripts/
-│   └── build-vendor.ts    # 把 react/react-dom 打成 ESM 供 importmap 使用
+│   ├── build-vendor.ts    # 把 react/react-dom 打成 ESM 供 importmap 使用
+│   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
 │   ├── client/            # 前端
@@ -173,6 +176,34 @@ wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
 
 **Bun 只负责装依赖和跑脚本，不执行 Worker 代码。** 前端构建走 Rsbuild（Rspack），Worker 由 `wrangler dev` 拉起本地 workerd 运行。`bun run --parallel` 是 Bun 1.4 才有的能力，所以 `engines.bun` 要求 `>=1.4.0`。
 
+## 静态首屏快照（home.html）
+
+首页 `/` 不再等 JS 下载和执行完才出现内容：构建结束后，`scripts/first-screen`
+用 headless Chrome 打开刚构建好的首页，抓取 `#root` 的 DOM 和匹配的 CSS，
+生成 `dist/home.html`。这个文件里同时包含桌面/移动两套快照、快照 CSS，以及
+（在本项目里只有 6.7 kB 的）应用全局 CSS；浏览器解析到 HTML 就能画出首屏，
+真实应用渲染完成后由一段内联脚本无缝接管。
+
+- 只影响 `/`：Worker 的 `run_worker_first` 把 `/` 交给 Worker，Worker 返回
+  `/home`（`dist/home.html`）；`/todos`、`/about` 仍然走原来的 `index.html`。
+- 无 JS 也能看到完整首页；快照带 `inert` + `aria-hidden`，不会抢焦点。
+- 快照缺失或生成失败时自动回退到 SPA shell，不会阻塞构建/部署。
+- 代价：`/` 的 HTML 从 ~0.9 kB 增加到 ~16.7 kB Brotli；不减少 JS，也不改善
+  TTI/INP，只是消除白屏。动态统计值在快照里是构建时的占位数据，接管后变成实时值。
+
+相关命令与环境变量：
+
+```bash
+bun run build:first-screen          # 只跑快照生成（需先 rsbuild build）
+bun run check:first-screen          # 结构检查，不启动浏览器
+FIRST_SCREEN_SKIP=1 bun run build   # 跳过快照（CI 没有 Chrome 时）
+FIRST_SCREEN_STRICT=1 bun run build # 快照失败时让构建失败
+FIRST_SCREEN_CSS_MODE=async bun run build # inline-css | async | blocking
+CHROME_PATH=/path/to/chrome bun run build
+```
+
+实现细节见 [`scripts/first-screen/README.md`](scripts/first-screen/README.md)。
+
 ## 部署到 Cloudflare
 
 ```bash
@@ -193,7 +224,9 @@ bun run deploy
 
 ### 自动部署（GitHub Actions）
 
-`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `wrangler deploy`。
+`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `bun run check:first-screen` → `wrangler deploy`。
+
+`bun run build` 会生成 `dist/home.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell，不影响部署。
 
 启用前在仓库 **Settings → Secrets and variables → Actions** 加两个 secret：
 

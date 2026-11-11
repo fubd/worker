@@ -27,6 +27,28 @@ app.route('/api/todos', todoRoutes);
 app.route('/api/stats', statsRoutes);
 
 /**
+ * 首页优先返回构建期生成的静态首屏快照（dist/home.html）。
+ *
+ * home.html 由 scripts/first-screen 在 rsbuild build 之后生成；缺失时
+ * ASSETS 的 SPA 回退会返回 index.html，等价于旧行为。
+ * 用 /home 而不是 /home.html：Workers 静态资源默认 html_handling=auto-trailing-slash，
+ * 请求 /home.html 会被 307 到 /home。
+ */
+app.get('/', async (c) => {
+  try {
+    const home = await c.env.ASSETS.fetch(new URL('/home', c.req.url));
+    if (home.ok) return home;
+  } catch {
+    // ASSETS 不可用（例如还没构建 dist）时继续走下面的 SPA 兜底
+  }
+  return c.env.ASSETS.fetch(c.req.raw);
+});
+
+/** 快照文件只给 / 用；直接访问时回到首页，避免出现两份首页内容 */
+app.get('/home', (c) => c.redirect('/', 301));
+app.get('/home.html', (c) => c.redirect('/', 301));
+
+/**
  * react 系 vendor 模块的同源出口。
  *
  * 经 Worker 转发而不是直接暴露 R2 公有域名，是为了三件事：
