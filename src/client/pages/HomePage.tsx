@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Col, Row, Steps, Tag, Typography } from 'antd';
+import { Button, Col, Row, Tag } from 'antd';
 import {
   ArrowRightOutlined,
   CheckCircleFilled,
@@ -76,13 +76,12 @@ export default function HomePage() {
       </section>
 
       {error && (
-        <Alert
-          style={{ marginTop: 20 }}
-          type="error"
-          showIcon
-          message="接口请求失败"
-          description={`${error}　—— 本地开发请确认 wrangler dev 已启动，并执行过 bun run db:migrate:local`}
-        />
+        <div className="swan-error" role="alert">
+          <strong>接口请求失败</strong>
+          <span>
+            {error}　—— 本地开发请确认 wrangler dev 已启动，并执行过 bun run db:migrate:local
+          </span>
+        </div>
       )}
 
       <div className="swan-section-title">
@@ -122,15 +121,14 @@ export default function HomePage() {
         <span>边缘节点直接命中，不经过源站</span>
       </div>
 
-      <div className="swan-card" style={{ padding: '26px 22px 6px' }}>
-        <Steps
-          items={CHAIN_STEPS.map((step, index) => ({
-            title: step.title,
-            description: step.description,
-            status: 'finish' as const,
-            icon: index === 3 ? <DatabaseOutlined /> : undefined,
-          }))}
-        />
+      <div className="swan-card swan-chain">
+        {CHAIN_STEPS.map((step, index) => (
+          <div className="swan-chain-step" key={step.title}>
+            <div className="swan-chain-dot">{index === 3 ? <DatabaseOutlined /> : index + 1}</div>
+            <div className="swan-chain-title">{step.title}</div>
+            <div className="swan-chain-desc">{step.description}</div>
+          </div>
+        ))}
       </div>
 
       <div className="swan-section-title">
@@ -141,27 +139,21 @@ export default function HomePage() {
       <div className="swan-card" style={{ padding: 20 }}>
         <Row gutter={[16, 12]}>
           <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              运行时
-            </Typography.Text>
+            <div className="swan-meta-label">运行时</div>
             <div className="swan-mono" style={{ marginTop: 4 }}>
-              {stats?.runtime ?? 'Cloudflare Workers'}
+              {stats.runtime}
             </div>
           </Col>
           <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              数据库
-            </Typography.Text>
+            <div className="swan-meta-label">数据库</div>
             <div className="swan-mono" style={{ marginTop: 4 }}>
-              {stats?.database ?? 'Cloudflare D1'}
+              {stats.database}
             </div>
           </Col>
           <Col xs={24} sm={8}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              节点标识（cf-ray）
-            </Typography.Text>
+            <div className="swan-meta-label">节点标识（cf-ray）</div>
             <div className="swan-mono" style={{ marginTop: 4 }}>
-              {stats?.region ?? '-'}
+              {stats.region}
             </div>
           </Col>
         </Row>

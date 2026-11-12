@@ -31,7 +31,19 @@ const FILTER_OPTIONS: { label: string; value: TodoStatusFilter }[] = [
   { label: '已完成', value: 'completed' },
 ];
 
+/**
+ * App 只给当前页提供 message/modal 上下文。放在懒加载的 TodosPage 里而不是
+ * main.tsx 的根节点，首屏就不会下载 antd 的 App/message/modal 代码。
+ */
 export default function TodosPage() {
+  return (
+    <App>
+      <TodosPageContent />
+    </App>
+  );
+}
+
+function TodosPageContent() {
   const { message } = App.useApp();
 
   const [items, setItems] = useState<Todo[]>([]);

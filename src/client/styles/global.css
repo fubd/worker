@@ -112,6 +112,167 @@ body {
   box-shadow: var(--swan-shadow);
 }
 
+.swan-header-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.swan-meta-label {
+  color: var(--swan-text-muted);
+  font-size: 12px;
+}
+
+.swan-error {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 20px;
+  padding: 12px 16px;
+  border: 1px solid #ffccc7;
+  border-radius: 10px;
+  background: #fff2f0;
+  color: #a8071a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.swan-error strong {
+  flex: none;
+}
+
+.swan-error-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.swan-error-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 36px 32px;
+  border: 1px solid var(--swan-border);
+  border-radius: var(--swan-radius);
+  background: var(--swan-panel);
+  box-shadow: var(--swan-shadow);
+  text-align: center;
+}
+
+.swan-error-code {
+  color: var(--swan-brand);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.swan-error-card h1 {
+  margin: 12px 0 8px;
+  font-size: 20px;
+}
+
+.swan-error-card p {
+  margin: 0;
+  color: var(--swan-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.swan-error-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.swan-error-detail {
+  margin: 20px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--swan-text-muted);
+  font-size: 12px;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 一次请求的链路：用原生 grid 代替 antd Steps，首屏少加载一个组件 */
+.swan-chain {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 26px 22px;
+}
+
+.swan-chain-step {
+  position: relative;
+  text-align: center;
+}
+
+.swan-chain-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 2px;
+  background: linear-gradient(90deg, var(--swan-brand-soft), var(--swan-border));
+}
+
+.swan-chain-dot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: var(--swan-brand-soft);
+  color: var(--swan-brand);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.swan-chain-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.swan-chain-desc {
+  margin-top: 4px;
+  color: var(--swan-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .swan-chain {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .swan-chain-step {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    column-gap: 12px;
+    text-align: left;
+  }
+
+  .swan-chain-dot {
+    grid-row: span 2;
+    margin: 0;
+  }
+
+  .swan-chain-step:not(:last-child)::after {
+    top: 34px;
+    left: 14px;
+    right: auto;
+    bottom: -20px;
+    width: 2px;
+    height: auto;
+    background: linear-gradient(180deg, var(--swan-brand-soft), var(--swan-border));
+  }
+}
+
 .swan-hero {
   position: relative;
   overflow: hidden;

@@ -170,9 +170,9 @@ wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
 
 真要走同源，两步：把 `vendor/` 拷进 `public/`，再把 importmap 的 4 个 URL 换成 `/vendor/*.mjs`。
 
-**首屏只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS 从 1215 kB 降到 816 kB，懒加载部分 375 kB 按需加载。
+**首屏只加载概览页。** `/todos`、`/about`、404 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）。首屏 JS（不含 vendor react/react-dom）约 450 kB；Table、表单、Result 等懒加载部分按需加载。
 
-**antd 6 的用法。** 通过 `<ConfigProvider locale={zhCN}>` + `<App>` 包裹，`message` / `modal` 从 `App.useApp()` 取，不再用静态方法。
+**antd 6 的用法。** 根节点用 `<ConfigProvider locale={zhCN}>` 提供主题和中文 locale；`<App>` 只包在需要 `message` / `modal` 的懒加载页面（`TodosPage`）里，首屏因此不下载 message/modal 代码。`message` / `modal` 从 `App.useApp()` 取，不再用静态方法。
 
 **Bun 只负责装依赖和跑脚本，不执行 Worker 代码。** 前端构建走 Rsbuild（Rspack），Worker 由 `wrangler dev` 拉起本地 workerd 运行。`bun run --parallel` 是 Bun 1.4 才有的能力，所以 `engines.bun` 要求 `>=1.4.0`。
 
@@ -181,14 +181,14 @@ wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
 首页 `/` 不再等 JS 下载和执行完才出现内容：构建结束后，`scripts/first-screen`
 用 headless Chrome 打开刚构建好的首页，抓取 `#root` 的 DOM 和匹配的 CSS，
 生成 `dist/home.html`。这个文件里同时包含桌面/移动两套快照、快照 CSS，以及
-（在本项目里只有 6.7 kB 的）应用全局 CSS；浏览器解析到 HTML 就能画出首屏，
+（在本项目里只有 8.9 kB 的）应用全局 CSS；浏览器解析到 HTML 就能画出首屏，
 真实应用渲染完成后由一段内联脚本无缝接管。
 
 - 只影响 `/`：Worker 的 `run_worker_first` 把 `/` 交给 Worker，Worker 返回
   `/home`（`dist/home.html`）；`/todos`、`/about` 仍然走原来的 `index.html`。
 - 无 JS 也能看到完整首页；快照带 `inert` + `aria-hidden`，不会抢焦点。
 - 快照缺失或生成失败时自动回退到 SPA shell，不会阻塞构建/部署。
-- 代价：`/` 的 HTML 从 ~0.9 kB 增加到 ~16.7 kB Brotli；不减少 JS，也不改善
+- 代价：`/` 的 HTML 从 ~0.9 kB 增加到 ~15.5 kB Brotli；不减少 JS，也不改善
   TTI/INP，只是消除白屏。动态统计值在快照里是构建时的占位数据，应用也以同一组
   占位值作为初始 state，所以接管不等待 `/api/stats`；真实值到达后再替换。
 

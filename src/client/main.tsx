@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App as AntdApp, ConfigProvider } from 'antd';
+import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { RouterProvider } from 'react-router/dom';
 
@@ -20,6 +20,8 @@ createRoot(container).render(
     <ConfigProvider
       locale={zhCN}
       theme={{
+        // 应用里只有一个 antd 版本，关掉样式 hash 可以减少生成的 CSS 体积。
+        hashed: false,
         token: {
           colorPrimary: '#1677ff',
           borderRadius: 10,
@@ -38,9 +40,7 @@ createRoot(container).render(
         },
       }}
     >
-      <AntdApp>
-        <RouterProvider router={router} />
-      </AntdApp>
+      <RouterProvider router={router} />
     </ConfigProvider>
   </StrictMode>,
 );

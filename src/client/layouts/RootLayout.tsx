@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Layout, Menu, Skeleton, Tag, Tooltip, Typography } from 'antd';
+import { Button, Drawer, Layout, Menu, Skeleton, Tag, Tooltip } from 'antd';
 import {
   ApiOutlined,
   CheckSquareOutlined,
@@ -141,9 +141,7 @@ export default function RootLayout() {
               }
               onClick={() => (isMobile ? setMobileOpen(true) : setCollapsed((value) => !value))}
             />
-            <Typography.Text strong style={{ fontSize: 15 }}>
-              {title}
-            </Typography.Text>
+            <span className="swan-header-title">{title}</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
