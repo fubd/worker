@@ -20,7 +20,7 @@ import { startCaptureServer } from './server';
 import { verifyHomeHtml } from './verify';
 
 const distDir = 'dist';
-const vendorDir = 'vendor';
+const vendorDir = 'dist/vendor';
 
 async function main() {
   if (process.env.FIRST_SCREEN_SKIP === '1') {

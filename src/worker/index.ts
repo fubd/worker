@@ -48,37 +48,6 @@ app.get('/', async (c) => {
 app.get('/home', (c) => c.redirect('/', 301));
 app.get('/home.html', (c) => c.redirect('/', 301));
 
-/**
- * react 系 vendor 模块的同源出口。
- *
- * 经 Worker 转发而不是直接暴露 R2 公有域名，是为了三件事：
- * - 同源：省掉第二个域名的 DNS/TCP/TLS，也避开内网网关对外域名的拦截
- * - 压缩：R2 直连不压缩，Worker 响应由 Cloudflare 按 Content-Type 压
- * - CORS：同源请求不需要 Access-Control-Allow-Origin
- * 文件名带 react 版本号，内容变了必然改名，所以可以放心 immutable 长缓存。
- */
-app.get('/vendor/*', async (c) => {
-  const key = decodeURIComponent(c.req.path.slice('/vendor/'.length));
-
-  // 只允许桶根目录下的直接文件名，挡掉路径穿越
-  if (!key || key.includes('/') || key.includes('..')) {
-    return c.notFound();
-  }
-
-  const object = await c.env.VENDOR.get(key);
-  if (!object) {
-    return c.notFound();
-  }
-
-  return new Response(object.body, {
-    headers: {
-      'Content-Type': object.httpMetadata?.contentType ?? 'text/javascript; charset=utf-8',
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      ETag: object.httpEtag,
-    },
-  });
-});
-
 /** 统一错误处理：细节只进日志，响应里不暴露内部信息 */
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
@@ -93,17 +62,16 @@ app.onError((err, c) => {
 
 /**
  * 兜底：
- * - /api 与 /vendor 未命中 → 返回 JSON 404（不能让 SPA 回退把 index.html 当模块返回）
+ * - /api 未命中 → 返回 JSON 404
  * - 其他路径 → 交给静态资源绑定（SPA 路由回退到 index.html）
+ *
+ * /vendor/* 已不在 run_worker_first 里，由静态资源层直接托管；
+ * 文件缺失时会命中 SPA 回退，这属于构建/importmap 不一致的部署错误。
  */
 app.notFound((c) => {
   const { pathname } = new URL(c.req.url);
 
   if (pathname === '/api' || pathname.startsWith('/api/')) {
-    return c.json({ error: 'Not Found', path: pathname }, 404);
-  }
-
-  if (pathname.startsWith('/vendor/')) {
     return c.json({ error: 'Not Found', path: pathname }, 404);
   }
 

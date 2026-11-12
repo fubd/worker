@@ -4,6 +4,10 @@
 /static/*
   Cache-Control: public, max-age=31536000, immutable
 
+# vendor 文件名带 react 版本号，内容变了必然改名，可以永久缓存
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # HTML 入口必须每次回源校验，否则发版后用户会拿到旧壳
 /
   Cache-Control: no-cache

@@ -1,8 +1,9 @@
 /**
- * 把 react / react-dom 打成两份可独立加载的 ESM 模块，输出到 vendor/。
+ * 把 react / react-dom 打成两份可独立加载的 ESM 模块，输出到 public/vendor/。
  *
- * 注意输出目录刻意放在 public/ 之外：public/ 会被 Rsbuild 整个拷进 dist，
- * 而这些文件只用于上传 R2，进 dist 只会白占一份静态资源（线上从不加载）。
+ * 输出放在 public/ 下，rsbuild build 会把它们原样拷进 dist/vendor/，
+ * 由 Workers Static Assets 直接托管。这样 /vendor/* 和 /static/* 一样
+ * 走 Cloudflare 的边缘缓存，不再每次请求都进 Worker 回源 R2。
  *
  * 为什么不能直接 bun build react：
  * - react / react-dom 的 npm 包只有 CJS 产物，浏览器不能直接 import
@@ -18,7 +19,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
-const OUT = join(ROOT, 'vendor');
+const OUT = join(ROOT, 'public/vendor');
 const TMP = join(ROOT, '.vendor-entry');
 
 const IMPORTABLE = /^[A-Za-z_$][\w$]*$/;
@@ -95,7 +96,7 @@ const jsxNs = (await import('react/jsx-runtime')) as Record<string, unknown>;
 const domNs = (await import('react-dom')) as Record<string, unknown>;
 const clientNs = (await import('react-dom/client')) as Record<string, unknown>;
 
-// 文件名带版本号：R2 对象是 immutable 一年缓存，同名覆盖会让老访客继续用旧缓存，
+// 文件名带版本号：静态资源按 immutable 一年缓存，同名覆盖会让老访客继续用旧缓存，
 // 旧文件的导出集与新 importmap 不匹配时直接白屏。换版本即换 URL 才能安全更新。
 const version = String(reactNs.version ?? 'unknown');
 const reactFile = `react-${version}.mjs`;

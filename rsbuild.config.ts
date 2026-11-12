@@ -21,7 +21,7 @@ export default defineConfig(({ command }) => ({
       'theme-color': '#ffffff',
     },
     // vendor 的 modulepreload 写在 src/client/index.html 里：
-    // 现在是同源 /vendor/*，由 Worker 从 R2 转发，不需要 preconnect/dns-prefetch
+    // 现在是同源 /vendor/*，由 Workers Static Assets 托管，不需要 preconnect/dns-prefetch
   },
 
   output: {
@@ -38,7 +38,7 @@ export default defineConfig(({ command }) => ({
     legalComments: 'none',
     // 输出 ES Module：产物为 .mjs + <script type="module">，去掉 IIFE 包装和 chunk 注册表
     module: true,
-    // 生产构建把 react 系模块外部化，改由 importmap 指向 R2 上的 vendor 文件提供；
+    // 生产构建把 react 系模块外部化，改由 importmap 指向 dist/vendor 的静态文件；
     // dev 不外部化，保证 HMR 与依赖解析走 bundler
     externals:
       command === 'build'

@@ -4,10 +4,8 @@
 export interface Env {
   /** D1 数据库 */
   DB: D1Database;
-  /** 静态资源绑定（rsbuild 构建产物 ./dist） */
+  /** 静态资源绑定（rsbuild 构建产物 ./dist，含 dist/vendor） */
   ASSETS: Fetcher;
-  /** R2 桶：react 系 vendor 模块，经 /vendor/* 同源转发 */
-  VENDOR: R2Bucket;
   /** 环境标识，可在 wrangler.jsonc 的 vars 里覆盖 */
   ENVIRONMENT?: string;
 }

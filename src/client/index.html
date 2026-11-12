@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- react 系模块不打进产物，由 importmap 指向 Worker 的同源路径 /vendor/*，
-         Worker 从 R2 桶（swan-vendor）读出来再返回。走同源是为了避开第二个域名的
-         DNS/TLS 开销与内网网关拦截，压缩也交给 Cloudflare 对 Worker 响应处理。
-         vendor 文件由 scripts/build-vendor.ts 生成在 vendor/，只上传 R2，不进 dist。 -->
+    <!-- react 系模块不打进产物，由 importmap 指向同源路径 /vendor/*。
+         vendor 文件由 scripts/build-vendor.ts 生成在 public/vendor/，
+         构建时拷进 dist/vendor/，由 Workers Static Assets 直接托管：
+         和 /static/* 一样走 Cloudflare 边缘缓存，不再进 Worker 回源 R2。 -->
     <!-- importmap 必须排在所有模块加载（含下面的 modulepreload）之前：
          vendor 文件内部是 `import "react"` 这样的裸说明符，预加载一旦先触发，
          浏览器就要在 importmap 尚未注册时解析依赖，随机报

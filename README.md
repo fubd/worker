@@ -45,7 +45,7 @@ bun run dev
 bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
-bun run vendor          # 生成 vendor/ 下的 react 系 ESM 模块（用于上传 R2）
+bun run vendor          # 生成 public/vendor/ 下的 react 系 ESM 模块（构建时拷进 dist/vendor/）
 bun run build                # vendor + 构建前端到 dist/（含静态首屏快照）
 bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
 bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
@@ -74,7 +74,8 @@ swan-worker/
 ├── seed/                  # 演示数据，不属于迁移
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
-│   └── _headers           # 缓存策略与安全头
+│   ├── _headers           # 缓存策略与安全头
+│   └── vendor/            # 构建时生成，react 系 ESM 模块（已 gitignore）
 ├── scripts/
 │   ├── build-vendor.ts    # 把 react/react-dom 打成 ESM 供 importmap 使用
 │   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
@@ -94,7 +95,6 @@ swan-worker/
 │       ├── routes/        # todos / stats 路由
 │       ├── types.ts       # Env 绑定类型
 │       └── index.ts       # Hono 应用 + 静态资源兜底
-├── vendor/                # 构建时生成，react 系 ESM 模块（已 gitignore，只上传 R2）
 ├── rsbuild.config.ts
 ├── wrangler.jsonc
 └── tsconfig.json
@@ -126,49 +126,25 @@ swan-worker/
 
 **类型只写一次。** `src/shared/types.ts` 被前端和 Worker 同时引用，接口字段改名会立刻在两边报错。
 
-**缓存与安全头写在 `public/_headers`。** 构建时它会被拷到 `dist/_headers`，Workers 静态资源读取后生效：`/static/*` 拿到 `max-age=31536000, immutable`（文件名带 hash，改内容必然改名），HTML 入口走 `no-cache`（否则发版后用户还在用旧壳），并统一加 `X-Content-Type-Options` 与 `Referrer-Policy`。
+**缓存与安全头写在 `public/_headers`。** 构建时它会被拷到 `dist/_headers`，Workers 静态资源读取后生效：`/static/*` 拿到 `max-age=31536000, immutable`（文件名带 hash，改内容必然改名），`/vendor/*` 同样拿到 immutable（文件名带 React 版本号），HTML 入口走 `no-cache`（否则发版后用户还在用旧壳），并统一加 `X-Content-Type-Options` 与 `Referrer-Policy`。
 
 **错误不泄漏内部信息。** Worker 的 `onError` 只把堆栈写日志，响应里返回 `{ error, traceId }`（`traceId` 取 `cf-ray`，方便回查）；前端 `request()` 对非 JSON 响应做了兜底，边缘层直接吐 HTML 错误页时不会变成 `SyntaxError`。
 
 **产物是 ES Module。** `output.module: true`，产物为 `.mjs` + `<script type="module">`，没有 IIFE 包装和 `rspackChunks` 注册表。Workers 静态资源对 `.mjs` 返回 `text/javascript`，模块能正常执行。
 
-**react 系模块不打进产物，走 Cloudflare R2。** 生产构建用 `output.externals` 把 `react` / `react-dom` / `react/jsx-runtime` 外部化，`index.html` 的 **importmap** 指向 R2 桶里的独立文件：
+**react 系模块不打进产物，作为静态资源部署。** 生产构建用 `output.externals` 把 `react` / `react-dom` / `react/jsx-runtime` 外部化，`index.html` 的 **importmap** 指向同源的 `/vendor/*.mjs`：
 
-| 项       | 值                                                                        |
-| -------- | ------------------------------------------------------------------------- |
-| 桶       | `swan-vendor`（location hint: `apac`）                                    |
-| 公开地址 | `https://fbd-oss.cc.cd`（桶绑定的自定义域名）                             |
-| CORS     | `scripts/r2-cors.json`，允许 `GET/HEAD`，`Access-Control-Allow-Origin: *` |
-| 缓存     | 对象级 `Cache-Control: public, max-age=31536000, immutable`               |
+| 项       | 值                                                               |
+| -------- | ---------------------------------------------------------------- |
+| 生成位置 | `public/vendor/`（`scripts/build-vendor.ts`，gitignore）         |
+| 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                |
+| 线上路径 | `/vendor/react-19.3.1.mjs`、`/vendor/react-dom-19.3.1.mjs`       |
+| 缓存     | `public/_headers` 里的 `max-age=31536000, immutable`             |
+| 托管     | Workers Static Assets，和 `/static/*` 一样走 Cloudflare 边缘缓存 |
 
-这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default）。更新版本时：
+这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
 
-```bash
-bun run vendor
-for f in vendor/*.mjs; do
-  wrangler r2 object put "swan-vendor/$(basename $f)" --file="$f" \
-    --content-type=text/javascript \
-    --cache-control="public, max-age=31536000, immutable" --remote
-done
-```
-
-跨域加载 ES Module **必须**有 CORS 头，否则浏览器直接拒绝（`Failed to fetch dynamically imported module`）。r2.dev 默认不返回该头，需要 `wrangler r2 bucket cors set swan-vendor --file=scripts/r2-cors.json`。
-
-桶默认只有 `*.r2.dev` 这个开发用公开域名（有速率限制、无 SLA），生产环境给它绑了自定义域名 `fbd-oss.cc.cd`：
-
-```bash
-wrangler r2 bucket domain add swan-vendor \
-  --domain=fbd-oss.cc.cd \
-  --zone-id=69651488344539c2ba29ca2d09ac56eb -y
-
-wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
-```
-
-换域名时同步改 `index.html` 里 importmap 的 4 个 URL。
-
-`vendor/` 刻意放在 `public/` 之外——`public/` 会被整个拷进 `dist`，而线上从不加载这些文件（importmap 指向 R2），放进 `dist` 只是白占一份静态资源、每次部署多传约 224 kB。R2 本身提供 11 个 9 的持久性，不做同源冗余。
-
-真要走同源，两步：把 `vendor/` 拷进 `public/`，再把 importmap 的 4 个 URL 换成 `/vendor/*.mjs`。
+不再走 Worker → R2：`/vendor/*` 不放进 `run_worker_first`，请求由静态资源层直接返回，避免每次冷请求都多一次 Worker → R2 往返。代价是 `dist` 每次部署多带约 224 kB 的 vendor 文件。
 
 **首屏路由只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）；404 与错误页作为兜底留在主包。首屏 JS（不含 vendor react/react-dom）约 578 kB（gzip 约 187 kB）；Table、表单等懒加载部分按需加载。
 

@@ -5,8 +5,8 @@
  * the home page needs:
  * - /api/stats returns deterministic mock data (the snapshot must not depend
  *   on production data or network timing)
- * - /vendor/* comes from the local vendor/ directory (the real Worker proxies
- *   these from R2)
+ * - /vendor/* comes from dist/vendor (the same static asset path production
+ *   serves through Workers Static Assets)
  * - / serves dist/index.html during capture, and dist/home.html during the
  *   post-generation verification (setServeHome)
  *

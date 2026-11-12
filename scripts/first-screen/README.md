@@ -3,7 +3,7 @@
 Build-time static first screen for the home page. `bun run build` runs this
 after Rsbuild:
 
-1. start a local server for `dist/` with mocked `/api/stats` and local `/vendor/*`
+1. start a local server for `dist/` with mocked `/api/stats` and `/vendor/*` from `dist/vendor/`
 2. capture the built home page at 1440×900 and 390×844 with headless Chrome
 3. filter the captured CSS to rules matching the captured DOM
 4. write `dist/home.html` with both variants inline, plus the app's global CSS
