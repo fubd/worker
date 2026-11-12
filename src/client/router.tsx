@@ -4,11 +4,11 @@ import { createBrowserRouter } from 'react-router';
 import RootLayout from './layouts/RootLayout';
 import HomePage from './pages/HomePage';
 import ErrorPage from './pages/ErrorPage';
+import NotFoundPage from './pages/NotFoundPage';
 
-// 首屏（概览）打进主包；其余路由按需加载，减小初始 JS
+// 首屏（概览）与 404 兜底页打进主包；/todos、/about 按需加载，减小初始 JS
 const TodosPage = lazy(() => import('./pages/TodosPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export const router = createBrowserRouter([
   {

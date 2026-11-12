@@ -20,8 +20,6 @@ createRoot(container).render(
     <ConfigProvider
       locale={zhCN}
       theme={{
-        // 应用里只有一个 antd 版本，关掉样式 hash 可以减少生成的 CSS 体积。
-        hashed: false,
         token: {
           colorPrimary: '#1677ff',
           borderRadius: 10,

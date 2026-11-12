@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button, Result, Typography } from 'antd';
 import { isRouteErrorResponse, useNavigate, useRouteError } from 'react-router';
 
 /**
@@ -14,18 +14,28 @@ export default function ErrorPage() {
   const detail = isResponse ? error.data : error instanceof Error ? error.message : '未知错误';
 
   return (
-    <div className="swan-error-page">
-      <div className="swan-error-card">
-        <div className="swan-error-code">{status}</div>
-        <h1>{title}</h1>
-        <p>刷新页面可以重试；如果一直出现，请查看 Worker 日志。</p>
-        <div className="swan-error-actions">
-          <Button type="primary" onClick={() => window.location.reload()}>
-            刷新
-          </Button>
-          <Button onClick={() => navigate('/')}>回到概览</Button>
-        </div>
-        <pre className="swan-mono swan-error-detail">{String(detail)}</pre>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 560 }}>
+        <Result
+          status={status === 404 ? '404' : 'error'}
+          title={title}
+          subTitle="刷新页面可以重试；如果一直出现，请查看 Worker 日志。"
+          extra={[
+            <Button key="reload" type="primary" onClick={() => window.location.reload()}>
+              刷新
+            </Button>,
+            <Button key="home" onClick={() => navigate('/')}>
+              回到概览
+            </Button>,
+          ]}
+        />
+        <Typography.Paragraph
+          type="secondary"
+          className="swan-mono"
+          style={{ textAlign: 'center', marginTop: -8, wordBreak: 'break-word' }}
+        >
+          {String(detail)}
+        </Typography.Paragraph>
       </div>
     </div>
   );
