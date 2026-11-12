@@ -3,10 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- react 系模块不打进产物，由 importmap 指向同源路径 /vendor/*。
+    <!-- 供 Worker/探针判断当前 HTML 用的是哪套 vendor；CN 版由 scripts/build-cn-html.ts 改写 -->
+    <meta name="swan-vendor" content="global-static" />
+    <!-- react / react-dom / react-router 不打进产物，由 importmap 指向同源路径 /vendor/*。
          vendor 文件由 scripts/build-vendor.ts 生成在 public/vendor/，
          构建时拷进 dist/vendor/，由 Workers Static Assets 直接托管：
-         和 /static/* 一样走 Cloudflare 边缘缓存，不再进 Worker 回源 R2。 -->
+         和 /static/* 一样走 Cloudflare 边缘缓存，不再进 Worker 回源 R2。
+         大陆版 HTML（index-cn.html / home-cn.html）会移除下面的 importmap、
+         vendor modulepreload 和 lib-antd 入口 script，改由
+         scripts/cn-vendor-loader.ts 从 npmmirror 的版本化 tarball 提取三个
+         vendor 文件和首屏 antd chunk，再注册 blob: importmap；antd chunk 通过
+         把 index 里的相对 import 解析后的 URL 映射到 blob 来加载。 -->
     <!-- importmap 必须排在所有模块加载（含下面的 modulepreload）之前：
          vendor 文件内部是 `import "react"` 这样的裸说明符，预加载一旦先触发，
          浏览器就要在 importmap 尚未注册时解析依赖，随机报
@@ -17,7 +24,9 @@
           "react": "/vendor/react-19.3.1.mjs",
           "react/jsx-runtime": "/vendor/react-19.3.1.mjs",
           "react-dom": "/vendor/react-dom-19.3.1.mjs",
-          "react-dom/client": "/vendor/react-dom-19.3.1.mjs"
+          "react-dom/client": "/vendor/react-dom-19.3.1.mjs",
+          "react-router": "/vendor/router-8.5.1.mjs",
+          "react-router/dom": "/vendor/router-8.5.1.mjs"
         }
       }
     </script>
@@ -26,6 +35,7 @@
          同源预取不要加 crossorigin，否则会按 CORS 模式再取一次。 -->
     <link rel="modulepreload" href="/vendor/react-19.3.1.mjs" />
     <link rel="modulepreload" href="/vendor/react-dom-19.3.1.mjs" />
+    <link rel="modulepreload" href="/vendor/router-8.5.1.mjs" />
   </head>
   <body>
     <div id="root"></div>

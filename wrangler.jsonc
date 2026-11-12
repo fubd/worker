@@ -16,8 +16,19 @@
     "not_found_handling": "single-page-application",
     // "/" 要先进 Worker：由 Worker 返回构建期生成的 home.html（静态首屏快照），
     // 快照缺失时回退到 SPA shell。 /home 与 /home.html 只用于把快照文件重定向回 /。
+    // /todos、/about 也要进 Worker：大陆用户要拿到 index-cn.html（CN importmap），
+    // 否则静态资源层会直接返回全球版 index.html。
     // /vendor/* 不在这里：它和 /static/* 一样由静态资源层直接托管并走边缘缓存。
-    "run_worker_first": ["/api/*", "/", "/home", "/home.html"],
+    "run_worker_first": [
+      "/api/*",
+      "/",
+      "/home",
+      "/home.html",
+      "/todos",
+      "/todos/*",
+      "/about",
+      "/about/*",
+    ],
   },
 
   // Cloudflare D1 数据库绑定

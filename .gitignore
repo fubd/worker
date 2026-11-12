@@ -8,3 +8,5 @@ dist/
 bun.lockb
 # 由 scripts/build-vendor.ts 生成，构建时随 public/ 拷进 dist/vendor/
 public/vendor/
+# 由 scripts/build-vendor-package.ts 生成的 npm 发布目录
+.vendor-package/

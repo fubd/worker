@@ -47,6 +47,8 @@ export default defineConfig(({ command }) => ({
             'react/jsx-runtime': 'react/jsx-runtime',
             'react-dom': 'react-dom',
             'react-dom/client': 'react-dom/client',
+            'react-router': 'react-router',
+            'react-router/dom': 'react-router/dom',
           }
         : undefined,
     // 模块脚本必须按真实 MIME 提供，Cloudflare 静态资源按扩展名推断，.mjs → text/javascript

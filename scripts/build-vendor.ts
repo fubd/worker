@@ -1,5 +1,6 @@
 /**
- * 把 react / react-dom 打成两份可独立加载的 ESM 模块，输出到 public/vendor/。
+ * 把 react / react-dom / react-router 打成三份可独立加载的 ESM 模块，
+ * 输出到 public/vendor/。
  *
  * 输出放在 public/ 下，rsbuild build 会把它们原样拷进 dist/vendor/，
  * 由 Workers Static Assets 直接托管。这样 /vendor/* 和 /static/* 一样
@@ -11,11 +12,15 @@
  *   ESM 的具名导出必须在源码里静态写定。入口改写成 ESM 并显式列出导出名即可，
  *   所以这里先生成入口文件，名字从运行时命名空间里读，避免手写漏项。
  *
- * 为什么是 2 个文件：importmap 允许多个说明符指向同一个 URL。
+ * 为什么是 3 个文件：importmap 允许多个说明符指向同一个 URL。
  * react 与 react/jsx-runtime 共享同一份内部实现，react-dom 与 react-dom/client 同理，
  * 合成一份既能少发请求，也不会出现两份 React 实例（Invalid hook call）。
+ * router 单独一份，因为它只依赖 react，不依赖 react-dom。
+ *
+ * 同一份产物也用于发布 @meteor957/swan-vendor（见 README）：
+ * 大陆 HTML 的 importmap 指向 npmmirror 上的同名文件，海外仍指向 /vendor/*。
  */
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
@@ -95,12 +100,42 @@ const reactNs = (await import('react')) as Record<string, unknown>;
 const jsxNs = (await import('react/jsx-runtime')) as Record<string, unknown>;
 const domNs = (await import('react-dom')) as Record<string, unknown>;
 const clientNs = (await import('react-dom/client')) as Record<string, unknown>;
+const routerNs = (await import('react-router')) as Record<string, unknown>;
+const routerDomNs = (await import('react-router/dom')) as Record<string, unknown>;
+
+const routerPkg = JSON.parse(
+  await readFile(join(ROOT, 'node_modules/react-router/package.json'), 'utf8'),
+) as { version: string };
 
 // 文件名带版本号：静态资源按 immutable 一年缓存，同名覆盖会让老访客继续用旧缓存，
 // 旧文件的导出集与新 importmap 不匹配时直接白屏。换版本即换 URL 才能安全更新。
 const version = String(reactNs.version ?? 'unknown');
 const reactFile = `react-${version}.mjs`;
 const domFile = `react-dom-${version}.mjs`;
+const routerFile = `router-${routerPkg.version}.mjs`;
+
+/**
+ * 只导出业务实际用到的 router API。
+ * 不能用 namesOf(routerNs) 全量导出：那会把整个 router 包（含 data router 的
+ * 服务端/框架适配层）拉进首屏，体积远大于 Rsbuild 里被摇树后的 lib-router。
+ * 升级 react-router 后若 API 改名，这里会直接报错，避免产物里悄悄少导出。
+ */
+const ROUTER_EXPORTS = [
+  'createBrowserRouter',
+  'isRouteErrorResponse',
+  'Outlet',
+  'useLocation',
+  'useNavigate',
+  'useRouteError',
+] as const;
+const ROUTER_DOM_EXPORTS = ['RouterProvider'] as const;
+
+for (const name of ROUTER_EXPORTS) {
+  if (!(name in routerNs)) throw new Error(`react-router 缺少导出: ${name}`);
+}
+for (const name of ROUTER_DOM_EXPORTS) {
+  if (!(name in routerDomNs)) throw new Error(`react-router/dom 缺少导出: ${name}`);
+}
 
 const react = splitNames(reactNs, jsxNs);
 const dom = splitNames(domNs, clientNs);
@@ -127,15 +162,33 @@ await writeFile(
   ),
 );
 
+await writeFile(
+  join(TMP, 'router.js'),
+  [
+    // 必须用 `export { ... } from`，不能 `import * as NS` 后再解构：
+    // 命名空间解构会让打包器保留整个模块，router 会从 ~100 kB 涨到 220 kB。
+    `export { ${ROUTER_EXPORTS.join(', ')} } from 'react-router';`,
+    `export { ${ROUTER_DOM_EXPORTS.join(', ')} } from 'react-router/dom';`,
+    '',
+  ].join('\n'),
+);
+
 await bundle(join(TMP, 'react.js'), reactFile);
-// react 必须外部化：否则 react-dom 里会打进第二份 React 实例
+// react 必须外部化：否则 react-dom / router 里会打进第二份 React 实例
 await bundle(join(TMP, 'react-dom.js'), domFile, ['react']);
+await bundle(join(TMP, 'router.js'), routerFile, [
+  'react',
+  'react/jsx-runtime',
+  'react-dom',
+  'react-dom/client',
+]);
 
 await rm(TMP, { recursive: true, force: true });
 
 console.log(
   `vendor 就绪：${reactFile}（${react.primaryNames.length} 导出 + jsx ${react.secondaryNames.length}）` +
     ` / ${domFile}（${dom.primaryNames.length} 导出 + client ${dom.secondaryNames.length}）` +
+    ` / ${routerFile}（${ROUTER_EXPORTS.length + ROUTER_DOM_EXPORTS.length} 导出）` +
     `｜同名跳过：${[...react.duplicates, ...dom.duplicates].join(', ') || '无'}`,
 );
-console.log(`index.html 的 preload 与 importmap 需指向：${reactFile} / ${domFile}`);
+console.log(`index.html 的 preload 与 importmap 需指向：${reactFile} / ${domFile} / ${routerFile}`);

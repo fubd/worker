@@ -15,6 +15,20 @@
 /index.html
   Cache-Control: no-cache
 
+# 大陆版 HTML 由 Worker 按 cf.country 选择，响应本身会再设 private/no-store；
+# 这里保证内部 ASSETS.fetch 也不会把两个版本混进共享缓存
+/index-cn
+  Cache-Control: no-cache
+
+/index-cn.html
+  Cache-Control: no-cache
+
+/home-cn
+  Cache-Control: no-cache
+
+/home-cn.html
+  Cache-Control: no-cache
+
 # 其余静态文件（favicon 等）
 /*
   X-Content-Type-Options: nosniff
