@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Col, Row, Skeleton, Steps, Tag, Typography } from 'antd';
+import { Alert, Button, Col, Row, Steps, Tag, Typography } from 'antd';
 import {
   ArrowRightOutlined,
   CheckCircleFilled,
@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router';
 
 import { api } from '../api/client';
+import { FIRST_SCREEN_STATS } from '@/shared/first-screen';
 import type { TodoStats } from '@/shared/types';
 
 const STACK_TAGS = ['Bun', 'React 19', 'React Router 8', 'Ant Design 6', 'Rsbuild', 'Hono', 'D1'];
@@ -23,8 +24,10 @@ const CHAIN_STEPS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<TodoStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Start with the same values the static snapshot shows, so the app can
+  // render the dashboard immediately and hand over without waiting for the
+  // API. The request below replaces them with live values.
+  const [stats, setStats] = useState<TodoStats>(FIRST_SCREEN_STATS);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,9 +40,6 @@ export default function HomePage() {
       })
       .catch((err: unknown) => {
         if (alive) setError(err instanceof Error ? err.message : '加载失败');
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
       });
 
     return () => {
@@ -90,36 +90,32 @@ export default function HomePage() {
         <span>数据来自 GET /api/stats，实时读 D1</span>
       </div>
 
-      {loading ? (
-        <Skeleton active paragraph={{ rows: 2 }} />
-      ) : (
-        <Row gutter={[16, 16]}>
-          <Col xs={12} md={6}>
-            <div className="swan-stat">
-              <div className="swan-stat-label">总任务</div>
-              <div className="swan-stat-value">{stats?.total ?? 0}</div>
-            </div>
-          </Col>
-          <Col xs={12} md={6}>
-            <div className="swan-stat">
-              <div className="swan-stat-label">进行中</div>
-              <div className="swan-stat-value">{stats?.active ?? 0}</div>
-            </div>
-          </Col>
-          <Col xs={12} md={6}>
-            <div className="swan-stat">
-              <div className="swan-stat-label">已完成</div>
-              <div className="swan-stat-value">{stats?.completed ?? 0}</div>
-            </div>
-          </Col>
-          <Col xs={12} md={6}>
-            <div className="swan-stat">
-              <div className="swan-stat-label">完成率</div>
-              <div className="swan-stat-value">{stats?.completionRate ?? 0}%</div>
-            </div>
-          </Col>
-        </Row>
-      )}
+      <Row gutter={[16, 16]}>
+        <Col xs={12} md={6}>
+          <div className="swan-stat">
+            <div className="swan-stat-label">总任务</div>
+            <div className="swan-stat-value">{stats.total}</div>
+          </div>
+        </Col>
+        <Col xs={12} md={6}>
+          <div className="swan-stat">
+            <div className="swan-stat-label">进行中</div>
+            <div className="swan-stat-value">{stats.active}</div>
+          </div>
+        </Col>
+        <Col xs={12} md={6}>
+          <div className="swan-stat">
+            <div className="swan-stat-label">已完成</div>
+            <div className="swan-stat-value">{stats.completed}</div>
+          </div>
+        </Col>
+        <Col xs={12} md={6}>
+          <div className="swan-stat">
+            <div className="swan-stat-label">完成率</div>
+            <div className="swan-stat-value">{stats.completionRate}%</div>
+          </div>
+        </Col>
+      </Row>
 
       <div className="swan-section-title">
         <h2>一次请求的链路</h2>

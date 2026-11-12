@@ -15,6 +15,11 @@ export async function verifyHomeHtml(server: CaptureServer, executablePath: stri
   });
 
   try {
+    // The app starts with the snapshot's placeholder stats, so handover must
+    // not wait for the live request. Slow the mock API down and assert that
+    // the snapshot is gone well before it can resolve.
+    server.setStatsDelay(2000);
+
     for (const viewport of VIEWPORTS) {
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
@@ -34,6 +39,16 @@ export async function verifyHomeHtml(server: CaptureServer, executablePath: stri
         await page.goto(`${server.url}/`, { waitUntil: 'load', timeout: 30_000 });
         await page.waitForSelector('#root .swan-stat-value', { timeout: 15_000 });
         await page.waitForSelector('#swan-first-screen', { state: 'detached', timeout: 15_000 });
+
+        const complete = await page.evaluate(() => {
+          const mark = performance.getEntriesByName('swan:first-screen:complete')[0];
+          return mark ? Math.round(mark.startTime) : null;
+        });
+        if (complete === null || complete > 1500) {
+          throw new Error(
+            `${viewport.name} handover waited for /api/stats (complete=${complete}ms, api delay=2000ms)`,
+          );
+        }
 
         const state = await page.evaluate(() => ({
           attr: document.documentElement.getAttribute('data-swan-first-screen'),
@@ -57,6 +72,8 @@ export async function verifyHomeHtml(server: CaptureServer, executablePath: stri
         await context.close();
       }
     }
+
+    server.setStatsDelay(0);
 
     // No-JS: the snapshot must be the visible page and the app root must stay
     // hidden. Playwright's locators work even when page scripts are disabled.

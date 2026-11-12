@@ -14,18 +14,7 @@
  */
 import { existsSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
-
-const MOCK_STATS = {
-  total: 2,
-  completed: 0,
-  active: 2,
-  completionRate: 0,
-  database: 'Cloudflare D1',
-  runtime: 'Cloudflare Workers',
-  // Placeholder cf-ray id. The live app replaces it on handover; keeping a
-  // hex-shaped value avoids an obvious width change in the snapshot.
-  region: 'a58e4f19f9bd2ab6',
-};
+import { FIRST_SCREEN_STATS } from '../../src/shared/first-screen';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -62,6 +51,7 @@ function resolveInside(root: string, pathname: string): string | null {
 export type CaptureServer = {
   url: string;
   setServeHome(value: boolean): void;
+  setStatsDelay(ms: number): void;
   stop(): void;
 };
 
@@ -69,6 +59,7 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
   const distRoot = resolve(distDir);
   const vendorRoot = resolve(vendorDir);
   let serveHome = false;
+  let statsDelayMs = 0;
 
   const server = Bun.serve({
     port: 0,
@@ -82,7 +73,8 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
       }
 
       if (pathname === '/api/stats') {
-        return Response.json(MOCK_STATS, { headers: NO_STORE });
+        if (statsDelayMs > 0) await Bun.sleep(statsDelayMs);
+        return Response.json(FIRST_SCREEN_STATS, { headers: NO_STORE });
       }
       if (pathname === '/api/health') {
         return Response.json(
@@ -142,6 +134,9 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
     url: `http://127.0.0.1:${server.port}`,
     setServeHome(value: boolean) {
       serveHome = value;
+    },
+    setStatsDelay(ms: number) {
+      statsDelayMs = ms;
     },
     stop() {
       server.stop(true);

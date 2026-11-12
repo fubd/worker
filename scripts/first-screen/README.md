@@ -25,8 +25,10 @@ The Worker serves `home.html` for `/` only; other routes keep `index.html`.
 
 - The snapshot is a visual placeholder; it does not hydrate. It is removed
   once the real app has rendered.
-- `/api/stats` is mocked with deterministic data during capture. The live
-  values replace it on handover; keep the snapshot free of user-specific data.
+- `/api/stats` is mocked with deterministic data during capture. The same
+  values are the app's initial state (`src/shared/first-screen.ts`), so the
+  handover does not wait for the live request; the real values replace the
+  placeholders once it completes.
 - `home.html` is public at `/home`; the Worker redirects it to `/`.
 - Re-capture on every build. If capture or verification fails, the build falls
   back to the normal SPA shell rather than shipping a stale snapshot.

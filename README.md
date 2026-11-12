@@ -189,7 +189,8 @@ wrangler r2 bucket domain list swan-vendor   # 确认 ssl_status 为 active
 - 无 JS 也能看到完整首页；快照带 `inert` + `aria-hidden`，不会抢焦点。
 - 快照缺失或生成失败时自动回退到 SPA shell，不会阻塞构建/部署。
 - 代价：`/` 的 HTML 从 ~0.9 kB 增加到 ~16.7 kB Brotli；不减少 JS，也不改善
-  TTI/INP，只是消除白屏。动态统计值在快照里是构建时的占位数据，接管后变成实时值。
+  TTI/INP，只是消除白屏。动态统计值在快照里是构建时的占位数据，应用也以同一组
+  占位值作为初始 state，所以接管不等待 `/api/stats`；真实值到达后再替换。
 
 相关命令与环境变量：
 
