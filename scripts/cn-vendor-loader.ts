@@ -12,7 +12,7 @@
  *   5. registers an import map pointing at those blobs,
  *   6. injects the app's entry module scripts.
  *
- * The app entry chunk is prefetched in parallel from deephos.com, so only the
+ * The app entry chunk is preloaded in parallel from deephos.com, so only the
  * vendor bytes wait on npmmirror. The antd chunk is not loaded by a script tag:
  * the entry chunk imports it with a relative specifier, and the import map
  * remaps that resolved URL to the blob. If anything fails (CORS, timeout, hash,

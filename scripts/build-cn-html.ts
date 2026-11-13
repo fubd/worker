@@ -96,14 +96,14 @@ function toCn(
     '<meta name="swan-vendor" content="cn-npmmirror-tarball" />',
   );
 
-  // 4. Start the tarball fetch as early as possible, and prefetch the app
+  // 4. Start the tarball fetch as early as possible, and preload the app
   //    chunks in parallel. The HTTP cache is shared, so the module scripts
   //    injected by the loader can reuse these downloads.
   const tarball = cnVendorTarball();
   const hints = [
     '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
     `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
-    ...appScripts.map((src) => `<link rel="prefetch" as="script" href="${src}" />`),
+    ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" />`),
   ].join('\n    ');
 
   const loader = renderCnVendorLoader({

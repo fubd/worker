@@ -217,7 +217,7 @@ Worker 用 `cf.country === 'CN'` 做性能分流（本地 dev 用 `CF-IPCountry`
 
 1. 移除静态 importmap、`/vendor/*` modulepreload，以及 `lib-antd.<hash>.mjs` 的
    `<script type="module">`；
-2. 加 `preconnect` / `preload` 指向 npmmirror tarball，并 `prefetch` 入口 chunk；
+2. 加 `preconnect` / `preload` 指向 npmmirror tarball，并 `preload` 入口 chunk；
 3. 内联 `scripts/cn-vendor-loader.ts`。
 
 loader 的逻辑：
