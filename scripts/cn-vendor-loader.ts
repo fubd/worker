@@ -155,7 +155,7 @@ export function renderCnVendorLoader(options: CnVendorLoaderOptions): string {
 
       var response = await fetch(CONFIG.tarball, {
         cache: 'force-cache',
-        credentials: 'omit',
+        credentials: 'same-origin', // must match the preload hint's crossorigin
         signal: controller ? controller.signal : undefined,
       });
       if (timer) clearTimeout(timer);

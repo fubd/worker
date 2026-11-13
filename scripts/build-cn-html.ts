@@ -103,7 +103,7 @@ function toCn(
   const hints = [
     '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
     `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
-    ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" />`),
+    ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
   ].join('\n    ');
 
   const loader = renderCnVendorLoader({
