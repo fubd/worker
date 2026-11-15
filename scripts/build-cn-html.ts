@@ -58,6 +58,7 @@ function toCn(
   html: string,
   files: { react: string; dom: string; router: string },
   antd: string,
+  options: { staticHome?: boolean } = {},
 ): string {
   // 1. The app entry module scripts are injected by the loader after the import
   //    map exists; remove them from the parsed HTML so nothing resolves early.
@@ -91,43 +92,77 @@ function toCn(
   }
 
   // 3. Mark the variant for probes and local tests.
+  const variant = options.staticHome ? 'cn-static' : 'cn-npmmirror-tarball';
   out = out.replace(
     '<meta name="swan-vendor" content="global-static" />',
-    '<meta name="swan-vendor" content="cn-npmmirror-tarball" />',
+    `<meta name="swan-vendor" content="${variant}" />`,
   );
 
-  // 4. Start the tarball fetch as early as possible, and preload the app
-  //    chunks in parallel. The HTTP cache is shared, so the module scripts
-  //    injected by the loader can reuse these downloads.
-  const tarball = cnVendorTarball();
-  const hints = [
-    '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
-    `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
-    ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
-  ].join('\n    ');
+  if (options.staticHome) {
+    // 静态首页（POC）：快照就是最终页面，不加载 React/antd，也不 hydrate。
+    // 快照原本是 aria-hidden + inert 的"占位层"，这里改成真正的内容：
+    // - 去掉 readiness 脚本（没有 app 可等）
+    // - 去掉 #root（没有 app 可挂载）
+    // - 去掉准备态属性，使快照对辅助技术和点击都可见
+    out = out.replace(/<script id="swan-first-screen-ready">[\s\S]*?<\/script>\s*/i, '');
+    out = out.replace(/\s*<div id="root"><\/div>/, '');
+    out = out.replace(/\sdata-swan-first-screen="preparing"/, '');
+    out = out.replace(
+      '<div id="swan-first-screen" aria-hidden="true" inert>',
+      '<div id="swan-first-screen">',
+    );
 
-  const loader = renderCnVendorLoader({
-    tarballUrl: tarball,
-    sha256: VENDOR_PACKAGE.tarballSha256,
-    reactFile: files.react,
-    domFile: files.dom,
-    routerFile: files.router,
-    antdFile: antd,
-    appScripts,
-  });
+    if (
+      !out.includes('<div id="swan-first-screen">') ||
+      out.includes('swan-first-screen-ready') ||
+      /<html[^>]*data-swan-first-screen="preparing"/.test(out) ||
+      out.includes('<div id="root">')
+    ) {
+      throw new Error('CN static home transform did not apply');
+    }
+  } else {
+    // 4. Start the tarball fetch as early as possible, and preload the app
+    //    chunks in parallel. The HTTP cache is shared, so the module scripts
+    //    injected by the loader can reuse these downloads.
+    const tarball = cnVendorTarball();
+    const hints = [
+      '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
+      `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
+      ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
+    ].join('\n    ');
 
-  out = out.replace('</head>', `    ${hints}\n    ${loader}\n  </head>`);
+    const loader = renderCnVendorLoader({
+      tarballUrl: tarball,
+      sha256: VENDOR_PACKAGE.tarballSha256,
+      reactFile: files.react,
+      domFile: files.dom,
+      routerFile: files.router,
+      antdFile: antd,
+      appScripts,
+    });
 
+    out = out.replace('</head>', `    ${hints}\n    ${loader}\n  </head>`);
+  }
+
+  const expectVendor = options.staticHome
+    ? 'content="cn-static"'
+    : 'content="cn-npmmirror-tarball"';
+  if (!out.includes(expectVendor)) {
+    throw new Error('CN HTML transform did not apply; check the source template');
+  }
   if (
-    !out.includes('content="cn-npmmirror-tarball"') ||
-    !out.includes('cdn.npmmirror.com') ||
-    !out.includes('__SWAN_CN_VENDOR__') ||
-    !out.includes(antd)
+    !options.staticHome &&
+    (!out.includes('cdn.npmmirror.com') ||
+      !out.includes('__SWAN_CN_VENDOR__') ||
+      !out.includes(antd))
   ) {
     throw new Error('CN HTML transform did not apply; check the source template');
   }
   if (out.includes(`<script type="module" src="${antdScript}">`)) {
     throw new Error('CN HTML transform left the antd script tag behind');
+  }
+  if (options.staticHome && /<script\b[^>]*type="module"/i.test(out)) {
+    throw new Error('CN static home still contains a module script');
   }
 
   return out;
@@ -141,9 +176,12 @@ writeFileSync(`${DIST}/index-cn.html`, toCn(indexHtml, files, antd));
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {
-  writeFileSync(`${DIST}/home-cn.html`, toCn(readFileSync(homePath, 'utf8'), files, antd));
+  writeFileSync(
+    `${DIST}/home-cn.html`,
+    toCn(readFileSync(homePath, 'utf8'), files, antd, { staticHome: true }),
+  );
   console.log(
-    `[cn-html] wrote dist/index-cn.html and dist/home-cn.html (vendor tarball: ${cnVendorTarball()})`,
+    `[cn-html] wrote dist/index-cn.html and static dist/home-cn.html (vendor tarball: ${cnVendorTarball()})`,
   );
 } else {
   console.log(
