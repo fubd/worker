@@ -56,11 +56,49 @@ const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
 })();
 </script>`;
 
-/** 静态页没有 JS 菜单，隐藏点了没反应的折叠按钮。 */
+/**
+ * 静态首页的菜单：快照里没有抽屉 DOM，这里补一个轻量面板，由内联脚本切换。
+ * 桌面端 sider 常驻，只隐藏点了没反应的「收起菜单」按钮。
+ */
 const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
-  #swan-first-screen .swan-header button[aria-label="打开菜单"],
   #swan-first-screen .swan-header button[aria-label="收起菜单"] { display: none; }
+  #swan-static-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.32); z-index: 999; display: none; }
+  #swan-static-backdrop.is-open { display: block; }
+  #swan-static-menu {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 240px; max-width: 82vw;
+    background: #fff; z-index: 1000; box-shadow: 0 0 24px rgba(15, 23, 42, 0.18);
+    padding: 20px 12px; display: none; flex-direction: column; gap: 4px;
+  }
+  #swan-static-menu.is-open { display: flex; }
+  #swan-static-menu a { display: block; padding: 10px 12px; border-radius: 8px; color: #0f172a; font-size: 14px; font-weight: 500; text-decoration: none; }
+  #swan-static-menu a:active { background: #f4f7fb; }
 </style>`;
+
+const STATIC_HOME_MENU = `<div id="swan-static-backdrop"></div>
+<nav id="swan-static-menu" aria-hidden="true" aria-label="站点导航">
+  <a href="/">概览</a>
+  <a href="/todos">待办 Demo</a>
+  <a href="/about">技术栈</a>
+</nav>`;
+
+const STATIC_HOME_MENU_SCRIPT = `<script id="swan-static-home-menu">
+(function () {
+  var btn = document.querySelector('#swan-first-screen .swan-header button[aria-label="打开菜单"]');
+  var menu = document.getElementById('swan-static-menu');
+  var backdrop = document.getElementById('swan-static-backdrop');
+  if (!btn || !menu || !backdrop) return;
+  function set(open) {
+    menu.classList.toggle('is-open', open);
+    backdrop.classList.toggle('is-open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+  btn.setAttribute('aria-expanded', 'false');
+  btn.addEventListener('click', function () { set(!menu.classList.contains('is-open')); });
+  backdrop.addEventListener('click', function () { set(false); });
+  document.addEventListener('keydown', function (event) { if (event.key === 'Escape') set(false); });
+})();
+</script>`;
 
 function vendorFiles(): { react: string; dom: string; router: string } {
   const files = readdirSync(VENDOR_DIR);
@@ -153,12 +191,18 @@ function toCn(
       '<div id="swan-first-screen">',
     );
     out = out.replace('</head>', `    ${STATIC_HOME_STYLE}\n  </head>`);
-    out = out.replace('</body>', `    ${STATIC_HOME_SCRIPT}\n  </body>`);
+    out = out.replace(
+      '</body>',
+      `    ${STATIC_HOME_MENU}\n    ${STATIC_HOME_SCRIPT}\n    ${STATIC_HOME_MENU_SCRIPT}\n  </body>`,
+    );
 
     if (
       !out.includes('<div id="swan-first-screen">') ||
       !out.includes('id="swan-static-home-style"') ||
       !out.includes('id="swan-static-home-stats"') ||
+      !out.includes('id="swan-static-home-menu"') ||
+      !out.includes('id="swan-static-menu"') ||
+      !out.includes('id="swan-static-backdrop"') ||
       out.includes('swan-first-screen-ready') ||
       /<html[^>]*data-swan-first-screen="preparing"/.test(out) ||
       out.includes('<div id="root">')
