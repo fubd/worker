@@ -25,6 +25,42 @@ const DIST = 'dist';
 const VENDOR_DIR = `${DIST}/vendor`;
 const STATIC_JS = `${DIST}/static/js`;
 
+/**
+ * 静态首页的渐进增强：只更新快照里的数字和运行时信息，不加载 React/antd。
+ * 接口失败或没有 JS 时保留构建时的占位值。
+ */
+const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
+(function () {
+  if (!window.fetch) return;
+  function set(name, value) {
+    var nodes = document.querySelectorAll('[data-swan-field="' + name + '"]');
+    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = String(value);
+  }
+  window
+    .fetch('/api/stats', { headers: { accept: 'application/json' }, cache: 'no-store' })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (stats) {
+      if (!stats || typeof stats.total !== 'number') return;
+      set('total', stats.total);
+      if (stats.active != null) set('active', stats.active);
+      if (stats.completed != null) set('completed', stats.completed);
+      if (typeof stats.completionRate === 'number') {
+        set('completionRate', stats.completionRate + '%');
+      }
+      if (stats.runtime) set('runtime', stats.runtime);
+      if (stats.database) set('database', stats.database);
+      if (stats.region) set('region', stats.region);
+    })
+    .catch(function () {});
+})();
+</script>`;
+
+/** 静态页没有 JS 菜单，隐藏点了没反应的折叠按钮。 */
+const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
+  #swan-first-screen .swan-header button[aria-label="打开菜单"],
+  #swan-first-screen .swan-header button[aria-label="收起菜单"] { display: none; }
+</style>`;
+
 function vendorFiles(): { react: string; dom: string; router: string } {
   const files = readdirSync(VENDOR_DIR);
   const pick = (pattern: RegExp, label: string) => {
@@ -111,9 +147,13 @@ function toCn(
       '<div id="swan-first-screen" aria-hidden="true" inert>',
       '<div id="swan-first-screen">',
     );
+    out = out.replace('</head>', `    ${STATIC_HOME_STYLE}\n  </head>`);
+    out = out.replace('</body>', `    ${STATIC_HOME_SCRIPT}\n  </body>`);
 
     if (
       !out.includes('<div id="swan-first-screen">') ||
+      !out.includes('id="swan-static-home-style"') ||
+      !out.includes('id="swan-static-home-stats"') ||
       out.includes('swan-first-screen-ready') ||
       /<html[^>]*data-swan-first-screen="preparing"/.test(out) ||
       out.includes('<div id="root">')

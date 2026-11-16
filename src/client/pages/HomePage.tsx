@@ -123,25 +123,33 @@ export default function HomePage() {
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">总任务</div>
-            <div className="swan-stat-value">{stats.total}</div>
+            <div className="swan-stat-value" data-swan-field="total">
+              {stats.total}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">进行中</div>
-            <div className="swan-stat-value">{stats.active}</div>
+            <div className="swan-stat-value" data-swan-field="active">
+              {stats.active}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">已完成</div>
-            <div className="swan-stat-value">{stats.completed}</div>
+            <div className="swan-stat-value" data-swan-field="completed">
+              {stats.completed}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">完成率</div>
-            <div className="swan-stat-value">{stats.completionRate}%</div>
+            <div className="swan-stat-value" data-swan-field="completionRate">
+              {stats.completionRate}%
+            </div>
           </div>
         </Col>
       </Row>
@@ -173,7 +181,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               运行时
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="runtime" style={{ marginTop: 4 }}>
               {stats.runtime}
             </div>
           </Col>
@@ -181,7 +189,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               数据库
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="database" style={{ marginTop: 4 }}>
               {stats.database}
             </div>
           </Col>
@@ -189,7 +197,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               节点标识（cf-ray）
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="region" style={{ marginTop: 4 }}>
               {stats.region}
             </div>
           </Col>
