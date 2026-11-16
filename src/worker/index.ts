@@ -58,39 +58,39 @@ function variantResponse(res: Response, variant: string, cn: boolean): Response 
 }
 
 /**
- * 首页优先返回构建期生成的静态首屏快照。
+ * 大陆首页的 HTML 由 Vercel 托管（cn.deephos.com，产物见 scripts/build-vercel.ts）。
+ * Cloudflare 的大陆边缘经常绕美/欧，首页文档的跨境 RTT 是最后一段瓶颈；
+ * Vercel 的大陆入口稳定在新加坡/东京。其余路径（/todos、/api）仍在 Worker。
  *
- * 大陆用户优先 dist/home-cn.html（vendor 指向 npmmirror），
- * 其他用户用 dist/home.html（vendor 指向同源 /vendor/*）。
- * 快照缺失时逐级回退到 /home 和 SPA shell。
- * 用 /home-cn 而不是 /home-cn.html：html_handling=auto-trailing-slash
- * 会把 .html 请求 307 到无后缀路径。
+ * 302 带 private max-age=300：回访 5 分钟内直接去子域、跳过这一跳，
+ * 又不会让 Cloudflare 边缘缓存把跳转串到其他地区。
+ */
+const CN_HOME_URL = 'https://cn.deephos.com/';
+
+/**
+ * 其他用户用构建期快照 dist/home.html（vendor 指向同源 /vendor/*），
+ * 快照缺失时回退到 SPA shell。
  */
 app.get('/', async (c) => {
-  const cn = isMainland(c.req.raw);
-  // CN 优先首屏快照，其次全球快照，最后 CN SPA shell（CI 没 Chrome 时
-  // home-cn.html 会被跳过，但 index-cn.html 仍然会生成）。
-  const candidates = cn ? ['/home-cn', '/home', '/index-cn'] : ['/home'];
-
-  for (const path of candidates) {
-    try {
-      const asset = await c.env.ASSETS.fetch(new URL(path, c.req.url));
-      if (asset.ok) {
-        const variant =
-          path === '/home-cn' || path === '/index-cn' ? 'cn' : cn ? 'cn-fallback' : 'global';
-        return variantResponse(asset, variant, cn);
-      }
-    } catch {
-      // ASSETS 不可用（例如还没构建 dist）时继续尝试下一个候选
-    }
+  if (isMainland(c.req.raw)) {
+    const target = new URL(CN_HOME_URL);
+    target.search = new URL(c.req.url).search;
+    const res = c.redirect(target.toString(), 302);
+    res.headers.set('x-swan-vendor', 'cn-vercel');
+    res.headers.set('Vary', 'CF-IPCountry');
+    res.headers.set('Cache-Control', 'private, max-age=300');
+    return res;
   }
 
   try {
-    return variantResponse(
-      await c.env.ASSETS.fetch(c.req.raw),
-      cn ? 'cn-shell-fallback' : 'global-shell-fallback',
-      cn,
-    );
+    const asset = await c.env.ASSETS.fetch(new URL('/home', c.req.url));
+    if (asset.ok) return variantResponse(asset, 'global', false);
+  } catch {
+    // ASSETS 不可用（例如还没构建 dist）时回退 SPA shell
+  }
+
+  try {
+    return variantResponse(await c.env.ASSETS.fetch(c.req.raw), 'global-shell-fallback', false);
   } catch {
     return c.text('Not Found', 404);
   }

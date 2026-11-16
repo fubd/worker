@@ -46,9 +46,10 @@ bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
 bun run vendor          # 生成 public/vendor/ 下的 react 系 ESM 模块（构建时拷进 dist/vendor/）
-bun run build                # vendor + 构建前端到 dist/（含静态首屏快照和 CN HTML）
+bun run build                # vendor + 构建前端到 dist/（含静态首屏快照、CN HTML、Vercel 产物）
 bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
 bun run build:cn-html        # 只生成 dist/index-cn.html / home-cn.html（需先 rsbuild build）
+bun run build:vercel         # 只生成 dist/vercel/（CN 首页子域产物，需先 build:cn-html）
 bun run vendor-package       # 组装大陆版 npm 包 .vendor-package/（需手动 npm publish）
 bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
 bun run check                # 类型检查（bun check，约 80ms，无需安装 typescript）
@@ -82,6 +83,7 @@ swan-worker/
 │   ├── build-vendor.ts    # 把 react/react-dom/router 打成 ESM 供 importmap 使用
 │   ├── build-vendor-package.ts  # 组装大陆版 npm 包（vendor + antd chunk）
 │   ├── build-cn-html.ts   # 生成 dist/index-cn.html / home-cn.html
+│   ├── build-vercel.ts    # 生成 dist/vercel/（cn.deephos.com 的首页产物）
 │   ├── cn-vendor-loader.ts # 大陆版内联 loader（tarball → blob → importmap）
 │   ├── vendor-package-config.ts # npm 包版本、SHA-256、antd 文件名
 │   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
@@ -207,11 +209,15 @@ CHROME_PATH=/path/to/chrome bun run build
 Worker 用 `cf.country === 'CN'` 做性能分流（本地 dev 用 `CF-IPCountry` 头模拟；
 线上只信 `cf.country`，防止伪造头）：
 
-- `/` → 优先 `dist/home-cn.html`，缺失回退 `dist/home.html`
+- `/` → **302 到 `https://cn.deephos.com/`**（Vercel 托管的 `dist/vercel/index.html`）；
+  Cloudflare 的大陆边缘常年绕美/欧，首页文档改由 Vercel 的新加坡/东京节点返回。
+  跳转带 `x-swan-vendor: cn-vercel`、`Vary: CF-IPCountry`、`Cache-Control: private, max-age=300`
+  （回访 5 分钟内跳过这一跳，且不会被边缘缓存串区）。
 - `/todos`、`/about`、未知 SPA 路径 → 优先 `dist/index-cn.html`，缺失回退 `dist/index.html`
-- 响应头 `x-swan-vendor: cn | cn-fallback | global` 方便探针确认；CN 版带
-  `Vary: CF-IPCountry` + `Cache-Control: private, no-store`，避免边缘缓存把
-  CN HTML 发给海外用户。
+- 其他用户 `/` → `dist/home.html`，响应头 `x-swan-vendor: global`。
+- 子域产物由 `scripts/build-vercel.ts` 生成：站内链接指回主域、`/api/stats` 走
+  `https://deephos.com/api/stats`（Worker 已开 CORS）、补 canonical；`404.html`
+  把子域上的其它路径跳回主域。CSS/JS 仍在 OSS，vendor 走 npmmirror。
 
 `scripts/build-cn-html.ts` 在构建后改写 HTML：
 
@@ -268,9 +274,13 @@ antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版�
 - 用生产 `/home-cn` / `/index-cn` HTML 在 `/` 和 `/todos` 路径回放：home 2.3s
   渲染 4 个 Steps，todos 3.3s 出现「任务列表」，`lib-antd` 原 URL 请求 0 次，
   0 console error。
-- CN 版 HTML 本身仍由 Cloudflare 返回；没有 ICP / 大陆节点，`/` 的 firstByte
-  仍在 300ms–2.7s 波动，个别探针 total 到 12s。tarball 只解决 JS 字节，不解决
-  HTML 的跨境 RTT。
+- 2026-11-16 起 CN 首页 HTML 迁到 Vercel（自有域名 CNAME，`*.vercel.app`
+  在大陆被 DNS 污染，不能直接用）。100 个大陆探针：Vercel p50 TTFB 82ms /
+  扣 DNS 后 total 245ms，Cloudflare 同期 p50 TTFB 304ms / total 978ms；
+  PoP 91/91 成功探针里 89 个在亚洲。代价是多一跳 302（地址栏变为
+  `cn.deephos.com`）和 Vercel CNAME 链的冷解析（p90 约 2s、约 9% 探针 DNS 失败）。
+  Vercel 部署需要仓库 secret `VERCEL_TOKEN`；缺失时 CI 跳过该步，Worker 仍会
+  302，因此上线前必须先手动把 `dist/vercel` 发到 Vercel。
 - 分流是国家级 GeoIP，不用于合规判断；VPN、企业出口、港澳台、`XX`/`T1` 都可能
   落到全球版，全球版始终是完整可用的回退。
 
