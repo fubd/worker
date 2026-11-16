@@ -8,13 +8,14 @@
  * inlines scripts/cn-vendor-loader.ts, which fetches the npm tarball from
  * cdn.npmmirror.com, extracts React, ReactDOM, React Router and the initial
  * antd chunk, and registers blob: URLs in an import map before loading the app
- * entry. The app entry and CSS stay on deephos.com; the vendor and antd bytes
- * come from npmmirror.
+ * entry. The app entry, async chunks and CSS stay on OSS (see
+ * scripts/oss-config.ts); the vendor bytes come from npmmirror.
  *
  * Run after `rsbuild build` and `first-screen` (which writes home.html).
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { renderCnVendorLoader } from './cn-vendor-loader';
+import { OSS_STATIC } from './oss-config';
 import {
   assertVendorPackageLocked,
   cnVendorTarball,
@@ -134,6 +135,10 @@ function toCn(
     `<meta name="swan-vendor" content="${variant}" />`,
   );
 
+  // Static files live on OSS in the CN variant; paths match 1:1.
+  const ossBase = OSS_STATIC.baseUrl;
+  out = out.replaceAll('href="/static/css/', `href="${ossBase}/static/css/`);
+
   if (options.staticHome) {
     // 静态首页（POC）：快照就是最终页面，不加载 React/antd，也不 hydrate。
     // 快照原本是 aria-hidden + inert 的"占位层"，这里改成真正的内容：
@@ -165,10 +170,12 @@ function toCn(
     //    chunks in parallel. The HTTP cache is shared, so the module scripts
     //    injected by the loader can reuse these downloads.
     const tarball = cnVendorTarball();
+    const ossScripts = appScripts.map((src) => `${ossBase}${src}`);
+    const ossAntdUrl = `${ossBase}/static/js/${antd}`;
     const hints = [
       '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
       `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
-      ...appScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
+      ...ossScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
     ].join('\n    ');
 
     const loader = renderCnVendorLoader({
@@ -178,7 +185,8 @@ function toCn(
       domFile: files.dom,
       routerFile: files.router,
       antdFile: antd,
-      appScripts,
+      appScripts: ossScripts,
+      antdUrl: ossAntdUrl,
     });
 
     out = out.replace('</head>', `    ${hints}\n    ${loader}\n  </head>`);
@@ -194,7 +202,10 @@ function toCn(
     !options.staticHome &&
     (!out.includes('cdn.npmmirror.com') ||
       !out.includes('__SWAN_CN_VENDOR__') ||
-      !out.includes(antd))
+      !out.includes(antd) ||
+      !out.includes(`${ossBase}/static/js/${antd}`) ||
+      !out.includes(`${ossBase}/static/css/`) ||
+      out.includes('href="/static/'))
   ) {
     throw new Error('CN HTML transform did not apply; check the source template');
   }

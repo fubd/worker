@@ -12,12 +12,13 @@
  *   5. registers an import map pointing at those blobs,
  *   6. injects the app's entry module scripts.
  *
- * The app entry chunk is preloaded in parallel from deephos.com, so only the
- * vendor bytes wait on npmmirror. The antd chunk is not loaded by a script tag:
- * the entry chunk imports it with a relative specifier, and the import map
- * remaps that resolved URL to the blob. If anything fails (CORS, timeout, hash,
+ * The app entry chunk is preloaded in parallel from OSS, so only the vendor
+ * bytes wait on npmmirror. The antd chunk is not loaded by a script tag: the
+ * entry chunk imports it with a relative specifier, and the import map remaps
+ * the URL it resolves to (the OSS copy, or /static/js/* when the entry is
+ * same-origin) to the blob. If anything fails (CORS, timeout, hash,
  * unsupported browser), it falls back to the same-origin /vendor/* files and
- * lets the entry chunk fetch antd from /static/js/* normally.
+ * lets the entry chunk fetch antd from its own origin normally.
  */
 export type CnVendorLoaderOptions = {
   tarballUrl: string;
@@ -27,6 +28,8 @@ export type CnVendorLoaderOptions = {
   routerFile: string;
   antdFile: string;
   appScripts: string[];
+  /** Absolute URL the entry's relative antd import resolves to. */
+  antdUrl?: string;
   fallbackBase?: string;
 };
 
@@ -41,6 +44,7 @@ export function renderCnVendorLoader(options: CnVendorLoaderOptions): string {
       antd: options.antdFile,
     },
     app: options.appScripts,
+    antdUrl: options.antdUrl,
     fallback: options.fallbackBase ?? '/vendor',
   };
 
@@ -177,7 +181,7 @@ export function renderCnVendorLoader(options: CnVendorLoaderOptions): string {
       // The entry chunk imports the antd chunk as "./lib-antd.<hash>.mjs".
       // Import maps apply after URL resolution, so map the absolute URL that
       // relative specifier resolves to, not the bare filename.
-      var antdUrl = new URL('/static/js/' + FILES.antd, location.href).href;
+      var antdUrl = CONFIG.antdUrl || new URL('/static/js/' + FILES.antd, location.href).href;
       var imports = {
         react: urls.react,
         'react/jsx-runtime': urls.react,

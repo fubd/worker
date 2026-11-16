@@ -217,7 +217,7 @@ Worker 用 `cf.country === 'CN'` 做性能分流（本地 dev 用 `CF-IPCountry`
 
 1. 移除静态 importmap、`/vendor/*` modulepreload，以及 `lib-antd.<hash>.mjs` 的
    `<script type="module">`；
-2. 加 `preconnect` / `preload` 指向 npmmirror tarball，并 `preload` 入口 chunk；
+2. 加 `preconnect` / `preload` 指向 npmmirror tarball，并 `preload` OSS 上的入口 chunk；
 3. 内联 `scripts/cn-vendor-loader.ts`。
 
 loader 的逻辑：
@@ -226,12 +226,17 @@ loader 的逻辑：
    端点在 `cnpm/unpkg-white-list` 白名单之外，新包会 403；tarball CDN 不受限）；
 2. 校验 SHA-256，`DecompressionStream('gzip')` 解压，解析 tar；
 3. 把 React / ReactDOM / Router / `lib-antd.<hash>.mjs` 建成 `blob:` URL；
-4. 注册 importmap：三个 vendor 说明符指向 blob，`lib-antd` 则把
-   `https://deephos.com/static/js/lib-antd.<hash>.mjs` 这个**解析后的绝对 URL**
-   映射到 blob（入口 chunk 里是 `import "./lib-antd.<hash>.mjs"`，importmap 在
-   URL 解析后生效）；
+4. 注册 importmap：三个 vendor 说明符指向 blob，`lib-antd` 则把入口 chunk 里
+   `import "./lib-antd.<hash>.mjs"` **解析后的绝对 URL**（入口在 OSS 上，因此是
+   `https://deephos-static.oss-cn-beijing.aliyuncs.com/static/js/lib-antd.<hash>.mjs`）
+   映射到 blob；importmap 在 URL 解析后生效；
 5. 注入入口 script。任一步失败（CORS、超时、hash 不匹配、浏览器不支持）都回退到
-   `/vendor/*` + `/static/js/*`，页面不会白屏。
+   `/vendor/*` + 同源 `/static/js/*`，页面不会白屏。
+
+入口、async chunk 和 CSS 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
+免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，需要仓库 secrets
+`OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`（RAM 用户只授权该桶的
+Put/Get/Delete/List）。
 
 npm 包 `@meteor957/swan-vendor` 同时包含这些文件。发布流程：
 
@@ -253,6 +258,7 @@ antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版�
 | 资源                                       | firstByte 中位数 | total 中位数 | 成功 |
 | ------------------------------------------ | ---------------: | -----------: | ---: |
 | npmmirror tarball 0.2.0（248 kB，含 antd） |            111ms |        159ms |  8/8 |
+| OSS 入口 chunk（gzip 12 kB）               |             53ms |        203ms |  3/3 |
 | Cloudflare `index` chunk                   |            341ms |       2242ms |  7/8 |
 | Cloudflare `lib-antd` chunk（改造前）      |            526ms |       1774ms |  8/8 |
 

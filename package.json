@@ -12,6 +12,7 @@
     "build": "bun run vendor && rsbuild build && bun run build:first-screen && bun run build:cn-html",
     "build:first-screen": "bun scripts/first-screen/index.ts",
     "build:cn-html": "bun scripts/build-cn-html.ts",
+    "upload:oss": "bun scripts/upload-oss.ts",
     "check:first-screen": "bun scripts/first-screen/check.ts",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
@@ -39,6 +40,7 @@
     "@rsbuild/plugin-react": "^2.1.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "ali-oss": "^6.23.0",
     "playwright-core": "^1.65.0",
     "wrangler": "^4.154.0"
   },
