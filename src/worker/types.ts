@@ -4,8 +4,6 @@
 export interface Env {
   /** D1 数据库 */
   DB: D1Database;
-  /** 静态资源绑定（rsbuild 构建产物 ./dist，含 dist/vendor） */
-  ASSETS: Fetcher;
   /** 环境标识，可在 wrangler.jsonc 的 vars 里覆盖 */
   ENVIRONMENT?: string;
 }

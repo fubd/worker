@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 10
 
     # VERCEL_ORG_ID / VERCEL_PROJECT_ID 只是项目标识，不是凭据；
-    # 真正的 token 走仓库 secret，缺失时跳过 Vercel 步骤（CN 首页会指到旧产物）。
+    # 真正的 token 走仓库 secret，缺失时跳过 Vercel 步骤（站点会停在旧产物）。
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_YGqOJG3kJ2aprfzzfz5gtMcr
@@ -53,7 +53,7 @@ jobs:
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: bun run upload:oss
 
-      # 先发 Vercel 再发 Worker：Worker 一旦开始 302，子域必须已经能服务。
+      # 先发 Vercel 再发 Worker：API 反代目标不能指向还没发布的 Worker。
       - name: Deploy CN entry to Vercel
         if: env.VERCEL_TOKEN != ''
         run: bunx vercel@latest deploy dist/vercel --prod --yes

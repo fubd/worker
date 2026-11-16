@@ -1,56 +1,76 @@
 /**
- * 生成 Vercel 托管的 CN 首页产物：dist/vercel/
+ * 生成 Vercel 全站产物：dist/vercel/
  *
- * Cloudflare 的大陆边缘常年落到美西/欧洲，首页 HTML 的跨境 RTT 是最后一段
- * 瓶颈。大陆 `/` 由 Worker 302 到 cn.deephos.com，HTML 交给 Vercel 的新加坡/
- * 东京节点；本脚本把 home-cn.html 改成可以在独立子域上直接用的版本：
+ * deephos.com 整站由 Vercel 托管（Cloudflare 只保留 api.deephos.com）：
+ * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
+ * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + npmmirror），其他用 index.html（同源 vendor）；
+ * - `/api/*` 反代到 api.deephos.com（Worker + D1），浏览器仍是同源；
+ * - static/vendor 随部署上传，供全球版使用；CN 的 JS/CSS 仍在 OSS。
  *
- * - 站内绝对路径（/todos、/about、/）指回主域，避免在子域上 404；
- * - /api/stats 走主域绝对地址（Worker 的 /api/* 已开 CORS）；
- * - 补 canonical，避免子域被搜索引擎当成重复首页；
- * - 404.html 兜底：直接访问子域其它路径时跳回主域对应路径。
- *
- * 产物只有 HTML，CSS/JS 仍在 OSS，vendor 走 npmmirror。
+ * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
-const SITE = 'https://deephos.com';
+const API = 'https://swan-worker.312bdf.workers.dev';
 
-const homePath = `${DIST}/home-cn.html`;
-if (!existsSync(homePath)) {
-  console.log('[vercel] home-cn.html missing, skipped dist/vercel');
-  process.exit(0);
+const required = ['index.html', 'home.html', 'home-cn.html', 'index-cn.html', 'favicon.svg'];
+// index.html 必须改名：部署里存在 index.html 时 / 会直接命中静态文件，rewrite 不生效。
+const GLOBAL_SHELL = 'shell-global.html';
+for (const file of required) {
+  if (!existsSync(`${DIST}/${file}`)) {
+    throw new Error(
+      `vercel bundle missing dist/${file}; run build:first-screen and build:cn-html first`,
+    );
+  }
 }
 
-let html = readFileSync(homePath, 'utf8');
-html = html.replaceAll('href="/', `href="${SITE}/`);
-html = html.replaceAll("fetch('/api/stats'", `fetch('${SITE}/api/stats'`);
-html = html.replace('</head>', `    <link rel="canonical" href="${SITE}/" />\n  </head>`);
-
-if (/href="\/(?!\/)/.test(html)) {
-  throw new Error('vercel bundle still has a site-relative href');
-}
-if (html.includes("fetch('/api/stats'")) {
-  throw new Error('vercel bundle still has a relative stats fetch');
-}
-if (!html.includes(`${SITE}/api/stats`) || !html.includes('rel="canonical"')) {
-  throw new Error('vercel bundle rewrite did not apply');
-}
-
+rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-writeFileSync(`${OUT}/index.html`, html);
+for (const file of required.filter((f) => f !== 'index.html'))
+  cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
+cpSync(`${DIST}/index.html`, `${OUT}/${GLOBAL_SHELL}`);
+for (const dir of ['static', 'vendor']) {
+  cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });
+}
+
+const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
+const config = {
+  rewrites: [
+    { source: '/api/:path*', destination: `${API}/api/:path*` },
+    { source: '/', has: CN, destination: '/home-cn.html' },
+    { source: '/', destination: '/home.html' },
+    { source: '/todos', has: CN, destination: '/index-cn.html' },
+    { source: '/todos', destination: `/${GLOBAL_SHELL}` },
+    { source: '/about', has: CN, destination: '/index-cn.html' },
+    { source: '/about', destination: `/${GLOBAL_SHELL}` },
+  ],
+  headers: [
+    {
+      source: '/static/:path*',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+    {
+      source: '/vendor/:path*',
+      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+  ],
+};
+writeFileSync(`${OUT}/vercel.json`, `${JSON.stringify(config, null, 2)}\n`);
+
 writeFileSync(
   `${OUT}/404.html`,
   `<!doctype html>
 <meta charset="utf-8" />
-<title>Redirecting…</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
-<script>
-location.replace(${JSON.stringify(SITE)} + location.pathname + location.search + location.hash);
-</script>
-<p><a href="${SITE}/">返回 deephos.com</a></p>
+<title>页面不存在 · Swan Worker</title>
+<body style="font:14px/1.6 system-ui,sans-serif;padding:48px;color:#0f172a">
+  <p>页面不存在。</p>
+  <p><a href="/">返回首页</a></p>
+</body>
 `,
 );
-console.log('[vercel] wrote dist/vercel/index.html and 404.html');
+
+console.log('[vercel] wrote dist/vercel (full site + vercel.json)');

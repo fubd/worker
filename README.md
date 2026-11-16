@@ -204,20 +204,19 @@ CHROME_PATH=/path/to/chrome bun run build
 
 实现细节见 [`scripts/first-screen/README.md`](scripts/first-screen/README.md)。
 
-## 中国大陆分流（CN-only vendor）
+## 站点托管与大陆分流
 
-Worker 用 `cf.country === 'CN'` 做性能分流（本地 dev 用 `CF-IPCountry` 头模拟；
-线上只信 `cf.country`，防止伪造头）：
+`deephos.com` 整站由 Vercel 托管，Cloudflare 只保留 API：
 
-- `/` → **302 到 `https://cn.deephos.com/`**（Vercel 托管的 `dist/vercel/index.html`）；
-  Cloudflare 的大陆边缘常年绕美/欧，首页文档改由 Vercel 的新加坡/东京节点返回。
-  跳转带 `x-swan-vendor: cn-vercel`、`Vary: CF-IPCountry`、`Cache-Control: private, max-age=86400` + `Link: rel=preconnect`
-  （回访一天内跳过这一跳，且不会被边缘缓存串区）。
-- `/todos`、`/about`、未知 SPA 路径 → 优先 `dist/index-cn.html`，缺失回退 `dist/index.html`
-- 其他用户 `/` → `dist/home.html`，响应头 `x-swan-vendor: global`。
-- 子域产物由 `scripts/build-vercel.ts` 生成：站内链接指回主域、`/api/stats` 走
-  `https://deephos.com/api/stats`（Worker 已开 CORS）、补 canonical；`404.html`
-  把子域上的其它路径跳回主域。CSS/JS 仍在 OSS，vendor 走 npmmirror。
+- `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
+- `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + npmmirror），其他返回 `shell-global.html`（同源 vendor）；
+- `/api/*`：Vercel 反代到 `swan-worker.312bdf.workers.dev`（Worker + D1），浏览器仍是同源；
+- `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS/CSS 仍在 OSS。
+
+`scripts/build-vercel.ts` 生成 `dist/vercel/`。注意 `index.html` 会改名成
+`shell-global.html`：部署里存在 `index.html` 时 `/` 会直接命中静态文件，rewrite 不生效。
+地理分流用 `has: x-vercel-ip-country`（实测 CN 命中 CN 变体、US 命中 GLOBAL 变体，
+边缘缓存不串区）。
 
 `scripts/build-cn-html.ts` 在构建后改写 HTML：
 
@@ -274,15 +273,21 @@ antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版�
 - 用生产 `/home-cn` / `/index-cn` HTML 在 `/` 和 `/todos` 路径回放：home 2.3s
   渲染 4 个 Steps，todos 3.3s 出现「任务列表」，`lib-antd` 原 URL 请求 0 次，
   0 console error。
-- 2026-11-16 起 CN 首页 HTML 迁到 Vercel（自有域名 CNAME，`*.vercel.app`
-  在大陆被 DNS 污染，不能直接用）。100 个大陆探针：Vercel p50 TTFB 82ms /
-  扣 DNS 后 total 245ms，Cloudflare 同期 p50 TTFB 304ms / total 978ms；
-  PoP 91/91 成功探针里 89 个在亚洲。代价是多一跳 302（地址栏变为
-  `cn.deephos.com`）和 Vercel CNAME 链的冷解析（p90 约 2s、约 9% 探针 DNS 失败）。
-  Vercel 部署需要仓库 secret `VERCEL_TOKEN`；缺失时 CI 跳过该步，Worker 仍会
-  302，因此上线前必须先手动把 `dist/vercel` 发到 Vercel。
+- 2026-11-16：apex 从 Cloudflare 迁到 Vercel（geo rewrite，地址栏不变）。大陆探针：
+  `/` 与 `/todos` 200、PoP sin1、TTFB 120–357ms（边缘 HIT）；`/api/stats` 经 Vercel
+  反代约 498ms；美国探针 sfo1 HIT 18–24ms。地理分流实测不串区。
 - 分流是国家级 GeoIP，不用于合规判断；VPN、企业出口、港澳台、`XX`/`T1` 都可能
   落到全球版，全球版始终是完整可用的回退。
+
+## 部署到 Vercel（站点）
+
+站点 HTML 与静态资源由 Vercel 托管，`bun run build` 会生成 `dist/vercel/`（含 geo rewrite 与 API 反代）。
+
+- 项目：`deephos-cn-test`（fubd）；生产域 `deephos.com`、`cn.deephos.com`、`vtest.deephos.com`；
+- 手动部署：`cd dist/vercel && bunx vercel deploy . --prod --yes`（需要 `VERCEL_TOKEN`）；
+- CI：`deploy.yml` 的 Vercel 步骤在 `VERCEL_TOKEN` secret 存在时执行，缺失则跳过；
+- 根域在 Cloudflare 用**顶点 CNAME**（扁平化）指向 `8a55bf6822ee61dd.vercel-dns-017.com`，DNS only；
+- API 反代目标写在 `scripts/build-vercel.ts` 的 `API` 常量（当前 `swan-worker.312bdf.workers.dev`）。
 
 ## 部署到 Cloudflare
 
@@ -304,7 +309,7 @@ bun run deploy
 
 ### 自动部署（GitHub Actions）
 
-`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `bun run check:first-screen` → `wrangler deploy`。
+`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `bun run check:first-screen` → 上传 OSS → Vercel 部署（可选）→ `wrangler deploy`（Worker 只保留 API）。
 
 `bun run build` 会生成 `dist/home.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell，不影响部署。
 
