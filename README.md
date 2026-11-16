@@ -211,8 +211,8 @@ Worker 用 `cf.country === 'CN'` 做性能分流（本地 dev 用 `CF-IPCountry`
 
 - `/` → **302 到 `https://cn.deephos.com/`**（Vercel 托管的 `dist/vercel/index.html`）；
   Cloudflare 的大陆边缘常年绕美/欧，首页文档改由 Vercel 的新加坡/东京节点返回。
-  跳转带 `x-swan-vendor: cn-vercel`、`Vary: CF-IPCountry`、`Cache-Control: private, max-age=300`
-  （回访 5 分钟内跳过这一跳，且不会被边缘缓存串区）。
+  跳转带 `x-swan-vendor: cn-vercel`、`Vary: CF-IPCountry`、`Cache-Control: private, max-age=86400` + `Link: rel=preconnect`
+  （回访一天内跳过这一跳，且不会被边缘缓存串区）。
 - `/todos`、`/about`、未知 SPA 路径 → 优先 `dist/index-cn.html`，缺失回退 `dist/index.html`
 - 其他用户 `/` → `dist/home.html`，响应头 `x-swan-vendor: global`。
 - 子域产物由 `scripts/build-vercel.ts` 生成：站内链接指回主域、`/api/stats` 走

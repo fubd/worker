@@ -62,8 +62,9 @@ function variantResponse(res: Response, variant: string, cn: boolean): Response 
  * Cloudflare 的大陆边缘经常绕美/欧，首页文档的跨境 RTT 是最后一段瓶颈；
  * Vercel 的大陆入口稳定在新加坡/东京。其余路径（/todos、/api）仍在 Worker。
  *
- * 302 带 private max-age=300：回访 5 分钟内直接去子域、跳过这一跳，
- * 又不会让 Cloudflare 边缘缓存把跳转串到其他地区。
+ * 302 带 private max-age=86400：回访一天内直接去子域、跳过这一跳，
+ * 又不会让 Cloudflare 边缘缓存把跳转串到其他地区。Link preconnect
+ * 让浏览器在跳转期间就开始和子域建连。
  */
 const CN_HOME_URL = 'https://cn.deephos.com/';
 
@@ -78,7 +79,8 @@ app.get('/', async (c) => {
     const res = c.redirect(target.toString(), 302);
     res.headers.set('x-swan-vendor', 'cn-vercel');
     res.headers.set('Vary', 'CF-IPCountry');
-    res.headers.set('Cache-Control', 'private, max-age=300');
+    res.headers.set('Cache-Control', 'private, max-age=86400');
+    res.headers.set('Link', '<https://cn.deephos.com/>; rel=preconnect');
     return res;
   }
 
