@@ -15,6 +15,17 @@ import type { TodoStats } from '@/shared/types';
 
 const STACK_TAGS = ['Bun', 'React 19', 'React Router 8', 'Ant Design 6', 'Rsbuild', 'Hono', 'D1'];
 
+/** 只接管普通左键点击，保留 Ctrl/Cmd/Shift/中键在新标签页打开的行为。 */
+function isPlainLeftClick(event: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 const CHAIN_STEPS = [
   { title: '浏览器', description: 'React 19 + antd 6' },
   { title: '静态资源', description: 'Rsbuild 产物托管在 Workers' },
@@ -59,10 +70,28 @@ export default function HomePage() {
           作为边缘数据库，全部由同一个 Worker 对外服务。
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
-          <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => navigate('/todos')}>
+          {/* href 让首屏快照（不 hydrate）也能导航；hydrate 后 onClick 接管为 SPA 跳转 */}
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            href="/todos"
+            onClick={(event) => {
+              if (!isPlainLeftClick(event)) return;
+              event.preventDefault();
+              navigate('/todos');
+            }}
+          >
             试试待办 Demo
           </Button>
-          <Button icon={<ArrowRightOutlined />} onClick={() => navigate('/about')}>
+          <Button
+            icon={<ArrowRightOutlined />}
+            href="/about"
+            onClick={(event) => {
+              if (!isPlainLeftClick(event)) return;
+              event.preventDefault();
+              navigate('/about');
+            }}
+          >
             查看技术栈
           </Button>
         </div>
@@ -94,25 +123,33 @@ export default function HomePage() {
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">总任务</div>
-            <div className="swan-stat-value">{stats.total}</div>
+            <div className="swan-stat-value" data-swan-field="total">
+              {stats.total}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">进行中</div>
-            <div className="swan-stat-value">{stats.active}</div>
+            <div className="swan-stat-value" data-swan-field="active">
+              {stats.active}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">已完成</div>
-            <div className="swan-stat-value">{stats.completed}</div>
+            <div className="swan-stat-value" data-swan-field="completed">
+              {stats.completed}
+            </div>
           </div>
         </Col>
         <Col xs={12} md={6}>
           <div className="swan-stat">
             <div className="swan-stat-label">完成率</div>
-            <div className="swan-stat-value">{stats.completionRate}%</div>
+            <div className="swan-stat-value" data-swan-field="completionRate">
+              {stats.completionRate}%
+            </div>
           </div>
         </Col>
       </Row>
@@ -144,7 +181,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               运行时
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="runtime" style={{ marginTop: 4 }}>
               {stats.runtime}
             </div>
           </Col>
@@ -152,7 +189,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               数据库
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="database" style={{ marginTop: 4 }}>
               {stats.database}
             </div>
           </Col>
@@ -160,7 +197,7 @@ export default function HomePage() {
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               节点标识（cf-ray）
             </Typography.Text>
-            <div className="swan-mono" style={{ marginTop: 4 }}>
+            <div className="swan-mono" data-swan-field="region" style={{ marginTop: 4 }}>
               {stats.region}
             </div>
           </Col>

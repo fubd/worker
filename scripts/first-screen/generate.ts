@@ -81,7 +81,7 @@ ${mobileCss}
   <div class="swan-fs-variant swan-fs-mobile">${captures.mobile.html}</div>
 </div>`;
 
-  const readinessScript = `<script>
+  const readinessScript = `<script id="swan-first-screen-ready">
 (function () {
   var done = false;
   var start = performance.now();

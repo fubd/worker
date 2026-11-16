@@ -14,6 +14,18 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 
 const { Sider, Header, Content, Footer } = Layout;
 
+/** 只接管普通左键点击，保留 Ctrl/Cmd/Shift/中键在新标签页打开的行为。 */
+function isPlainLeftClick(event: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}) {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
+// 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
   { key: '/todos', icon: <CheckSquareOutlined />, label: '待办 Demo' },
@@ -83,9 +95,23 @@ export default function RootLayout() {
       mode="inline"
       style={{ borderInlineEnd: 'none', padding: '12px 8px' }}
       selectedKeys={[selectedKey]}
-      items={MENU_ITEMS}
-      onClick={({ key }) => {
-        navigate(key);
+      items={MENU_ITEMS.map((item) => ({
+        ...item,
+        // 真实 <a> 让不 hydrate 的首屏快照也能导航；hydrate 后 onClick 接管为 SPA 跳转
+        label: (
+          <a
+            href={item.key}
+            onClick={(event) => {
+              if (!isPlainLeftClick(event)) return;
+              event.preventDefault();
+              navigate(item.key);
+            }}
+          >
+            {item.label}
+          </a>
+        ),
+      }))}
+      onClick={() => {
         if (closeDrawer) setMobileOpen(false);
       }}
     />
