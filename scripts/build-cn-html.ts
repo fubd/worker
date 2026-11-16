@@ -89,6 +89,8 @@ const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
   }
   #swan-static-menu .ant-menu-item .anticon { font-size: 14px; }
   #swan-static-menu .ant-menu-item .ant-menu-title-content { margin-inline-start: 10px; }
+  #swan-static-menu .ant-menu-item a,
+  #swan-first-screen .swan-sider .ant-menu-item a { color: inherit; }
   #swan-static-menu .ant-menu-item-selected { background-color: var(--ant-menu-item-selected-bg, #e6f4ff); }
   #swan-static-menu .ant-menu-item-selected,
   #swan-static-menu .ant-menu-item-selected .ant-menu-title-content,
