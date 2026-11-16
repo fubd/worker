@@ -75,6 +75,24 @@ const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
   }
   #swan-static-menu.is-open { transform: translateX(0); pointer-events: auto; }
   #swan-static-menu .swan-sider { width: 100% !important; max-width: none !important; min-width: 0 !important; height: auto; border-right: 0; }
+  /* 快照的移动视图里没有桌面 sider 的菜单样式，这里按 /todos 抽屉的实测值补齐 */
+  #swan-static-menu .ant-menu,
+  #swan-static-menu .ant-menu-item { list-style: none; }
+  #swan-static-menu .ant-menu-item {
+    height: var(--ant-menu-item-height, 40px);
+    line-height: var(--ant-menu-item-height, 40px);
+    margin: var(--ant-menu-item-margin, 4px);
+    padding: 0 16px 0 24px;
+    font-size: var(--ant-font-size, 14px);
+    border-radius: var(--ant-menu-item-border-radius, 8px);
+    color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
+  }
+  #swan-static-menu .ant-menu-item .anticon { font-size: 14px; }
+  #swan-static-menu .ant-menu-item .ant-menu-title-content { margin-inline-start: 10px; }
+  #swan-static-menu .ant-menu-item-selected { background-color: var(--ant-menu-item-selected-bg, #e6f4ff); }
+  #swan-static-menu .ant-menu-item-selected,
+  #swan-static-menu .ant-menu-item-selected .ant-menu-title-content,
+  #swan-static-menu .ant-menu-item-selected a { color: var(--ant-color-primary, #1677ff); }
   #swan-static-menu > a { display: block; padding: 10px 16px; color: #0f172a; font-size: 14px; text-decoration: none; }
 </style>`;
 
