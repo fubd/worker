@@ -57,29 +57,29 @@ const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
 </script>`;
 
 /**
- * 静态首页的菜单：快照里没有抽屉 DOM，这里补一个轻量面板，由内联脚本切换。
- * 桌面端 sider 常驻，只隐藏点了没反应的「收起菜单」按钮。
+ * 静态首页的菜单：移动端面板 clone 快照里的真实 sider（logo + antd 菜单），
+ * 宽度、遮罩和滑入动画对齐 /todos 的 Drawer（264px）；桌面端 sider 常驻，
+ * 只隐藏点了没反应的「收起菜单」，并恢复被快照冻结的菜单 hover 过渡。
  */
 const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
   #swan-first-screen .swan-header button[aria-label="收起菜单"] { display: none; }
-  #swan-static-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.32); z-index: 999; display: none; }
-  #swan-static-backdrop.is-open { display: block; }
+  #swan-first-screen .swan-sider .ant-menu-item,
+  #swan-first-screen .swan-sider .ant-menu-item * { transition: background-color 0.2s, color 0.2s !important; }
+  #swan-static-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  #swan-static-backdrop.is-open { opacity: 1; pointer-events: auto; }
   #swan-static-menu {
-    position: fixed; top: 0; left: 0; bottom: 0; width: 240px; max-width: 82vw;
+    position: fixed; top: 0; left: 0; bottom: 0; width: 264px; max-width: 82vw;
     background: #fff; z-index: 1000; box-shadow: 0 0 24px rgba(15, 23, 42, 0.18);
-    padding: 20px 12px; display: none; flex-direction: column; gap: 4px;
+    transform: translateX(-100%); pointer-events: none; transition: transform 0.2s ease;
+    overflow-y: auto;
   }
-  #swan-static-menu.is-open { display: flex; }
-  #swan-static-menu a { display: block; padding: 10px 12px; border-radius: 8px; color: #0f172a; font-size: 14px; font-weight: 500; text-decoration: none; }
-  #swan-static-menu a:active { background: #f4f7fb; }
+  #swan-static-menu.is-open { transform: translateX(0); pointer-events: auto; }
+  #swan-static-menu .swan-sider { width: 100% !important; max-width: none !important; min-width: 0 !important; height: auto; border-right: 0; }
+  #swan-static-menu > a { display: block; padding: 10px 16px; color: #0f172a; font-size: 14px; text-decoration: none; }
 </style>`;
 
 const STATIC_HOME_MENU = `<div id="swan-static-backdrop"></div>
-<nav id="swan-static-menu" aria-hidden="true" aria-label="站点导航">
-  <a href="/">概览</a>
-  <a href="/todos">待办 Demo</a>
-  <a href="/about">技术栈</a>
-</nav>`;
+<nav id="swan-static-menu" aria-hidden="true" aria-label="站点导航"></nav>`;
 
 const STATIC_HOME_MENU_SCRIPT = `<script id="swan-static-home-menu">
 (function () {
@@ -87,6 +87,14 @@ const STATIC_HOME_MENU_SCRIPT = `<script id="swan-static-home-menu">
   var menu = document.getElementById('swan-static-menu');
   var backdrop = document.getElementById('swan-static-backdrop');
   if (!btn || !menu || !backdrop) return;
+  var sider = document.querySelector('#swan-first-screen .swan-sider');
+  if (sider) {
+    var clone = sider.cloneNode(true);
+    clone.removeAttribute('style');
+    menu.appendChild(clone);
+  } else {
+    menu.innerHTML = '<a href="/">概览</a><a href="/todos">待办 Demo</a><a href="/about">技术栈</a>';
+  }
   function set(open) {
     menu.classList.toggle('is-open', open);
     backdrop.classList.toggle('is-open', open);
