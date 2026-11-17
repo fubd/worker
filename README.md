@@ -260,7 +260,10 @@ CN 的 vendor 与 antd chunk 全部从 OSS `/static/vendor/*`、`/static/js/*` �
 - 项目：`deephos-cn-test`（fubd）；生产域只有 `deephos.com`；
 - 手动部署：`cd dist/vercel && bunx vercel deploy . --prod --yes`（需要 `VERCEL_TOKEN`）；
 - CI：`deploy.yml` 的 Vercel 步骤在 `VERCEL_TOKEN` secret 存在时执行，缺失则跳过；
-- 根域在 Cloudflare 用**顶点 CNAME**（扁平化）指向 `8a55bf6822ee61dd.vercel-dns-017.com`，DNS only；
+- 根域在 Cloudflare 用 **A 记录**指向 `216.198.79.65` / `64.29.17.65`（Vercel 项目 anycast），DNS only；
+  - 这是按当前项目 IP 固定下来的：Vercel 换 IP 时站点会断，需用
+    `dig +short 8a55bf6822ee61dd.vercel-dns-017.com` 对照并更新这两条 A 记录；
+  - 实测换 A 后大陆 DNS p90 429→198ms、首页总耗时 p50 399→317ms、p90 728→535ms；
 - API 反代目标写在 `scripts/build-vercel.ts` 的 `API` 常量（当前 `swan-worker.312bdf.workers.dev`）。
 
 ## 部署到 Cloudflare
