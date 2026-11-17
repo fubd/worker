@@ -83,9 +83,9 @@ swan-worker/
 │   ├── build-vendor.ts    # 把 react/react-dom/router 打成 ESM 供 importmap 使用
 │   ├── build-vendor-package.ts  # 组装大陆版 npm 包（vendor + antd chunk）
 │   ├── build-cn-html.ts   # 生成 dist/index-cn.html / home-cn.html
-│   ├── build-vercel.ts    # 生成 dist/vercel/（cn.deephos.com 的首页产物）
-│   ├── cn-vendor-loader.ts # 大陆版内联 loader（tarball → blob → importmap）
-│   ├── vendor-package-config.ts # npm 包版本、SHA-256、antd 文件名
+│   ├── build-vercel.ts    # 生成 dist/vercel/（整站 + geo rewrite）
+│   ├── loading-shell.ts   # SPA shell 的首帧加载骨架
+│   ├── vendor-package-config.ts # npm 包版本、antd 文件名锁
 │   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
@@ -159,13 +159,13 @@ swan-worker/
 | 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                                      |
 | 线上路径 | `/vendor/react-19.3.1.mjs`、`/vendor/react-dom-19.3.1.mjs`、`/vendor/router-8.5.1.mjs` |
 | 缓存     | `public/_headers` 里的 `max-age=31536000, immutable`                                   |
-| 托管     | Workers Static Assets，和 `/static/*` 一样走 Cloudflare 边缘缓存                       |
+| 托管     | Vercel 静态资源（全局版），`/static/*` 同样随部署上传并走 Vercel 边缘缓存              |
 
 这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 7 个 API，避免把整个 data router 拉进首屏）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
 
-不再走 Worker → R2：`/vendor/*` 不放进 `run_worker_first`，请求由静态资源层直接返回，避免每次冷请求都多一次 Worker → R2 往返。代价是 `dist` 每次部署多带约 327 kB 的 vendor 文件。
+`/vendor/*` 随 Vercel 部署，浏览器同源加载；Worker 已不再托管静态资源。代价是 `dist/vercel` 每次部署多带约 327 kB 的 vendor 文件。
 
-大陆版不请求 `/vendor/*`，而是从 npmmirror 的版本化 tarball 里取同样的文件；详见下一节。
+大陆版不请求 `/vendor/*`，而是从 OSS `/static/vendor/*` 取同样的文件；详见下一节。
 
 **首屏路由只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）；404 与错误页作为兜底留在主包。首屏 JS（不含外部化的 vendor）约 483 kB（gzip 约 156 kB）；Table、表单等懒加载部分按需加载。
 
@@ -209,7 +209,7 @@ CHROME_PATH=/path/to/chrome bun run build
 `deephos.com` 整站由 Vercel 托管，Cloudflare 只保留 API：
 
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
-- `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + npmmirror），其他返回 `shell-global.html`（同源 vendor）；
+- `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + 静态 import map），其他返回 `shell-global.html`（同源 vendor）；
 - `/api/*`：Vercel 反代到 `swan-worker.312bdf.workers.dev`（Worker + D1），浏览器仍是同源；
 - `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS/CSS 仍在 OSS。
 
@@ -220,30 +220,20 @@ CHROME_PATH=/path/to/chrome bun run build
 
 `scripts/build-cn-html.ts` 在构建后改写 HTML：
 
-1. 移除静态 importmap、`/vendor/*` modulepreload，以及 `lib-antd.<hash>.mjs` 的
-   `<script type="module">`；
-2. 加 `preconnect` / `preload` 指向 npmmirror tarball，并 `preload` OSS 上的入口 chunk；
-3. 内联 `scripts/cn-vendor-loader.ts`。
+1. 移除同源 import map 和 `/vendor/*` modulepreload，换成指向 OSS
+   `/static/vendor/*` 的静态 import map；
+2. 去掉 `lib-antd.<hash>.mjs` 的 `<script type="module">`（由入口相对 import 命中 OSS）；
+3. 入口 script 改为 OSS 绝对地址；`home-cn.html` 走静态快照分支（无模块脚本）。
 
-loader 的逻辑：
-
-1. 从 `cdn.npmmirror.com` 拉版本化 tarball（npmmirror 的 per-file `/files/`
-   端点在 `cnpm/unpkg-white-list` 白名单之外，新包会 403；tarball CDN 不受限）；
-2. 校验 SHA-256，`DecompressionStream('gzip')` 解压，解析 tar；
-3. 把 React / ReactDOM / Router / `lib-antd.<hash>.mjs` 建成 `blob:` URL；
-4. 注册 importmap：三个 vendor 说明符指向 blob，`lib-antd` 则把入口 chunk 里
-   `import "./lib-antd.<hash>.mjs"` **解析后的绝对 URL**（入口在 OSS 上，因此是
-   `https://deephos-static.oss-cn-beijing.aliyuncs.com/static/js/lib-antd.<hash>.mjs`）
-   映射到 blob；importmap 在 URL 解析后生效；
-5. 注入入口 script。任一步失败（CORS、超时、hash 不匹配、浏览器不支持）都回退到
-   `/vendor/*` + 同源 `/static/js/*`，页面不会白屏。
+CN vendor 不再依赖 npmmirror tarball：没有 loader、SHA 校验、`DecompressionStream`
+和 blob URL；`scripts/upload-oss.ts` 同时上传 `dist/vendor` → `static/vendor/`。
 
 入口、async chunk 和 CSS 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
 免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，需要仓库 secrets
 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`（RAM 用户只授权该桶的
 Put/Get/Delete/List）。
 
-npm 包 `@meteor957/swan-vendor` 同时包含这些文件。发布流程：
+npm 包 `@meteor957/swan-vendor` 同时包含这些文件，仅作为版本化备份，不参与运行时。发布流程：
 
 ```bash
 bun run vendor-package          # 组装 .vendor-package/（含当前 lib-antd chunk）
@@ -260,16 +250,16 @@ antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版�
 
 ### 实测（Globalping，8 个大陆探针）
 
-| 资源                                       | firstByte 中位数 | total 中位数 | 成功 |
-| ------------------------------------------ | ---------------: | -----------: | ---: |
-| npmmirror tarball 0.2.0（248 kB，含 antd） |            111ms |        159ms |  8/8 |
-| OSS 入口 chunk（gzip 12 kB）               |             53ms |        203ms |  3/3 |
-| Cloudflare `index` chunk                   |            341ms |       2242ms |  7/8 |
-| Cloudflare `lib-antd` chunk（改造前）      |            526ms |       1774ms |  8/8 |
+| 资源                                  | firstByte 中位数 | total 中位数 |   成功 |
+| ------------------------------------- | ---------------: | -----------: | -----: |
+| OSS 入口 chunk（带 Referer，20 探针） |             48ms |        196ms |  20/20 |
+| OSS antd chunk（10 探针）             |             55ms |        208ms |  10/10 |
+| OSS vendor（与 antd 同前缀）          |       预计 ≤60ms |            — | 待复测 |
+| Cloudflare `lib-antd` chunk（改造前） |            526ms |       1774ms |    8/8 |
 
-- 改造前 CN 页面要等 Cloudflare 上的 `lib-antd`（中位 ~1.8s）；改造后 antd 字节
-  跟着 tarball 走（~159ms），CN 关键路径只剩 HTML（Cloudflare 大陆边缘）和
-  `index` chunk（中位 ~2.2s）。
+- 改造前 CN 页面要等 Cloudflare 上的 `lib-antd`（中位 ~1.8s）；现在 entry / antd /
+  vendor 全部从 OSS 返回（实测 48–55ms 首字节），CN 关键路径只剩 HTML（Vercel）和
+  OSS 静态字节。
 - 用生产 `/home-cn` / `/index-cn` HTML 在 `/` 和 `/todos` 路径回放：home 2.3s
   渲染 4 个 Steps，todos 3.3s 出现「任务列表」，`lib-antd` 原 URL 请求 0 次，
   0 console error。

@@ -3,24 +3,17 @@
  *   dist/index-cn.html  (SPA shell for /todos, /about and unknown routes)
  *   dist/home-cn.html   (first-screen snapshot for /, if home.html exists)
  *
- * npmmirror's per-file /files/ endpoint is allowlisted and rejects new
- * packages, so the CN variant does not use a plain import map. Instead it
- * inlines scripts/cn-vendor-loader.ts, which fetches the npm tarball from
- * cdn.npmmirror.com, extracts React, ReactDOM, React Router and the initial
- * antd chunk, and registers blob: URLs in an import map before loading the app
- * entry. The app entry, async chunks and CSS stay on OSS (see
- * scripts/oss-config.ts); the vendor bytes come from npmmirror.
+ * The CN variant uses a static import map pointing React / ReactDOM / React
+ * Router at OSS /static/vendor/*; the app entry, async chunks, antd chunk and
+ * CSS also live on OSS (see scripts/oss-config.ts). No npmmirror tarball,
+ * loader, SHA check or blob URLs at runtime.
  *
  * Run after `rsbuild build` and `first-screen` (which writes home.html).
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { renderCnVendorLoader } from './cn-vendor-loader';
+import { injectLoadingShell } from './loading-shell';
 import { OSS_STATIC } from './oss-config';
-import {
-  assertVendorPackageLocked,
-  cnVendorTarball,
-  VENDOR_PACKAGE,
-} from './vendor-package-config';
+import { assertVendorPackageLocked, VENDOR_PACKAGE } from './vendor-package-config';
 
 const DIST = 'dist';
 const VENDOR_DIR = `${DIST}/vendor`;
@@ -62,6 +55,8 @@ const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
  * 只隐藏点了没反应的「收起菜单」，并恢复被快照冻结的菜单 hover 过渡。
  */
 const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
+  /* 静态首页就是最终页面：快照里的链接/按钮全部可点 */
+  #swan-first-screen, #swan-first-screen * { pointer-events: auto; }
   #swan-first-screen .swan-header button[aria-label="收起菜单"] { display: none; }
   #swan-first-screen .swan-sider .ant-menu-item,
   #swan-first-screen .swan-sider .ant-menu-item * { transition: background-color 0.2s, color 0.2s !important; }
@@ -164,10 +159,7 @@ function toCn(
   antd: string,
   options: { staticHome?: boolean } = {},
 ): string {
-  // 1. The app entry module scripts are injected by the loader after the import
-  //    map exists; remove them from the parsed HTML so nothing resolves early.
-  //    The antd chunk is intentionally not injected as a script: the entry chunk
-  //    imports it relatively, and the loader remaps that URL to a blob.
+  // 1. 收集模块脚本：antd 由 entry 相对 import，不单独加载；其余 entry 脚本稍后按 OSS 地址重插。
   const allScripts: string[] = [];
   let out = html.replace(
     /<script type="module" src="(\/static\/js\/[^"]+)"><\/script>\s*/g,
@@ -185,10 +177,26 @@ function toCn(
     throw new Error('CN HTML transform found no app entry module scripts');
   }
 
-  // 2. Remove the static import map and the same-origin vendor preloads.
-  out = out.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/i, '');
-  if (out.includes('type="importmap"')) {
-    throw new Error('CN HTML transform left a static import map behind');
+  const ossBase = OSS_STATIC.baseUrl;
+  const vendorUrl = (file: string) => `${ossBase}/static/vendor/${file}`;
+
+  // 2. 静态 import map：vendor 直接指向 OSS，不再需要 tarball loader。
+  const importMap = {
+    imports: {
+      react: vendorUrl(files.react),
+      'react/jsx-runtime': vendorUrl(files.react),
+      'react-dom': vendorUrl(files.dom),
+      'react-dom/client': vendorUrl(files.dom),
+      'react-router': vendorUrl(files.router),
+      'react-router/dom': vendorUrl(files.router),
+    },
+  };
+  out = out.replace(
+    /<script type="importmap">[\s\S]*?<\/script>\s*/i,
+    `<script type="importmap">\n    ${JSON.stringify(importMap, null, 2)}\n    </script>\n`,
+  );
+  if (!out.includes('type="importmap"')) {
+    throw new Error('CN HTML transform did not produce a static import map');
   }
   out = out.replace(/<link rel="modulepreload" href="\/vendor\/[^"]+"\s*\/?>\s*/g, '');
   if (/<link rel="modulepreload" href="\/vendor\//.test(out)) {
@@ -196,29 +204,28 @@ function toCn(
   }
 
   // 3. Mark the variant for probes and local tests.
-  const variant = options.staticHome ? 'cn-static' : 'cn-npmmirror-tarball';
+  const variant = options.staticHome ? 'cn-static' : 'cn-oss-importmap';
   out = out.replace(
     '<meta name="swan-vendor" content="global-static" />',
     `<meta name="swan-vendor" content="${variant}" />`,
   );
 
   // Static files live on OSS in the CN variant; paths match 1:1.
-  const ossBase = OSS_STATIC.baseUrl;
   out = out.replaceAll('href="/static/css/', `href="${ossBase}/static/css/`);
 
   if (options.staticHome) {
     // 静态首页（POC）：快照就是最终页面，不加载 React/antd，也不 hydrate。
-    // 快照原本是 aria-hidden + inert 的"占位层"，这里改成真正的内容：
-    // - 去掉 readiness 脚本（没有 app 可等）
-    // - 去掉 #root（没有 app 可挂载）
-    // - 去掉准备态属性，使快照对辅助技术和点击都可见
     out = out.replace(/<script id="swan-first-screen-ready">[\s\S]*?<\/script>\s*/i, '');
     out = out.replace(/\s*<div id="root"><\/div>/, '');
     out = out.replace(/\sdata-swan-first-screen="preparing"/, '');
     out = out.replace(
-      '<div id="swan-first-screen" aria-hidden="true" inert>',
+      '<div id="swan-first-screen" aria-hidden="true">',
       '<div id="swan-first-screen">',
     );
+    // 静态首页就是最终页面：恢复键盘访问（生成阶段为 hydrate 前加的 tabindex=-1 去掉）
+    out = out.replaceAll(' tabindex="-1"', '');
+    // 没有模块脚本，import map 也用不上，去掉省字节
+    out = out.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/i, '');
     out = out.replace('</head>', `    ${STATIC_HOME_STYLE}\n  </head>`);
     out = out.replace(
       '</body>',
@@ -239,45 +246,31 @@ function toCn(
       throw new Error('CN static home transform did not apply');
     }
   } else {
-    // 4. Start the tarball fetch as early as possible, and preload the app
-    //    chunks in parallel. The HTTP cache is shared, so the module scripts
-    //    injected by the loader can reuse these downloads.
-    const tarball = cnVendorTarball();
-    const ossScripts = appScripts.map((src) => `${ossBase}${src}`);
-    const ossAntdUrl = `${ossBase}/static/js/${antd}`;
-    const hints = [
-      '<link rel="preconnect" href="https://cdn.npmmirror.com" crossorigin />',
-      `<link rel="preload" as="fetch" href="${tarball}" crossorigin="anonymous" />`,
-      ...ossScripts.map((src) => `<link rel="preload" as="script" href="${src}" crossorigin />`),
-    ].join('\n    ');
-
-    const loader = renderCnVendorLoader({
-      tarballUrl: tarball,
-      sha256: VENDOR_PACKAGE.tarballSha256,
-      reactFile: files.react,
-      domFile: files.dom,
-      routerFile: files.router,
-      antdFile: antd,
-      appScripts: ossScripts,
-      antdUrl: ossAntdUrl,
-    });
-
-    out = out.replace('</head>', `    ${hints}\n    ${loader}\n  </head>`);
+    // 4. preconnect OSS + vendor modulepreload；entry 用 OSS 绝对地址直接加载。
+    const preloads = [files.react, files.dom, files.router]
+      .map((file) => `<link rel="modulepreload" href="${vendorUrl(file)}" crossorigin />`)
+      .join('\n    ');
+    out = out.replace(
+      '</head>',
+      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n  </head>`,
+    );
+    const scripts = appScripts
+      .map((src) => `<script type="module" src="${ossBase}${src}"></script>`)
+      .join('\n    ');
+    out = out.replace('</body>', `    ${scripts}\n  </body>`);
   }
 
-  const expectVendor = options.staticHome
-    ? 'content="cn-static"'
-    : 'content="cn-npmmirror-tarball"';
+  const expectVendor = options.staticHome ? 'content="cn-static"' : 'content="cn-oss-importmap"';
   if (!out.includes(expectVendor)) {
     throw new Error('CN HTML transform did not apply; check the source template');
   }
   if (
     !options.staticHome &&
-    (!out.includes('cdn.npmmirror.com') ||
-      !out.includes('__SWAN_CN_VENDOR__') ||
-      !out.includes(antd) ||
-      !out.includes(`${ossBase}/static/js/${antd}`) ||
+    (!out.includes(vendorUrl(files.react)) ||
+      !out.includes(`${ossBase}${appScripts[0]}`) ||
       !out.includes(`${ossBase}/static/css/`) ||
+      out.includes('cdn.npmmirror.com') ||
+      out.includes('DecompressionStream') ||
       out.includes('href="/static/'))
   ) {
     throw new Error('CN HTML transform did not apply; check the source template');
@@ -296,7 +289,7 @@ assertVendorPackageLocked();
 const files = vendorFiles();
 const antd = antdFile();
 const indexHtml = readFileSync(`${DIST}/index.html`, 'utf8');
-writeFileSync(`${DIST}/index-cn.html`, toCn(indexHtml, files, antd));
+writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {
@@ -304,12 +297,9 @@ if (existsSync(homePath)) {
     `${DIST}/home-cn.html`,
     toCn(readFileSync(homePath, 'utf8'), files, antd, { staticHome: true }),
   );
-  console.log(
-    `[cn-html] wrote dist/index-cn.html and static dist/home-cn.html (vendor tarball: ${cnVendorTarball()})`,
-  );
+  console.log(`[cn-html] wrote dist/index-cn.html (OSS import map) and static dist/home-cn.html`);
 } else {
   console.log(
-    `[cn-html] wrote dist/index-cn.html (vendor tarball: ${cnVendorTarball()}); ` +
-      'home.html missing, skipped home-cn.html',
+    `[cn-html] wrote dist/index-cn.html (OSS import map); home.html missing, skipped home-cn.html`,
   );
 }

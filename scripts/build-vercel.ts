@@ -3,13 +3,14 @@
  *
  * deephos.com 整站由 Vercel 托管（Cloudflare 只保留 api.deephos.com）：
  * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
- * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + npmmirror），其他用 index.html（同源 vendor）；
- * - `/api/*` 反代到 api.deephos.com（Worker + D1），浏览器仍是同源；
+ * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + 静态 import map），其他用 shell-global.html（同源 vendor）；
+ * - `/api/*` 反代到 swan-worker.312bdf.workers.dev（Worker + D1），浏览器仍是同源；
  * - static/vendor 随部署上传，供全球版使用；CN 的 JS/CSS 仍在 OSS。
  *
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { injectLoadingShell } from './loading-shell';
 
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
@@ -30,13 +31,32 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
-cpSync(`${DIST}/index.html`, `${OUT}/${GLOBAL_SHELL}`);
+writeFileSync(
+  `${OUT}/${GLOBAL_SHELL}`,
+  injectLoadingShell(readFileSync(`${DIST}/index.html`, 'utf8')),
+);
 for (const dir of ['static', 'vendor']) {
   cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });
 }
 
 const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
 const config = {
+  // cn/vtest 是迁移期别名：OSS 只对 deephos.com 开 CORS，别名上的 CN shell 会加载失败。
+  // 统一 308 回主域，接住仍缓存着旧 302 的用户。
+  redirects: [
+    {
+      source: '/:path*',
+      has: [{ type: 'host', value: 'cn.deephos.com' }],
+      destination: 'https://deephos.com/:path*',
+      permanent: true,
+    },
+    {
+      source: '/:path*',
+      has: [{ type: 'host', value: 'vtest.deephos.com' }],
+      destination: 'https://deephos.com/:path*',
+      permanent: true,
+    },
+  ],
   rewrites: [
     { source: '/api/:path*', destination: `${API}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },

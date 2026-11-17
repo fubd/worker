@@ -53,7 +53,8 @@ html, body { margin: 0; }
 html, body { background: var(--swan-bg, #f4f7fb); }
 body { color: #0f172a; -webkit-font-smoothing: antialiased; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
 html[data-swan-first-screen="preparing"] #root { visibility: hidden !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; }
-#swan-first-screen { position: relative; z-index: 1; background: var(--swan-bg, #f4f7fb); }
+#swan-first-screen { position: relative; z-index: 1; background: var(--swan-bg, #f4f7fb); pointer-events: none; }
+#swan-first-screen [data-swan-snapshot-cta] { pointer-events: auto; }
 #swan-first-screen *, #swan-first-screen *::before, #swan-first-screen *::after { animation: none !important; transition: none !important; }
 .swan-fs-mobile { display: none; }
 @media ${MOBILE_QUERY} {
@@ -76,9 +77,11 @@ ${mobileCss}
 }
 `;
 
-  const snapshotHtml = `<div id="swan-first-screen" aria-hidden="true" inert>
-  <div class="swan-fs-variant swan-fs-desktop">${captures.desktop.html}</div>
-  <div class="swan-fs-variant swan-fs-mobile">${captures.mobile.html}</div>
+  // hydrate 前只放行 /todos 的 CTA：容器不给 pointer-events，菜单按钮等仍点不动；
+  // CTA 鼠标/触屏可点，键盘留给 hydrate 后的真实按钮（快照内元素统一 tabindex=-1）。
+  const snapshotHtml = `<div id="swan-first-screen" aria-hidden="true">
+  <div class="swan-fs-variant swan-fs-desktop">${prepareSnapshot(captures.desktop.html)}</div>
+  <div class="swan-fs-variant swan-fs-mobile">${prepareSnapshot(captures.mobile.html)}</div>
 </div>`;
 
   const readinessScript = `<script id="swan-first-screen-ready">
@@ -184,6 +187,20 @@ ${mobileCss}
     mode,
     appCssBytes: appCss.reduce((sum, css) => sum + Buffer.byteLength(css), 0),
   };
+}
+
+function prepareSnapshot(html: string): string {
+  const withTabIndex = (attrs: string) =>
+    /\btabindex="[^"]*"/.test(attrs)
+      ? attrs.replace(/\btabindex="[^"]*"/, 'tabindex="-1"')
+      : `${attrs} tabindex="-1"`;
+
+  return html
+    .replace(/<a\b([^>]*)>/gi, (match, attrs: string) => {
+      const extra = /\bhref="\/todos"/.test(attrs) ? ' data-swan-snapshot-cta' : '';
+      return `<a${withTabIndex(attrs)}${extra}>`;
+    })
+    .replace(/<button\b([^>]*)>/gi, (match, attrs: string) => `<button${withTabIndex(attrs)}>`);
 }
 
 function stylesheetHrefs(html: string): string[] {
