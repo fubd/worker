@@ -273,11 +273,10 @@ antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版�
 
 站点 HTML 与静态资源由 Vercel 托管，`bun run build` 会生成 `dist/vercel/`（含 geo rewrite 与 API 反代）。
 
-- 项目：`deephos-cn-test`（fubd）；生产域 `deephos.com`、`cn.deephos.com`、`vtest.deephos.com`；
+- 项目：`deephos-cn-test`（fubd）；生产域只有 `deephos.com`；
 - 手动部署：`cd dist/vercel && bunx vercel deploy . --prod --yes`（需要 `VERCEL_TOKEN`）；
 - CI：`deploy.yml` 的 Vercel 步骤在 `VERCEL_TOKEN` secret 存在时执行，缺失则跳过；
 - 根域在 Cloudflare 用**顶点 CNAME**（扁平化）指向 `8a55bf6822ee61dd.vercel-dns-017.com`，DNS only；
-- 迁移期别名 `cn.deephos.com` / `vtest.deephos.com` 由 Vercel 308 回 `deephos.com`（含根路径）；
 - API 反代目标写在 `scripts/build-vercel.ts` 的 `API` 常量（当前 `swan-worker.312bdf.workers.dev`）。
 
 ## 部署到 Cloudflare

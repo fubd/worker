@@ -60,22 +60,6 @@ const aboutRewrites = hasAbout
       { source: '/about', destination: `/${GLOBAL_SHELL}` },
     ];
 const config = {
-  // cn/vtest 是迁移期别名：OSS 只对 deephos.com 开 CORS，别名上的 CN shell 会加载失败。
-  // 统一 308 回主域，接住仍缓存着旧 302 的用户。
-  redirects: [
-    {
-      source: '/:path*',
-      has: [{ type: 'host', value: 'cn.deephos.com' }],
-      destination: 'https://deephos.com/:path*',
-      permanent: true,
-    },
-    {
-      source: '/:path*',
-      has: [{ type: 'host', value: 'vtest.deephos.com' }],
-      destination: 'https://deephos.com/:path*',
-      permanent: true,
-    },
-  ],
   rewrites: [
     { source: '/api/:path*', destination: `${API}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },
