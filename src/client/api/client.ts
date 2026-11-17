@@ -1,5 +1,12 @@
 import type { Todo, TodoListResponse, TodoStats, TodoStatusFilter } from '@/shared/types';
 
+declare global {
+  interface Window {
+    /** shell 内联预取的默认列表；客户端只消费一次 */
+    __swanTodosPrefetch?: Promise<TodoListResponse | null> | null;
+  }
+}
+
 const BASE_URL = '/api';
 
 export class ApiError extends Error {
@@ -49,9 +56,19 @@ export const api = {
   stats: () => request<TodoStats>('/stats'),
 
   listTodos: (params: { status?: TodoStatusFilter; keyword?: string } = {}) => {
+    const status = params.status ?? 'all';
+    const keyword = params.keyword?.trim() ?? '';
+    // shell 已在 HTML 解析时预取默认列表；只消费一次，失败则回退到正常请求
+    if (status === 'all' && !keyword && window.__swanTodosPrefetch) {
+      const prefetch = window.__swanTodosPrefetch;
+      window.__swanTodosPrefetch = null;
+      return prefetch.then((data) =>
+        data && Array.isArray(data.items) ? data : request<TodoListResponse>('/todos'),
+      );
+    }
     const search = new URLSearchParams();
-    if (params.status && params.status !== 'all') search.set('status', params.status);
-    if (params.keyword?.trim()) search.set('q', params.keyword.trim());
+    if (status !== 'all') search.set('status', status);
+    if (keyword) search.set('q', keyword);
     const query = search.toString();
     return request<TodoListResponse>(`/todos${query ? `?${query}` : ''}`);
   },

@@ -12,6 +12,7 @@
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { injectLoadingShell } from './loading-shell';
+import { apiPrefetchScript, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
 import { assertVendorPackageLocked, VENDOR_PACKAGE } from './vendor-package-config';
 
@@ -246,13 +247,19 @@ function toCn(
       throw new Error('CN static home transform did not apply');
     }
   } else {
-    // 4. preconnect OSS + vendor modulepreload；entry 用 OSS 绝对地址直接加载。
+    // 4. preconnect OSS + vendor/antd modulepreload + /todos 路由 chunk 预加载；
+    //    entry 用 OSS 绝对地址直接加载。
     const preloads = [files.react, files.dom, files.router]
       .map((file) => `<link rel="modulepreload" href="${vendorUrl(file)}" crossorigin />`)
       .join('\n    ');
+    const antdPreload = `<link rel="modulepreload" href="${ossBase}/static/js/${antd}" crossorigin />`;
+    const routeScripts =
+      routePreloadScript(todosRouteFiles(DIST), `${ossBase}/static/js/async/`, true) +
+      '\n    ' +
+      apiPrefetchScript();
     out = out.replace(
       '</head>',
-      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n  </head>`,
+      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n  </head>`,
     );
     const scripts = appScripts
       .map((src) => `<script type="module" src="${ossBase}${src}"></script>`)

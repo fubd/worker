@@ -11,6 +11,12 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { injectLoadingShell } from './loading-shell';
+import {
+  apiPrefetchScript,
+  findAntdFile,
+  routePreloadScript,
+  todosRouteFiles,
+} from './route-preload';
 
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
@@ -31,10 +37,13 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
-writeFileSync(
-  `${OUT}/${GLOBAL_SHELL}`,
-  injectLoadingShell(readFileSync(`${DIST}/index.html`, 'utf8')),
+const globalShell = injectLoadingShell(readFileSync(`${DIST}/index.html`, 'utf8')).replace(
+  '</head>',
+  `    <link rel="modulepreload" href="/static/js/${findAntdFile(DIST)}" />\n` +
+    `    ${routePreloadScript(todosRouteFiles(DIST), '/static/js/async/', false)}\n` +
+    `    ${apiPrefetchScript()}\n  </head>`,
 );
+writeFileSync(`${OUT}/${GLOBAL_SHELL}`, globalShell);
 for (const dir of ['static', 'vendor']) {
   cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });
 }
