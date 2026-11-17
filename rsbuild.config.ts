@@ -90,4 +90,29 @@ export default defineConfig(({ command }) => ({
     // Rspack 持久化构建缓存：二次构建复用未变更模块，缓存目录默认 node_modules/.cache
     buildCache: true,
   },
+
+  tools: {
+    rspack: {
+      // ANALYZE=1 bunx rsbuild build | grep SWAN_STATS，用来看初始 antd 块组成
+      plugins: process.env.ANALYZE
+        ? [
+            {
+              apply(compiler: {
+                hooks: { done: { tap: (name: string, cb: (stats: any) => void) => void } };
+              }) {
+                compiler.hooks.done.tap('swan-analyze', (stats) => {
+                  // 用 stdout 输出，避免 rsbuild 配置引入 node 类型
+                  console.log(
+                    'SWAN_STATS:' +
+                      JSON.stringify(
+                        stats.toJson({ all: false, chunks: true, chunkModules: true }),
+                      ),
+                  );
+                });
+              },
+            },
+          ]
+        : [],
+    },
+  },
 }));

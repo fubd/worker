@@ -104,6 +104,178 @@ body {
   margin: 0 auto;
 }
 
+.swan-shell {
+  display: flex;
+}
+
+.swan-sider.is-collapsed {
+  border-right: 0;
+}
+
+.swan-sider {
+  flex: 0 0 auto;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.swan-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.swan-content {
+  flex: 1;
+}
+
+.swan-header-left,
+.swan-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swan-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--swan-text, #0f172a);
+}
+
+.swan-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--swan-text-muted, #64748b);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.swan-icon-button:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--swan-text, #0f172a);
+}
+
+.swan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #e6f4ff;
+  color: #1677ff;
+  font-size: 12px;
+}
+
+.swan-chip-plain {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--swan-text-muted, #64748b);
+}
+
+.swan-menu {
+  padding: 12px 8px;
+}
+
+.swan-menu-item {
+  height: 40px;
+  line-height: 40px;
+  margin: 4px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--swan-text, #0f172a);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.swan-menu-item a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 16px 0 24px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: inherit;
+}
+
+.swan-menu-item:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.swan-menu-item.is-selected {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+.swan-menu-icon {
+  display: inline-flex;
+  font-size: 14px;
+}
+
+.swan-menu-label {
+  white-space: nowrap;
+}
+
+.swan-mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.swan-mobile-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swan-mobile-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 1000;
+  width: 264px;
+  max-width: 82vw;
+  background: var(--swan-panel, #fff);
+  box-shadow: 0 0 24px rgba(15, 23, 42, 0.18);
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  overflow-y: auto;
+}
+
+.swan-mobile-panel.is-open {
+  transform: translateX(0);
+}
+
+.swan-route-skeleton {
+  padding: 24px;
+}
+
+.swan-skeleton-line {
+  height: 24px;
+  width: 180px;
+  border-radius: 8px;
+  background: var(--swan-skeleton, #e9eef5);
+  margin-bottom: 20px;
+}
+
+.swan-skeleton-block {
+  height: 96px;
+  border-radius: 12px;
+  background: var(--swan-skeleton, #e9eef5);
+  margin-bottom: 16px;
+}
+
 /* ---------- 通用块 ---------- */
 .swan-card {
   background: var(--swan-panel);

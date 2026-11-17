@@ -16,6 +16,7 @@
 import { existsSync, unlinkSync } from 'node:fs';
 import { captureSnapshots, findChrome } from './capture';
 import { generateHomeHtml, type AppCssMode } from './generate';
+import { generateStaticPage } from './generate-static';
 import { startCaptureServer } from './server';
 import { verifyHomeHtml } from './verify';
 
@@ -48,6 +49,23 @@ async function main() {
       `[first-screen] wrote dist/home.html (${result.bytes} bytes, css mode: ${result.mode}, app css: ${result.appCssBytes} bytes)`,
     );
 
+    try {
+      const aboutCaptures = await captureSnapshots(server.url, executablePath, '/about');
+      const aboutBytes = generateStaticPage(distDir, aboutCaptures, {
+        title: '技术栈 · Swan Worker',
+        description: 'Swan Worker 的技术栈与运行架构',
+      });
+      console.log(`[first-screen] wrote dist/about.html (${aboutBytes} bytes)`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.split('\n')[0] : String(error);
+      console.warn(`[first-screen] about capture failed: ${message}`);
+      try {
+        unlinkSync(`${distDir}/about.html`);
+      } catch {
+        // no file to remove
+      }
+    }
+
     server.setServeHome(true);
     await verifyHomeHtml(server, executablePath);
     console.log('[first-screen] verification passed');
@@ -63,6 +81,11 @@ main().catch((error: unknown) => {
 
   try {
     unlinkSync(`${distDir}/home.html`);
+  } catch {
+    // no file to remove
+  }
+  try {
+    unlinkSync(`${distDir}/about.html`);
   } catch {
     // no file to remove
   }

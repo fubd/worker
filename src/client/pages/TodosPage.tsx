@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -23,7 +23,14 @@ import {
 } from '@ant-design/icons';
 
 import { api } from '../api/client';
-import type { Todo, TodoStatusFilter } from '@/shared/types';
+import type { Todo, TodoListResponse, TodoStatusFilter } from '@/shared/types';
+
+declare global {
+  interface Window {
+    /** 构建期注入的默认列表；首帧直接用，随后静默刷新 */
+    __swanTodosInitial?: TodoListResponse | null;
+  }
+}
 
 const FILTER_OPTIONS: { label: string; value: TodoStatusFilter }[] = [
   { label: '全部', value: 'all' },
@@ -46,12 +53,14 @@ export default function TodosPage() {
 function TodosPageContent() {
   const { message } = App.useApp();
 
-  const [items, setItems] = useState<Todo[]>([]);
+  const initialData = typeof window === 'undefined' ? null : window.__swanTodosInitial;
+  const [items, setItems] = useState<Todo[]>(() => initialData?.items ?? []);
+  const [loading, setLoading] = useState(!initialData);
+  const initialRefreshRef = useRef(!!initialData);
   const [status, setStatus] = useState<TodoStatusFilter>('all');
   const [keyword, setKeyword] = useState('');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -61,19 +70,29 @@ function TodosPageContent() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.listTodos({ status, keyword });
-      setItems(data.items);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [status, keyword, message]);
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const data = await api.listTodos({ status, keyword });
+        setItems(data.items);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '加载失败');
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [status, keyword, message],
+  );
 
   useEffect(() => {
+    if (initialRefreshRef.current) {
+      // 首帧已有构建期数据：不显示骨架，后台静默刷新
+      initialRefreshRef.current = false;
+      window.__swanTodosInitial = null;
+      void load(true);
+      return;
+    }
     void load();
   }, [load]);
 

@@ -11,7 +11,9 @@
  * Run after `rsbuild build` and `first-screen` (which writes home.html).
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { fetchInitialTodos, initialTodosScript } from './initial-todos';
 import { injectLoadingShell } from './loading-shell';
+import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
 import { apiPrefetchScript, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
 import { assertVendorPackageLocked, VENDOR_PACKAGE } from './vendor-package-config';
@@ -55,76 +57,6 @@ const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
  * 宽度、遮罩和滑入动画对齐 /todos 的 Drawer（264px）；桌面端 sider 常驻，
  * 只隐藏点了没反应的「收起菜单」，并恢复被快照冻结的菜单 hover 过渡。
  */
-const STATIC_HOME_STYLE = `<style id="swan-static-home-style">
-  /* 静态首页就是最终页面：快照里的链接/按钮全部可点 */
-  #swan-first-screen, #swan-first-screen * { pointer-events: auto; }
-  #swan-first-screen .swan-header button[aria-label="收起菜单"] { display: none; }
-  #swan-first-screen .swan-sider .ant-menu-item,
-  #swan-first-screen .swan-sider .ant-menu-item * { transition: background-color 0.2s, color 0.2s !important; }
-  #swan-static-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
-  #swan-static-backdrop.is-open { opacity: 1; pointer-events: auto; }
-  #swan-static-menu {
-    position: fixed; top: 0; left: 0; bottom: 0; width: 264px; max-width: 82vw;
-    background: #fff; z-index: 1000; box-shadow: 0 0 24px rgba(15, 23, 42, 0.18);
-    transform: translateX(-100%); pointer-events: none; transition: transform 0.2s ease;
-    overflow-y: auto;
-  }
-  #swan-static-menu.is-open { transform: translateX(0); pointer-events: auto; }
-  #swan-static-menu .swan-sider { width: 100% !important; max-width: none !important; min-width: 0 !important; height: auto; border-right: 0; }
-  /* 快照的移动视图里没有桌面 sider 的菜单样式，这里按 /todos 抽屉的实测值补齐 */
-  #swan-static-menu .ant-menu,
-  #swan-static-menu .ant-menu-item { list-style: none; }
-  #swan-static-menu .ant-menu-item {
-    height: var(--ant-menu-item-height, 40px);
-    line-height: var(--ant-menu-item-height, 40px);
-    margin: var(--ant-menu-item-margin, 4px);
-    padding: 0 16px 0 24px;
-    font-size: var(--ant-font-size, 14px);
-    border-radius: var(--ant-menu-item-border-radius, 8px);
-    color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
-  }
-  #swan-static-menu .ant-menu-item .anticon { font-size: 14px; }
-  #swan-static-menu .ant-menu-item .ant-menu-title-content { margin-inline-start: 10px; }
-  #swan-static-menu .ant-menu-item a,
-  #swan-first-screen .swan-sider .ant-menu-item a { color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
-  #swan-static-menu .ant-menu-item-selected { background-color: var(--ant-menu-item-selected-bg, #e6f4ff); }
-  #swan-static-menu .ant-menu-item-selected,
-  #swan-static-menu .ant-menu-item-selected .ant-menu-title-content,
-  #swan-static-menu .ant-menu-item-selected a,
-  #swan-first-screen .swan-sider .ant-menu-item-selected a { color: var(--ant-color-primary, #1677ff); }
-  #swan-static-menu > a { display: block; padding: 10px 16px; color: #0f172a; font-size: 14px; text-decoration: none; }
-</style>`;
-
-const STATIC_HOME_MENU = `<div id="swan-static-backdrop"></div>
-<nav id="swan-static-menu" aria-hidden="true" aria-label="站点导航"></nav>`;
-
-const STATIC_HOME_MENU_SCRIPT = `<script id="swan-static-home-menu">
-(function () {
-  var btn = document.querySelector('#swan-first-screen .swan-header button[aria-label="打开菜单"]');
-  var menu = document.getElementById('swan-static-menu');
-  var backdrop = document.getElementById('swan-static-backdrop');
-  if (!btn || !menu || !backdrop) return;
-  var sider = document.querySelector('#swan-first-screen .swan-sider');
-  if (sider) {
-    var clone = sider.cloneNode(true);
-    clone.removeAttribute('style');
-    menu.appendChild(clone);
-  } else {
-    menu.innerHTML = '<a href="/">概览</a><a href="/todos">待办 Demo</a><a href="/about">技术栈</a>';
-  }
-  function set(open) {
-    menu.classList.toggle('is-open', open);
-    backdrop.classList.toggle('is-open', open);
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-  }
-  btn.setAttribute('aria-expanded', 'false');
-  btn.addEventListener('click', function () { set(!menu.classList.contains('is-open')); });
-  backdrop.addEventListener('click', function () { set(false); });
-  document.addEventListener('keydown', function (event) { if (event.key === 'Escape') set(false); });
-})();
-</script>`;
-
 function vendorFiles(): { react: string; dom: string; router: string } {
   const files = readdirSync(VENDOR_DIR);
   const pick = (pattern: RegExp, label: string) => {
@@ -158,7 +90,7 @@ function toCn(
   html: string,
   files: { react: string; dom: string; router: string },
   antd: string,
-  options: { staticHome?: boolean } = {},
+  options: { staticHome?: boolean; initialScript?: string } = {},
 ): string {
   // 1. 收集模块脚本：antd 由 entry 相对 import，不单独加载；其余 entry 脚本稍后按 OSS 地址重插。
   const allScripts: string[] = [];
@@ -227,10 +159,10 @@ function toCn(
     out = out.replaceAll(' tabindex="-1"', '');
     // 没有模块脚本，import map 也用不上，去掉省字节
     out = out.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/i, '');
-    out = out.replace('</head>', `    ${STATIC_HOME_STYLE}\n  </head>`);
+    out = out.replace('</head>', `    ${STATIC_PAGE_STYLE}\n  </head>`);
     out = out.replace(
       '</body>',
-      `    ${STATIC_HOME_MENU}\n    ${STATIC_HOME_SCRIPT}\n    ${STATIC_HOME_MENU_SCRIPT}\n  </body>`,
+      `    ${STATIC_MENU}\n    ${STATIC_HOME_SCRIPT}\n    ${STATIC_MENU_SCRIPT}\n  </body>`,
     );
 
     if (
@@ -259,7 +191,7 @@ function toCn(
       apiPrefetchScript();
     out = out.replace(
       '</head>',
-      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n  </head>`,
+      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n    ${options.initialScript ?? ''}\n  </head>`,
     );
     const scripts = appScripts
       .map((src) => `<script type="module" src="${ossBase}${src}"></script>`)
@@ -296,7 +228,11 @@ assertVendorPackageLocked();
 const files = vendorFiles();
 const antd = antdFile();
 const indexHtml = readFileSync(`${DIST}/index.html`, 'utf8');
-writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
+const initialScript = initialTodosScript(await fetchInitialTodos());
+writeFileSync(
+  `${DIST}/index-cn.html`,
+  injectLoadingShell(toCn(indexHtml, files, antd, { initialScript })),
+);
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {

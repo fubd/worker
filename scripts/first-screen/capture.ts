@@ -54,6 +54,7 @@ export function findChrome(): string {
 export async function captureSnapshots(
   baseUrl: string,
   executablePath: string,
+  path = '/',
 ): Promise<CaptureMap> {
   const browser = await chromium.launch({
     executablePath,
@@ -64,7 +65,7 @@ export async function captureSnapshots(
   try {
     const captures = {} as CaptureMap;
     for (const viewport of VIEWPORTS) {
-      captures[viewport.name] = await captureAt(browser, baseUrl, viewport);
+      captures[viewport.name] = await captureAt(browser, baseUrl, viewport, path);
     }
     return captures;
   } finally {
@@ -76,6 +77,7 @@ async function captureAt(
   browser: Browser,
   baseUrl: string,
   viewport: (typeof VIEWPORTS)[number],
+  path: string,
 ): Promise<Capture> {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
@@ -94,10 +96,15 @@ async function captureAt(
       if (message.type() === 'error') errors.push(message.text());
     });
 
-    await page.goto(`${baseUrl}/`, { waitUntil: 'load', timeout: 30_000 });
-    await page.waitForSelector('#root .swan-hero h1', { timeout: 15_000 });
-    await page.waitForSelector('#root .swan-stat-value', { timeout: 15_000 });
-    await page.waitForSelector('#root .swan-code-block', { timeout: 15_000 });
+    await page.goto(`${baseUrl}${path}`, { waitUntil: 'load', timeout: 30_000 });
+    if (path === '/about') {
+      await page.waitForSelector('#root .swan-code-block', { timeout: 15_000 });
+      await page.waitForSelector('#root .ant-table-row', { timeout: 15_000 });
+    } else {
+      await page.waitForSelector('#root .swan-hero h1', { timeout: 15_000 });
+      await page.waitForSelector('#root .swan-stat-value', { timeout: 15_000 });
+      await page.waitForSelector('#root .swan-code-block', { timeout: 15_000 });
+    }
     await page.evaluate(() => document.fonts.ready.then(() => true));
 
     // Freeze animations for the capture. The style is marked so the CSS

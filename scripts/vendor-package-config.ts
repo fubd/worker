@@ -11,16 +11,16 @@
  */
 export const VENDOR_PACKAGE = {
   name: '@meteor957/swan-vendor',
-  version: '0.2.0',
+  version: '0.2.1',
   // SHA-256 of the deterministic `npm pack` output. `npm publish` repacks the
   // same files and npm's packer normalizes timestamps, so the published bytes
   // match; verify by downloading the published tarball and hashing it.
-  tarballSha256: 'bc19b84deca6e459860c0fd0e7dfe48c27fad3fcf221eb41f74232ea13c976a0',
+  tarballSha256: 'ad41b9dc22fa0e196021dbad5ccf6653204147791ee82e66711930b1b0d9435c',
   // The initial antd chunk emitted by Rsbuild. Its content hash changes when the
   // antd dependency graph or the initial antd imports change; when it does, bump
   // the package version, republish, and update this field. build:cn-html checks
   // that the file exists in dist before emitting a CN variant.
-  antdFile: 'lib-antd.e1ded704.mjs',
+  antdFile: 'lib-antd.07034fdc.mjs',
 } as const;
 
 export function assertVendorPackageLocked(): void {
