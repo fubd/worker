@@ -11,12 +11,10 @@
  * Run after `rsbuild build` and `first-screen` (which writes home.html).
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { fetchInitialTodos, initialTodosScript } from './initial-todos';
 import { injectLoadingShell } from './loading-shell';
 import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
 import { apiPrefetchScript, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
-import { assertVendorPackageLocked, VENDOR_PACKAGE } from './vendor-package-config';
 
 const DIST = 'dist';
 const VENDOR_DIR = `${DIST}/vendor`;
@@ -76,13 +74,6 @@ function antdFile(): string {
   const files = readdirSync(STATIC_JS);
   const match = files.find((file) => /^lib-antd\.[^.]+\.mjs$/.test(file));
   if (!match) throw new Error(`missing lib-antd chunk in ${STATIC_JS}`);
-  if (match !== VENDOR_PACKAGE.antdFile) {
-    throw new Error(
-      `built antd chunk is ${match}, but the CN vendor package contains ` +
-        `${VENDOR_PACKAGE.antdFile}. Bump the package version, republish, and update ` +
-        'scripts/vendor-package-config.ts before building the CN HTML.',
-    );
-  }
   return match;
 }
 
@@ -90,7 +81,7 @@ function toCn(
   html: string,
   files: { react: string; dom: string; router: string },
   antd: string,
-  options: { staticHome?: boolean; initialScript?: string } = {},
+  options: { staticHome?: boolean } = {},
 ): string {
   // 1. 收集模块脚本：antd 由 entry 相对 import，不单独加载；其余 entry 脚本稍后按 OSS 地址重插。
   const allScripts: string[] = [];
@@ -191,7 +182,7 @@ function toCn(
       apiPrefetchScript();
     out = out.replace(
       '</head>',
-      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n    ${options.initialScript ?? ''}\n  </head>`,
+      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n  </head>`,
     );
     const scripts = appScripts
       .map((src) => `<script type="module" src="${ossBase}${src}"></script>`)
@@ -224,15 +215,10 @@ function toCn(
   return out;
 }
 
-assertVendorPackageLocked();
 const files = vendorFiles();
 const antd = antdFile();
 const indexHtml = readFileSync(`${DIST}/index.html`, 'utf8');
-const initialScript = initialTodosScript(await fetchInitialTodos());
-writeFileSync(
-  `${DIST}/index-cn.html`,
-  injectLoadingShell(toCn(indexHtml, files, antd, { initialScript })),
-);
+writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {

@@ -10,7 +10,6 @@
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { fetchInitialTodos, initialTodosScript } from './initial-todos';
 import { injectLoadingShell } from './loading-shell';
 import {
   apiPrefetchScript,
@@ -38,14 +37,11 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
-const hasAbout = existsSync(`${DIST}/about.html`);
-if (hasAbout) cpSync(`${DIST}/about.html`, `${OUT}/about.html`);
-const initialScript = initialTodosScript(await fetchInitialTodos());
 const globalShell = injectLoadingShell(readFileSync(`${DIST}/index.html`, 'utf8')).replace(
   '</head>',
   `    <link rel="modulepreload" href="/static/js/${findAntdFile(DIST)}" />\n` +
     `    ${routePreloadScript(todosRouteFiles(DIST), '/static/js/async/', false)}\n` +
-    `    ${apiPrefetchScript()}\n    ${initialScript}\n  </head>`,
+    `    ${apiPrefetchScript()}\n  </head>`,
 );
 writeFileSync(`${OUT}/${GLOBAL_SHELL}`, globalShell);
 for (const dir of ['static', 'vendor']) {
@@ -53,12 +49,6 @@ for (const dir of ['static', 'vendor']) {
 }
 
 const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
-const aboutRewrites = hasAbout
-  ? [{ source: '/about', destination: '/about.html' }]
-  : [
-      { source: '/about', has: CN, destination: '/index-cn.html' },
-      { source: '/about', destination: `/${GLOBAL_SHELL}` },
-    ];
 const config = {
   rewrites: [
     { source: '/api/:path*', destination: `${API}/api/:path*` },
@@ -66,9 +56,17 @@ const config = {
     { source: '/', destination: '/home.html' },
     { source: '/todos', has: CN, destination: '/index-cn.html' },
     { source: '/todos', destination: `/${GLOBAL_SHELL}` },
-    ...aboutRewrites,
+    { source: '/about', has: CN, destination: '/index-cn.html' },
+    { source: '/about', destination: `/${GLOBAL_SHELL}` },
   ],
   headers: [
+    {
+      source: '/(.*)',
+      headers: [
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      ],
+    },
     {
       source: '/static/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],

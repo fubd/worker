@@ -50,7 +50,6 @@ bun run build                # vendor + 构建前端到 dist/（含静态首屏�
 bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
 bun run build:cn-html        # 只生成 dist/index-cn.html / home-cn.html（需先 rsbuild build）
 bun run build:vercel         # 只生成 dist/vercel/（CN 首页子域产物，需先 build:cn-html）
-bun run vendor-package       # 组装大陆版 npm 包 .vendor-package/（需手动 npm publish）
 bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
 bun run check                # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
@@ -77,15 +76,12 @@ swan-worker/
 ├── seed/                  # 演示数据，不属于迁移
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
-│   ├── _headers           # 缓存策略与安全头
 │   └── vendor/            # 构建时生成，react 系 ESM 模块（已 gitignore）
 ├── scripts/
 │   ├── build-vendor.ts    # 把 react/react-dom/router 打成 ESM 供 importmap 使用
-│   ├── build-vendor-package.ts  # 组装大陆版 npm 包（vendor + antd chunk）
 │   ├── build-cn-html.ts   # 生成 dist/index-cn.html / home-cn.html
 │   ├── build-vercel.ts    # 生成 dist/vercel/（整站 + geo rewrite）
 │   ├── loading-shell.ts   # SPA shell 的首帧加载骨架
-│   ├── vendor-package-config.ts # npm 包版本、antd 文件名锁
 │   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
@@ -145,7 +141,7 @@ swan-worker/
 
 **类型只写一次。** `src/shared/types.ts` 被前端和 Worker 同时引用，接口字段改名会立刻在两边报错。
 
-**缓存与安全头写在 `public/_headers`。** 构建时它会被拷到 `dist/_headers`，Workers 静态资源读取后生效：`/static/*` 拿到 `max-age=31536000, immutable`（文件名带 hash，改内容必然改名），`/vendor/*` 同样拿到 immutable（文件名带 React 版本号），HTML 入口走 `no-cache`（否则发版后用户还在用旧壳），并统一加 `X-Content-Type-Options` 与 `Referrer-Policy`。
+**缓存与安全头由 `scripts/build-vercel.ts` 生成的 `vercel.json` 负责。** `/static/*`、`/vendor/*` 拿到 `max-age=31536000, immutable`（文件名带 hash/版本号），HTML 走 Vercel 默认的 `no-cache`，全局加 `X-Content-Type-Options` 与 `Referrer-Policy`。
 
 **错误不泄漏内部信息。** Worker 的 `onError` 只把堆栈写日志，响应里返回 `{ error, traceId }`（`traceId` 取 `cf-ray`，方便回查）；前端 `request()` 对非 JSON 响应做了兜底，边缘层直接吐 HTML 错误页时不会变成 `SyntaxError`。
 
@@ -158,7 +154,7 @@ swan-worker/
 | 生成位置 | `public/vendor/`（`scripts/build-vendor.ts`，gitignore）                               |
 | 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                                      |
 | 线上路径 | `/vendor/react-19.3.1.mjs`、`/vendor/react-dom-19.3.1.mjs`、`/vendor/router-8.5.1.mjs` |
-| 缓存     | `public/_headers` 里的 `max-age=31536000, immutable`                                   |
+| 缓存     | `vercel.json`（build-vercel 生成）的 `max-age=31536000, immutable`                     |
 | 托管     | Vercel 静态资源（全局版），`/static/*` 同样随部署上传并走 Vercel 边缘缓存              |
 
 这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 7 个 API，避免把整个 data router 拉进首屏）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
@@ -225,28 +221,16 @@ CHROME_PATH=/path/to/chrome bun run build
 2. 去掉 `lib-antd.<hash>.mjs` 的 `<script type="module">`（由入口相对 import 命中 OSS）；
 3. 入口 script 改为 OSS 绝对地址；`home-cn.html` 走静态快照分支（无模块脚本）。
 
-CN vendor 不再依赖 npmmirror tarball：没有 loader、SHA 校验、`DecompressionStream`
-和 blob URL；`scripts/upload-oss.ts` 同时上传 `dist/vendor` → `static/vendor/`。
+CN vendor 全部来自 OSS：没有 loader、SHA 校验、`DecompressionStream` 和 blob URL；
+`scripts/upload-oss.ts` 同时上传 `dist/vendor` → `static/vendor/`。
 
 入口、async chunk 和 CSS 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
 免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，需要仓库 secrets
 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`（RAM 用户只授权该桶的
 Put/Get/Delete/List）。
 
-npm 包 `@meteor957/swan-vendor` 同时包含这些文件，仅作为版本化备份，不参与运行时。发布流程：
-
-```bash
-bun run vendor-package          # 组装 .vendor-package/（含当前 lib-antd chunk）
-cd .vendor-package
-npm publish --access public     # 需要 npm 2FA
-# 把新版本的 tarball SHA-256 和 antd 文件名写回
-# scripts/vendor-package-config.ts，然后：
-bun run build:cn-html
-```
-
-`build:cn-html` 会校验 dist 里的 `lib-antd.<hash>.mjs` 与包里锁定的文件名一致；
-antd 依赖或首屏 antd import 变化导致 hash 变化时，必须发新版本并更新配置，否则
-构建直接报错，避免部署出引用不存在文件的 CN HTML。
+CN 的 vendor 与 antd chunk 全部从 OSS `/static/vendor/*`、`/static/js/*` 加载，
+不再维护 npm 备份包；antd 文件名由构建产物自动发现，不再有手动锁。
 
 ### 实测（Globalping，8 个大陆探针）
 

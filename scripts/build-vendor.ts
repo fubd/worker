@@ -18,7 +18,7 @@
  * router 单独一份，因为它只依赖 react，不依赖 react-dom。
  *
  * 同一份产物也用于发布 @meteor957/swan-vendor（见 README）：
- * 大陆 HTML 的 importmap 指向 npmmirror 上的同名文件，海外仍指向 /vendor/*。
+ * 大陆 HTML 的 importmap 指向 OSS 上的同名文件，海外仍指向 /vendor/*。
  */
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
