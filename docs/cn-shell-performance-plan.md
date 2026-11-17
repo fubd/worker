@@ -17,13 +17,13 @@
 
 预期结果：
 
-| 指标 | 现状 | 目标 |
-|---|---|---|
-| CN `/todos` 点击到首条数据 | 约 1.5–2s，npmmirror 慢时 +4s | < 1.5s，无 4s 等待 |
-| CN vendor 来源 | npmmirror 第三方 | 自有 OSS 北京 |
-| CN `/todos` 白屏 | 启动期间空白 | 首帧即有骨架 |
-| global 首页 CTA 可点时间 | hydrate 后约 2.2–2.7s | 首帧即可点 |
-| CN shell 运行时 JS | tarball 解析 + blob import map | 无 loader JS，浏览器原生 import map |
+| 指标                       | 现状                           | 目标                                |
+| -------------------------- | ------------------------------ | ----------------------------------- |
+| CN `/todos` 点击到首条数据 | 约 1.5–2s，npmmirror 慢时 +4s  | < 1.5s，无 4s 等待                  |
+| CN vendor 来源             | npmmirror 第三方               | 自有 OSS 北京                       |
+| CN `/todos` 白屏           | 启动期间空白                   | 首帧即有骨架                        |
+| global 首页 CTA 可点时间   | hydrate 后约 2.2–2.7s          | 首帧即可点                          |
+| CN shell 运行时 JS         | tarball 解析 + blob import map | 无 loader JS，浏览器原生 import map |
 
 ## 1. 背景与现状
 
@@ -50,38 +50,38 @@ API                 /api/* 同源 -> Vercel rewrite -> Worker -> D1
 
 关键文件：
 
-| 文件 | 作用 |
-|---|---|
-| `scripts/build-cn-html.ts` | 生成 `dist/index-cn.html`、`dist/home-cn.html`，注入 CN vendor loader |
-| `scripts/cn-vendor-loader.ts` | CN 版内联 loader：npmmirror tarball → blob import map |
-| `scripts/vendor-package-config.ts` | npm 包版本、tarball SHA-256、antd chunk 文件名锁 |
-| `scripts/upload-oss.ts` | 把 `dist/static` 镜像到 OSS `static/` 前缀 |
-| `scripts/build-vercel.ts` | 生成 `dist/vercel/`、`shell-global.html`、geo rewrite |
-| `scripts/first-screen/generate.ts` | 生成 `home.html` 的首屏快照和 readiness 脚本 |
-| `src/client/index.html` | 全局版 import map / modulepreload 模板 |
-| `src/client/pages/TodosPage.tsx` | `/todos` 懒加载页，挂载后请求 `/api/todos` |
+| 文件                               | 作用                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `scripts/build-cn-html.ts`         | 生成 `dist/index-cn.html`、`dist/home-cn.html`，注入 CN vendor loader |
+| `scripts/cn-vendor-loader.ts`      | CN 版内联 loader：npmmirror tarball → blob import map                 |
+| `scripts/vendor-package-config.ts` | npm 包版本、tarball SHA-256、antd chunk 文件名锁                      |
+| `scripts/upload-oss.ts`            | 把 `dist/static` 镜像到 OSS `static/` 前缀                            |
+| `scripts/build-vercel.ts`          | 生成 `dist/vercel/`、`shell-global.html`、geo rewrite                 |
+| `scripts/first-screen/generate.ts` | 生成 `home.html` 的首屏快照和 readiness 脚本                          |
+| `src/client/index.html`            | 全局版 import map / modulepreload 模板                                |
+| `src/client/pages/TodosPage.tsx`   | `/todos` 懒加载页，挂载后请求 `/api/todos`                            |
 
 ### 1.2 实测数据（2026-11-17）
 
 **global 首页（代理出口 US，移动端 4x CPU，冷缓存）**
 
-| 阶段 | 时间 |
-|---|---|
-| `DOMContentLoaded` | 约 2.4s |
-| 快照 CTA 可点（hydrate 完成） | 约 2.7s |
+| 阶段                            | 时间        |
+| ------------------------------- | ----------- |
+| `DOMContentLoaded`              | 约 2.4s     |
+| 快照 CTA 可点（hydrate 完成）   | 约 2.7s     |
 | 点击 → `/todos` 首条数据（SPA） | 约 0.8–1.3s |
-| 打开首页 → todos 数据 | 约 3.5s |
+| 打开首页 → todos 数据           | 约 3.5s     |
 
 **CN shell（模拟 CN 首页 → `/todos`）**
 
-| 资源 | 实测 |
-|---|---|
-| npmmirror tarball 248,372B（4 个大陆探针） | 200；TTFB 73–273ms；总 91–340ms |
-| OSS app entry（4 个大陆探针） | 200；TTFB 34–59ms；总 142–246ms |
-| OSS antd chunk | 200；gzip 143,757B；`immutable`；CORS 允许 `deephos.com` |
-| `/api/todos`（大陆探针） | TTFB 294–676ms；总 579–2,653ms |
-| API 同连接第二请求 | TTFB 约 0.25–0.37s |
-| 点击 → 首条数据（模拟） | 约 1.5s |
+| 资源                                       | 实测                                                     |
+| ------------------------------------------ | -------------------------------------------------------- |
+| npmmirror tarball 248,372B（4 个大陆探针） | 200；TTFB 73–273ms；总 91–340ms                          |
+| OSS app entry（4 个大陆探针）              | 200；TTFB 34–59ms；总 142–246ms                          |
+| OSS antd chunk                             | 200；gzip 143,757B；`immutable`；CORS 允许 `deephos.com` |
+| `/api/todos`（大陆探针）                   | TTFB 294–676ms；总 579–2,653ms                           |
+| API 同连接第二请求                         | TTFB 约 0.25–0.37s                                       |
+| 点击 → 首条数据（模拟）                    | 约 1.5s                                                  |
 
 **其他确认**
 
@@ -93,14 +93,14 @@ API                 /api/* 同源 -> Vercel rewrite -> Worker -> D1
 
 ## 2. 问题清单
 
-| 优先级 | 问题 | 影响 |
-|---|---|---|
-| P0 | CN vendor 依赖 npmmirror tarball | 第三方可用性；失败要等满 4s 才 fallback；tarball 解析占 CPU |
-| P0 | vendor 未上 OSS | OSS 已经托管 entry/async/CSS，vendor 是唯一的外部依赖 |
-| P1 | CN shell 启动期间白屏 | 用户看不到反馈，体感比实际更慢 |
-| P1 | global 首页快照 CTA 在 hydrate 前 `inert` | 用户看到按钮但点不动，白等 2s+ |
-| P2 | `/todos` 懒加载 chunk + API 串行 | 点击后至少两段串行等待 |
-| P3 | API 走 Vercel rewrite 再到 Worker | 多一跳；收益约 0.3s，优先级最低 |
+| 优先级 | 问题                                      | 影响                                                        |
+| ------ | ----------------------------------------- | ----------------------------------------------------------- |
+| P0     | CN vendor 依赖 npmmirror tarball          | 第三方可用性；失败要等满 4s 才 fallback；tarball 解析占 CPU |
+| P0     | vendor 未上 OSS                           | OSS 已经托管 entry/async/CSS，vendor 是唯一的外部依赖       |
+| P1     | CN shell 启动期间白屏                     | 用户看不到反馈，体感比实际更慢                              |
+| P1     | global 首页快照 CTA 在 hydrate 前 `inert` | 用户看到按钮但点不动，白等 2s+                              |
+| P2     | `/todos` 懒加载 chunk + API 串行          | 点击后至少两段串行等待                                      |
+| P3     | API 走 Vercel rewrite 再到 Worker         | 多一跳；收益约 0.3s，优先级最低                             |
 
 ## 3. 目标与非目标
 
@@ -150,14 +150,14 @@ API                 /api/* -> Vercel rewrite -> Worker -> D1（可选：浏览�
 
 **改动文件**
 
-| 文件 | 改动 |
-|---|---|
-| `scripts/upload-oss.ts` | 增加 `dist/vendor` → OSS `static/vendor/` 的上传 |
-| `scripts/build-cn-html.ts` | 用静态 import map + modulepreload 替换 tarball loader |
-| `scripts/cn-vendor-loader.ts` | 删除（或停止引用后删除） |
-| `scripts/vendor-package-config.ts` | 移除 `cnVendorTarball()` / `tarballSha256` 的运行时用途；保留 antd 文件名锁 |
-| `scripts/build-vendor-package.ts`、`.vendor-package/` | 保留为可选的 npm 版本化产物，但不再参与运行时 |
-| `README.md` | 实施后更新 CN vendor 章节和实测数据 |
+| 文件                                                  | 改动                                                                        |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| `scripts/upload-oss.ts`                               | 增加 `dist/vendor` → OSS `static/vendor/` 的上传                            |
+| `scripts/build-cn-html.ts`                            | 用静态 import map + modulepreload 替换 tarball loader                       |
+| `scripts/cn-vendor-loader.ts`                         | 删除（或停止引用后删除）                                                    |
+| `scripts/vendor-package-config.ts`                    | 移除 `cnVendorTarball()` / `tarballSha256` 的运行时用途；保留 antd 文件名锁 |
+| `scripts/build-vendor-package.ts`、`.vendor-package/` | 保留为可选的 npm 版本化产物，但不再参与运行时                               |
+| `README.md`                                           | 实施后更新 CN vendor 章节和实测数据                                         |
 
 **实施步骤**
 
@@ -171,16 +171,16 @@ API                 /api/* -> Vercel rewrite -> Worker -> D1（可选：浏览�
 
      ```html
      <script type="importmap">
-     {
-       "imports": {
-         "react": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-19.3.1.mjs",
-         "react/jsx-runtime": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-19.3.1.mjs",
-         "react-dom": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs",
-         "react-dom/client": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs",
-         "react-router": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/router-8.5.1.mjs",
-         "react-router/dom": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/router-8.5.1.mjs"
+       {
+         "imports": {
+           "react": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-19.3.1.mjs",
+           "react/jsx-runtime": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-19.3.1.mjs",
+           "react-dom": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs",
+           "react-dom/client": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs",
+           "react-router": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/router-8.5.1.mjs",
+           "react-router/dom": "https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/router-8.5.1.mjs"
+         }
        }
-     }
      </script>
      <link rel="modulepreload" href="…/static/vendor/react-19.3.1.mjs" />
      <link rel="modulepreload" href="…/static/vendor/react-dom-19.3.1.mjs" />
@@ -218,6 +218,7 @@ curl -sS -o /dev/null -D - \
 ```
 
 浏览器验证：
+
 - `/todos` 网络面板中 vendor 来自 `deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/`。
 - 没有 `cdn.npmmirror.com` 请求。
 - 没有 `blob:` module 请求。
@@ -233,12 +234,12 @@ curl -sS -o /dev/null -D - \
 
 **改动文件**
 
-| 文件 | 改动 |
-|---|---|
-| `scripts/loading-shell.ts`（新增） | 提供 `injectLoadingShell(html)`，注入骨架 HTML + 内联 CSS |
-| `scripts/build-cn-html.ts` | 对 `index-cn.html` 调用 `injectLoadingShell` |
-| `scripts/build-vercel.ts` | 对 `shell-global.html` 调用 `injectLoadingShell` |
-| `src/client/main.tsx` | 仅在 React 不清空 `#root` 时需要 `container.replaceChildren()`；否则不动 |
+| 文件                               | 改动                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `scripts/loading-shell.ts`（新增） | 提供 `injectLoadingShell(html)`，注入骨架 HTML + 内联 CSS                |
+| `scripts/build-cn-html.ts`         | 对 `index-cn.html` 调用 `injectLoadingShell`                             |
+| `scripts/build-vercel.ts`          | 对 `shell-global.html` 调用 `injectLoadingShell`                         |
+| `src/client/main.tsx`              | 仅在 React 不清空 `#root` 时需要 `container.replaceChildren()`；否则不动 |
 
 **骨架结构**
 
@@ -269,6 +270,7 @@ curl -sS -o /dev/null -D - \
 5. 骨架不要放进 `home.html` / `home-cn.html`：首页已有首屏快照。
 
 **验证**
+
 - 网络限速到 Fast 3G，导航到 `/todos`，首帧在 100ms 内出现骨架。
 - React 渲染后骨架完全消失，无重复内容、无明显布局跳动。
 - `/about` 同样生效。
@@ -284,10 +286,10 @@ curl -sS -o /dev/null -D - \
 
 **改动文件**
 
-| 文件 | 改动 |
-|---|---|
+| 文件                               | 改动                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `scripts/first-screen/generate.ts` | 给快照里的 CTA 加标记；快照容器去掉 `inert`；加 pointer-events CSS；给快照内可聚焦元素加 `tabindex="-1"` |
-| `scripts/build-cn-html.ts` | 静态 CN 首页覆盖 pointer-events 规则，确保所有链接可点 |
+| `scripts/build-cn-html.ts`         | 静态 CN 首页覆盖 pointer-events 规则，确保所有链接可点                                                   |
 
 **实施步骤**
 
@@ -295,34 +297,44 @@ curl -sS -o /dev/null -D - \
 2. 快照容器从：
 
    ```html
-   <div id="swan-first-screen" aria-hidden="true" inert>
+   <div id="swan-first-screen" aria-hidden="true" inert></div>
    ```
 
    改为：
 
    ```html
-   <div id="swan-first-screen" aria-hidden="true">
+   <div id="swan-first-screen" aria-hidden="true"></div>
    ```
 
 3. 在首屏 CSS 中加入：
 
    ```css
-   #swan-first-screen { pointer-events: none; }
-   #swan-first-screen [data-swan-snapshot-cta] { pointer-events: auto; }
+   #swan-first-screen {
+     pointer-events: none;
+   }
+   #swan-first-screen [data-swan-snapshot-cta] {
+     pointer-events: auto;
+   }
    ```
 
    这样只有 CTA 接收点击，菜单按钮和其他快照元素不接收点击。
+
 4. 给快照内所有 `a` / `button` 加 `tabindex="-1"`，避免 `aria-hidden` 容器里出现可聚焦元素。CTA 因此是鼠标/触屏可点、键盘不可聚焦；键盘用户等 hydrate 后的真实 CTA。这是有意的取舍，需要在代码注释和 README 里写明。
 5. 静态 CN 首页（`home-cn.html`）会把快照保留为最终页面，必须覆盖：
 
    ```css
-   #swan-first-screen, #swan-first-screen * { pointer-events: auto; }
+   #swan-first-screen,
+   #swan-first-screen * {
+     pointer-events: auto;
+   }
    ```
 
    或直接在 `STATIC_HOME_STYLE` 里移除/覆盖 Phase 3 的 pointer-events 规则。菜单按钮继续由现有 CSS 隐藏。
+
 6. readiness 脚本不变：hydrate 完成后移除快照，React 的真实 CTA 接管 SPA 跳转。
 
 **验证**
+
 - 清空缓存，打开 global `/`，在快照可见但 React 未 hydrate 时点击 CTA：
   - 浏览器开始导航到 `/todos`（全量跳转），不出现“点了没反应”。
 - 菜单按钮在 hydrate 前点击无效；hydrate 后正常。
@@ -343,8 +355,14 @@ curl -sS -o /dev/null -D - \
 在 `home-cn.html` 的 `<head>` 加低优先级提示：
 
 ```html
-<link rel="prefetch" href="https://deephos-static.oss-cn-beijing.aliyuncs.com/static/js/index.<hash>.mjs" />
-<link rel="prefetch" href="https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs" />
+<link
+  rel="prefetch"
+  href="https://deephos-static.oss-cn-beijing.aliyuncs.com/static/js/index.<hash>.mjs"
+/>
+<link
+  rel="prefetch"
+  href="https://deephos-static.oss-cn-beijing.aliyuncs.com/static/vendor/react-dom-19.3.1.mjs"
+/>
 ```
 
 - 只预取小文件（entry + 可能用到的 vendor），不要默认预取 250KB 的 antd/vendor 全集，避免首页流量浪费。
@@ -358,6 +376,7 @@ curl -sS -o /dev/null -D - \
 - 缺点：破坏“零 JS 首页”的卖点；需要单独评审。
 
 **验证**
+
 - 首页 LCP 不退化；首页 transfer 不因预取而显著增加。
 - 点击 `/todos` 后，entry/vendor 命中缓存（Network 面板 `(memory cache)` / `(disk cache)`）。
 - 移动端 hover 不触发；touchstart 触发。
@@ -390,6 +409,7 @@ curl -sS -o /dev/null -D - \
 5. 测量 CN/global 的 API TTFB，确认收益 ≥ 0.2s 再保留。
 
 **验证**
+
 - `/api/todos` GET/POST/PATCH/DELETE 全部正常。
 - CORS 预检通过；无 console CORS 错误。
 - CN 探针 API TTFB 下降；global 不退化。
@@ -400,14 +420,14 @@ curl -sS -o /dev/null -D - \
 
 ## 6. 执行顺序与预估
 
-| 阶段 | 优先级 | 依赖 | 预估 | 可独立上线 |
-|---|---|---|---|---|
-| Phase 0：基线 & 分支 | — | — | 0.5h | — |
-| Phase 1：OSS per-file vendor | P0 | OSS 上传权限 | 0.5–1d | 是 |
-| Phase 2：加载骨架 | P1 | Phase 1 可并行 | 0.5d | 是 |
-| Phase 3：快照 CTA | P1 | 无 | 0.5d | 是 |
-| Phase 4：预取 | P2 | Phase 1 的 OSS 文件 | 0.5d | 是 |
-| Phase 5：API 直连 | P3 | Worker custom domain | 0.5d | 是 |
+| 阶段                         | 优先级 | 依赖                 | 预估   | 可独立上线 |
+| ---------------------------- | ------ | -------------------- | ------ | ---------- |
+| Phase 0：基线 & 分支         | —      | —                    | 0.5h   | —          |
+| Phase 1：OSS per-file vendor | P0     | OSS 上传权限         | 0.5–1d | 是         |
+| Phase 2：加载骨架            | P1     | Phase 1 可并行       | 0.5d   | 是         |
+| Phase 3：快照 CTA            | P1     | 无                   | 0.5d   | 是         |
+| Phase 4：预取                | P2     | Phase 1 的 OSS 文件  | 0.5d   | 是         |
+| Phase 5：API 直连            | P3     | Worker custom domain | 0.5d   | 是         |
 
 建议按 1 → 2 → 3 上线；4/5 观察一周后再决定。
 
@@ -469,17 +489,17 @@ curl -sS -o /dev/null -D - -H 'Referer: https://deephos.com/' \
 
 ## 8. 风险与回滚
 
-| 风险 | 影响 | 缓解 |
-|---|---|---|
-| OSS `/static/vendor/` 被 Referer 规则拦截 | CN vendor 403，白屏 | 已验证缺文件返回 404（前缀允许）；上传后立即用带 Referer 的 curl 验证 |
-| 旧浏览器不支持 import map | CN shell 白屏 | 当前 loader 也依赖 import map；目标现代浏览器；如需兼容，保留一个极小的 fallback 脚本（会增加 JS） |
-| 客户端改动导致 `lib-antd` hash 变化 | `build:cn-html` 报错 | 优先只改构建脚本；如必须改客户端，先 bump `@meteor957/swan-vendor` 并更新 `VENDOR_PACKAGE.antdFile` |
-| React 不清空 `#root` 骨架 | 骨架和 App 同时出现 | 验证；必要时在 `main.tsx` 调用 `container.replaceChildren()`（只改 entry hash） |
-| 快照 CTA 可点带来 a11y 问题 | 键盘/读屏体验 | CTA 仅鼠标/触屏；快照内元素 `tabindex="-1"`；hydrate 后真实 CTA 可聚焦；在 README 注明 |
-| 预取浪费带宽 | 首页流量增加 | 只 prefetch 小文件；大文件用 hover/touch；观察后再扩大 |
-| API custom domain DNS/SSL/CORS | API 不可用 | 保留 Vercel rewrite；先加 domain 验证 health，再切客户端 |
-| OSS 上传失败但 HTML 已发布 | CN shell 引用不存在的 vendor | CI 先 `upload:oss` 再部署 Vercel；上传失败即中止；OSS 文件名 immutable，无需 purge |
-| 回滚 | — | 回退提交 + 重新部署上一版 Vercel；OSS 新增文件可保留；Worker 不变 |
+| 风险                                      | 影响                         | 缓解                                                                                                |
+| ----------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| OSS `/static/vendor/` 被 Referer 规则拦截 | CN vendor 403，白屏          | 已验证缺文件返回 404（前缀允许）；上传后立即用带 Referer 的 curl 验证                               |
+| 旧浏览器不支持 import map                 | CN shell 白屏                | 当前 loader 也依赖 import map；目标现代浏览器；如需兼容，保留一个极小的 fallback 脚本（会增加 JS）  |
+| 客户端改动导致 `lib-antd` hash 变化       | `build:cn-html` 报错         | 优先只改构建脚本；如必须改客户端，先 bump `@meteor957/swan-vendor` 并更新 `VENDOR_PACKAGE.antdFile` |
+| React 不清空 `#root` 骨架                 | 骨架和 App 同时出现          | 验证；必要时在 `main.tsx` 调用 `container.replaceChildren()`（只改 entry hash）                     |
+| 快照 CTA 可点带来 a11y 问题               | 键盘/读屏体验                | CTA 仅鼠标/触屏；快照内元素 `tabindex="-1"`；hydrate 后真实 CTA 可聚焦；在 README 注明              |
+| 预取浪费带宽                              | 首页流量增加                 | 只 prefetch 小文件；大文件用 hover/touch；观察后再扩大                                              |
+| API custom domain DNS/SSL/CORS            | API 不可用                   | 保留 Vercel rewrite；先加 domain 验证 health，再切客户端                                            |
+| OSS 上传失败但 HTML 已发布                | CN shell 引用不存在的 vendor | CI 先 `upload:oss` 再部署 Vercel；上传失败即中止；OSS 文件名 immutable，无需 purge                  |
+| 回滚                                      | —                            | 回退提交 + 重新部署上一版 Vercel；OSS 新增文件可保留；Worker 不变                                   |
 
 ## 9. 验收标准
 
@@ -547,15 +567,15 @@ bun run deploy
 
 ## 附录 C：文件变更清单
 
-| 文件 | 类型 | 阶段 |
-|---|---|---|
-| `scripts/upload-oss.ts` | 修改 | 1 |
-| `scripts/build-cn-html.ts` | 修改 | 1, 2, 3, 4 |
-| `scripts/cn-vendor-loader.ts` | 删除 | 1 |
-| `scripts/vendor-package-config.ts` | 修改 | 1 |
-| `scripts/loading-shell.ts` | 新增 | 2 |
-| `scripts/build-vercel.ts` | 修改 | 2 |
-| `scripts/first-screen/generate.ts` | 修改 | 3 |
-| `src/client/main.tsx` | 条件修改 | 2 |
-| `README.md` | 修改 | 实施后 |
-| `docs/cn-shell-performance-plan.md` | 新增 | 本计划 |
+| 文件                                | 类型     | 阶段       |
+| ----------------------------------- | -------- | ---------- |
+| `scripts/upload-oss.ts`             | 修改     | 1          |
+| `scripts/build-cn-html.ts`          | 修改     | 1, 2, 3, 4 |
+| `scripts/cn-vendor-loader.ts`       | 删除     | 1          |
+| `scripts/vendor-package-config.ts`  | 修改     | 1          |
+| `scripts/loading-shell.ts`          | 新增     | 2          |
+| `scripts/build-vercel.ts`           | 修改     | 2          |
+| `scripts/first-screen/generate.ts`  | 修改     | 3          |
+| `src/client/main.tsx`               | 条件修改 | 2          |
+| `README.md`                         | 修改     | 实施后     |
+| `docs/cn-shell-performance-plan.md` | 新增     | 本计划     |
