@@ -224,11 +224,12 @@ function toCn(
 
 const files = vendorFiles();
 const antd = antdFile();
-const indexHtml = injectTodosBootstrap(
-  readFileSync(`${DIST}/index.html`, 'utf8'),
-  readTodosSnapshot(DIST),
+const todosSnapshot = readTodosSnapshot(DIST);
+const indexHtml = injectTodosBootstrap(readFileSync(`${DIST}/index.html`, 'utf8'), todosSnapshot);
+writeFileSync(
+  `${DIST}/index-cn.html`,
+  injectLoadingShell(toCn(indexHtml, files, antd), todosSnapshot),
 );
-writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {

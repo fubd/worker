@@ -76,7 +76,11 @@ function TodosPageContent() {
         // mark is inspectable in browser traces and automated performance checks.
         if (!hasMarkedInitialData.current && status === 'all' && !keyword) {
           hasMarkedInitialData.current = true;
-          requestAnimationFrame(() => performance.mark('swan:todos-data-visible'));
+          requestAnimationFrame(() => {
+            if (!performance.getEntriesByName('swan:todos-data-visible').length) {
+              performance.mark('swan:todos-data-visible');
+            }
+          });
         }
       } catch (error) {
         message.error(error instanceof Error ? error.message : '加载失败');
@@ -92,7 +96,9 @@ function TodosPageContent() {
       requestAnimationFrame(() => {
         if (hasMarkedInitialData.current) return;
         hasMarkedInitialData.current = true;
-        performance.mark('swan:todos-data-visible');
+        if (!performance.getEntriesByName('swan:todos-data-visible').length) {
+          performance.mark('swan:todos-data-visible');
+        }
       });
     }
   }, []);
