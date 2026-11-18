@@ -12,8 +12,8 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { injectLoadingShell } from './loading-shell';
 import {
-  apiPrefetchScript,
   findAntdFile,
+  injectApiPrefetch,
   routePreloadScript,
   todosRouteFiles,
 } from './route-preload';
@@ -37,12 +37,19 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
-const globalShell = injectLoadingShell(readFileSync(`${DIST}/index.html`, 'utf8')).replace(
+const globalShell = injectLoadingShell(
+  injectApiPrefetch(readFileSync(`${DIST}/index.html`, 'utf8')),
+).replace(
   '</head>',
   `    <link rel="modulepreload" href="/static/js/${findAntdFile(DIST)}" />\n` +
     `    ${routePreloadScript(todosRouteFiles(DIST), '/static/js/async/', false)}\n` +
-    `    ${apiPrefetchScript()}\n  </head>`,
+    `  </head>`,
 );
+const prefetchIndex = globalShell.indexOf('id="swan-api-prefetch"');
+const appModuleIndex = globalShell.indexOf('<script type="module" src="/static/js/index.');
+if (prefetchIndex < 0 || appModuleIndex < 0 || prefetchIndex > appModuleIndex) {
+  throw new Error('API prefetch must run before the app module');
+}
 writeFileSync(`${OUT}/${GLOBAL_SHELL}`, globalShell);
 for (const dir of ['static', 'vendor']) {
   cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });
@@ -76,17 +83,6 @@ const config = {
     {
       source: '/vendor/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-    },
-    {
-      // Start the cross-origin API request while the HTML body is still arriving.
-      // Scope this to /todos so /about does not fetch data it never uses.
-      source: '/todos',
-      headers: [
-        {
-          key: 'Link',
-          value: '<https://api.deephos.com/api/todos>; rel=preload; as=fetch; crossorigin',
-        },
-      ],
     },
   ],
 };

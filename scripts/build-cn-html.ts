@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { injectLoadingShell } from './loading-shell';
 import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
-import { apiPrefetchScript, routePreloadScript, todosRouteFiles } from './route-preload';
+import { injectApiPrefetch, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
 import { productionApiUrl } from '../src/shared/api-config';
 import { injectStaticSpeedInsights } from './static-speed-insights';
@@ -178,18 +178,23 @@ function toCn(
       .map((file) => `<link rel="modulepreload" href="${vendorUrl(file)}" crossorigin />`)
       .join('\n    ');
     const antdPreload = `<link rel="modulepreload" href="${ossBase}/static/js/${antd}" crossorigin />`;
-    const routeScripts =
-      routePreloadScript(todosRouteFiles(DIST), `${ossBase}/static/js/async/`, true) +
-      '\n    ' +
-      apiPrefetchScript();
     out = out.replace(
       '</head>',
-      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routeScripts}\n  </head>`,
+      `    <link rel="preconnect" href="${ossBase}" crossorigin />\n    ${preloads}\n    ${antdPreload}\n    ${routePreloadScript(todosRouteFiles(DIST), `${ossBase}/static/js/async/`, true)}\n  </head>`,
     );
+    const prefetchIndex = out.indexOf('id="swan-api-prefetch"');
+    const importMapIndex = out.indexOf('<script type="importmap">');
+    if (prefetchIndex < 0 || importMapIndex < 0 || prefetchIndex > importMapIndex) {
+      throw new Error('API prefetch must run before the CN import map');
+    }
     const scripts = appScripts
       .map((src) => `<script type="module" src="${ossBase}${src}"></script>`)
       .join('\n    ');
     out = out.replace('</body>', `    ${scripts}\n  </body>`);
+    const appModuleIndex = out.indexOf(`<script type="module" src="${ossBase}${appScripts[0]}">`);
+    if (appModuleIndex < 0 || prefetchIndex > appModuleIndex) {
+      throw new Error('API prefetch must run before the CN app module');
+    }
   }
 
   const expectVendor = options.staticHome ? 'content="cn-static"' : 'content="cn-oss-importmap"';
@@ -218,7 +223,7 @@ function toCn(
 
 const files = vendorFiles();
 const antd = antdFile();
-const indexHtml = readFileSync(`${DIST}/index.html`, 'utf8');
+const indexHtml = injectApiPrefetch(readFileSync(`${DIST}/index.html`, 'utf8'));
 writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
 
 const homePath = `${DIST}/home.html`;
