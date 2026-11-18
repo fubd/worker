@@ -8,6 +8,7 @@
  * 避免硬编码 hash；构建产物变了也能自动跟上。
  */
 import { readdirSync, readFileSync } from 'node:fs';
+import { productionApiUrl } from '../src/shared/api-config';
 
 export function findEntryFile(distDir: string): string {
   const files = readdirSync(`${distDir}/static/js`).filter((file) =>
@@ -87,7 +88,7 @@ export function apiPrefetchScript(): string {
   return `<script id="swan-api-prefetch">
 (function () {
   if (location.pathname !== '/todos') return;
-  window.__swanTodosPrefetch = fetch('/api/todos', { headers: { accept: 'application/json' } })
+  window.__swanTodosPrefetch = fetch(${JSON.stringify(productionApiUrl('/todos'))}, { headers: { accept: 'application/json' } })
     .then(function (response) { return response.ok ? response.json() : null; })
     .catch(function () { return null; });
 })();

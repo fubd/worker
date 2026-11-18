@@ -53,6 +53,9 @@ jobs:
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
         run: bun run upload:oss
 
+      - name: Verify OSS static assets
+        run: bun run verify:oss
+
       # 先发 Vercel 再发 Worker：API 反代目标不能指向还没发布的 Worker。
       - name: Deploy CN entry to Vercel
         if: env.VERCEL_TOKEN != ''

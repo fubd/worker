@@ -9,6 +9,7 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 /** 只接管普通左键点击，保留 Ctrl/Cmd/Shift/中键在新标签页打开的行为。 */
@@ -37,6 +38,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 /** lg 断点（992px）以下视为移动端。与 Sider 的断点对齐 */
 const MOBILE_QUERY = '(max-width: 991.98px)';
+const enableSpeedInsights = !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 /**
  * 同步初始化的媒体查询 hook，避免首帧先渲染桌面再闪成移动端。
@@ -197,6 +199,7 @@ export default function RootLayout() {
           Swan Worker · Bun + React 19 + Ant Design 6 + Rsbuild + Hono + Cloudflare D1
         </footer>
       </div>
+      {enableSpeedInsights && <SpeedInsights route={location.pathname} />}
     </div>
   );
 }

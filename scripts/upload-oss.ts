@@ -6,17 +6,11 @@
  * Files are stored gzip-compressed behind a long immutable cache; browsers
  * decompress transparently via Content-Encoding.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import OSS from 'ali-oss';
+import { listOssAssets, OSS_CACHE_CONTROL, ossContentType } from './oss-assets';
 import { OSS_STATIC } from './oss-config';
-
-const SOURCES = [
-  { dir: 'dist/static', keyPrefix: 'static' },
-  // CN import map 指向 /static/vendor/*，与 entry 的 /static/js/* 同前缀
-  { dir: 'dist/vendor', keyPrefix: 'static/vendor' },
-];
 
 const accessKeyId = process.env.OSS_ACCESS_KEY_ID;
 const accessKeySecret = process.env.OSS_ACCESS_KEY_SECRET;
@@ -26,12 +20,6 @@ if (!accessKeyId || !accessKeySecret) {
   );
 }
 
-const contentType = (rel: string) => {
-  if (rel.endsWith('.css')) return 'text/css';
-  if (rel.endsWith('.mjs') || rel.endsWith('.js')) return 'text/javascript';
-  return 'application/octet-stream';
-};
-
 const client = new OSS({
   region: OSS_STATIC.region,
   bucket: OSS_STATIC.bucket,
@@ -39,33 +27,20 @@ const client = new OSS({
   accessKeySecret,
 });
 
-const files: { abs: string; key: string }[] = [];
-for (const source of SOURCES) {
-  if (!existsSync(source.dir)) {
-    throw new Error(`missing ${source.dir}; run \`bun run build\` first`);
-  }
-  (function walk(dir: string, rel: string) {
-    for (const name of readdirSync(dir)) {
-      const abs = path.join(dir, name);
-      const childRel = path.posix.join(rel, name);
-      if (statSync(abs).isDirectory()) walk(abs, childRel);
-      else files.push({ abs, key: `${source.keyPrefix}/${childRel}` });
-    }
-  })(source.dir, '');
-}
+const files = listOssAssets();
 
 let uploaded = 0;
 let rawBytes = 0;
 let gzBytes = 0;
 
 for (const file of files) {
-  const raw = readFileSync(file.abs);
+  const raw = readFileSync(file.absPath);
   const body = gzipSync(raw, { level: 9 });
   await client.put(file.key, body, {
     headers: {
-      'Content-Type': contentType(file.key),
+      'Content-Type': ossContentType(file.key),
       'Content-Encoding': 'gzip',
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': OSS_CACHE_CONTROL,
     },
   });
   uploaded += 1;

@@ -13,6 +13,8 @@
     "build:cn-html": "bun scripts/build-cn-html.ts",
     "build:vercel": "bun scripts/build-vercel.ts",
     "upload:oss": "bun scripts/upload-oss.ts",
+    "verify:oss": "bun scripts/verify-oss.ts",
+    "perf:api": "bun scripts/perf-probe.ts",
     "check:first-screen": "bun scripts/first-screen/check.ts",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
@@ -28,6 +30,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
+    "@vercel/speed-insights": "^2.1.0",
     "antd": "^6.6.8",
     "hono": "^4.13.14",
     "react": "^19.3.1",

@@ -26,10 +26,11 @@ export interface ListOptions {
   keyword?: string;
   limit?: number;
   offset?: number;
+  includeTotal?: boolean;
 }
 
 export async function listTodos(db: D1Database, options: ListOptions = {}) {
-  const { status = 'all', keyword = '', limit = 100, offset = 0 } = options;
+  const { status = 'all', keyword = '', limit = 100, offset = 0, includeTotal = false } = options;
 
   const where: string[] = [];
   const params: unknown[] = [];
@@ -55,8 +56,14 @@ export async function listTodos(db: D1Database, options: ListOptions = {}) {
     )
     .bind(...params, limit, offset);
 
-  const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM todos ${whereSql}`).bind(...params);
+  if (!includeTotal) {
+    const listResult = await listStmt.all<TodoRow>();
+    return {
+      items: (listResult.results ?? []).map(toTodo),
+    };
+  }
 
+  const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM todos ${whereSql}`).bind(...params);
   const [listResult, countResult] = await Promise.all([
     listStmt.all<TodoRow>(),
     countStmt.first<{ total: number }>(),

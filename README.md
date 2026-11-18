@@ -202,11 +202,13 @@ CHROME_PATH=/path/to/chrome bun run build
 
 ## 站点托管与大陆分流
 
-`deephos.com` 整站由 Vercel 托管，Cloudflare 只保留 API：
+`deephos.com` 整站由 Vercel 托管，Cloudflare 提供独立 API 域名：
 
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
 - `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + 静态 import map），其他返回 `shell-global.html`（同源 vendor）；
-- `/api/*`：Vercel 反代到 `swan-worker.312bdf.workers.dev`（Worker + D1），浏览器仍是同源；
+- 新构建的 API 请求：浏览器直连 `https://api.deephos.com/api/*`（Worker + D1），避免 Vercel rewrite；
+- `/api/*`：Vercel 仍反代到 `api.deephos.com`，只用于兼容尚未刷新的旧 HTML；
+- Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
 - `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS/CSS 仍在 OSS。
 
 `scripts/build-vercel.ts` 生成 `dist/vercel/`。注意 `index.html` 会改名成
@@ -225,7 +227,9 @@ CN vendor 全部来自 OSS：没有 loader、SHA 校验、`DecompressionStream` 
 `scripts/upload-oss.ts` 同时上传 `dist/vendor` → `static/vendor/`。
 
 入口、async chunk 和 CSS 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
-免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，需要仓库 secrets
+免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，再由
+`bun run verify:oss` 对每个本地产物检查 HTTP 200、MIME、长期缓存头和 SHA-256。
+上传需要仓库 secrets
 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`（RAM 用户只授权该桶的
 Put/Get/Delete/List）。
 
@@ -264,7 +268,7 @@ CN 的 vendor 与 antd chunk 全部从 OSS `/static/vendor/*`、`/static/js/*` �
   - 这是按当前项目 IP 固定下来的：Vercel 换 IP 时站点会断，需用
     `dig +short 8a55bf6822ee61dd.vercel-dns-017.com` 对照并更新这两条 A 记录；
   - 实测换 A 后大陆 DNS p90 429→198ms、首页总耗时 p50 399→317ms、p90 728→535ms；
-- API 反代目标写在 `scripts/build-vercel.ts` 的 `API` 常量（当前 `swan-worker.312bdf.workers.dev`）。
+- API 自定义域名为 `api.deephos.com`，共享配置在 `src/shared/api-config.ts`；Vercel 的兼容 rewrite 目标写在 `scripts/build-vercel.ts`。
 
 ## 部署到 Cloudflare
 
@@ -286,16 +290,38 @@ bun run deploy
 
 ### 自动部署（GitHub Actions）
 
-`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑 `bun install --frozen-lockfile` → `bun run check` → `bun run build` → `bun run check:first-screen` → 上传 OSS → Vercel 部署（可选）→ `wrangler deploy`（Worker 只保留 API）。
+`.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑
+`bun install --frozen-lockfile` → `fmt:check` → `check` → `build` →
+`check:first-screen` → `upload:oss` → `verify:oss` → Vercel 部署（可选）→
+`wrangler deploy`。任一步失败都会停止后续发布，不会出现 HTML 已上线但 OSS
+缺文件的状态。
 
 `bun run build` 会生成 `dist/home.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell，不影响部署。
 
-启用前在仓库 **Settings → Secrets and variables → Actions** 加两个 secret：
+启用前在仓库 **Settings → Secrets and variables → Actions** 配置：
 
-| Secret                  | 值                                                     |
-| ----------------------- | ------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | 带 `Workers Scripts:Edit` + `D1:Edit` 权限的 API Token |
-| `CLOUDFLARE_ACCOUNT_ID` | 账号 ID，`wrangler whoami` 可查                        |
+| Secret                  | 必需 | 值                                                       |
+| ----------------------- | ---- | -------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | 是   | 带 `Workers Scripts:Edit` + `D1:Edit` 权限的 API Token   |
+| `CLOUDFLARE_ACCOUNT_ID` | 是   | 账号 ID，`wrangler whoami` 可查                          |
+| `OSS_ACCESS_KEY_ID`     | 是   | 仅允许 `deephos-static` 桶上传/读取/校验的 RAM AccessKey |
+| `OSS_ACCESS_KEY_SECRET` | 是   | 对应 RAM AccessKey Secret                                |
+| `VERCEL_TOKEN`          | 否   | 未配置时跳过 Vercel 步骤，站点保持上一版                 |
+
+本地可用下面的命令检查当前 Worker 与 D1 分项耗时：
+
+```bash
+bun run perf:api --runs 30
+```
+
+脚本会输出 `/api/health`、`/api/todos`、`/api/stats` 的 min / p50 / p75 / p90 /
+max，并解析 `Server-Timing` 的 `worker` 与 `db`。跨域响应同时发送
+`Timing-Allow-Origin: *`，因此浏览器 PerformanceResourceTiming 也能读取分项。
+
+Speed Insights 的下一轮判断门槛：`/todos` 至少累计 100 个真实事件，或继续观察
+7 天；Desktop / Mobile 分开看；RES、LCP、INP、TTFB 同时看 P75 / P90，并参考
+浏览器中的 `swan:todos-data-visible`。自动化和人工验收请求也会被 Speed Insights
+计入，因此样本较少时不要把验收访问当作真实用户趋势。
 
 数据库迁移**不会**自动执行，结构变更仍需手动 `bun run db:migrate:remote`，避免 CI 误改线上数据。
 

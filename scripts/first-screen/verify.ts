@@ -4,7 +4,7 @@
  * orchestrator deletes home.html and the Worker falls back to index.html.
  */
 import { chromium } from 'playwright-core';
-import { VIEWPORTS } from './capture';
+import { routeApiToCaptureServer, VIEWPORTS } from './capture';
 import type { CaptureServer } from './server';
 
 export async function verifyHomeHtml(server: CaptureServer, executablePath: string): Promise<void> {
@@ -30,6 +30,7 @@ export async function verifyHomeHtml(server: CaptureServer, executablePath: stri
 
       try {
         const page = await context.newPage();
+        await routeApiToCaptureServer(page, server.url);
         const errors: string[] = [];
         page.on('pageerror', (error) => errors.push(error.message));
         page.on('console', (message) => {

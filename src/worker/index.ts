@@ -1,8 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
-import { logger } from 'hono/logger';
-import { prettyJSON } from 'hono/pretty-json';
 import { statsRoutes } from './routes/stats';
 import { todoRoutes } from './routes/todos';
 import type { AppEnv } from './types';
@@ -13,9 +11,40 @@ import type { AppEnv } from './types';
  */
 const app = new Hono<AppEnv>();
 
-app.use('*', logger());
-app.use('/api/*', prettyJSON());
-app.use('/api/*', cors());
+app.use('*', async (c, next) => {
+  const startedAt = performance.now();
+  c.set('dbMs', 0);
+
+  await next();
+
+  const workerMs = performance.now() - startedAt;
+  const dbMs = c.get('dbMs');
+  const cacheStatus = c.get('cacheStatus');
+  c.header('Server-Timing', `worker;dur=${workerMs.toFixed(1)}, db;dur=${dbMs.toFixed(1)}`);
+  c.header('Timing-Allow-Origin', '*');
+  if (cacheStatus) {
+    c.header('X-Swan-Cache', cacheStatus);
+  }
+
+  console.log(
+    JSON.stringify({
+      event: 'worker_request',
+      method: c.req.method,
+      route: c.req.matchedRoutes.at(-1)?.path ?? new URL(c.req.url).pathname,
+      status: c.res.status,
+      cfRay: c.req.header('cf-ray') ?? null,
+      workerMs: Number(workerMs.toFixed(1)),
+      dbMs: Number(dbMs.toFixed(1)),
+      cache: cacheStatus ?? null,
+    }),
+  );
+});
+app.use(
+  '/api/*',
+  cors({
+    exposeHeaders: ['Server-Timing', 'X-Swan-Cache'],
+  }),
+);
 
 /** 健康检查。本地 wrangler dev 没有 cf-ray 头，线上一定有 */
 app.get('/api/health', (c) =>

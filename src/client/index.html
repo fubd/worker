@@ -5,6 +5,7 @@
     <title>Swan Worker</title>
     <!-- 供 Worker/探针判断当前 HTML 用的是哪套 vendor；CN 版由 scripts/build-cn-html.ts 改写 -->
     <meta name="swan-vendor" content="global-static" />
+    <link rel="preconnect" href="https://api.deephos.com" crossorigin />
     <!-- react / react-dom / react-router 不打进产物，由 importmap 指向同源 /vendor/*。
          大陆版 HTML（index-cn.html）会把 importmap 改成 OSS 绝对地址，entry / async /
          antd / vendor 全部从 OSS 加载；首页快照不需要这些。 -->

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -54,6 +54,7 @@ function TodosPageContent() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const hasMarkedInitialData = useRef(false);
 
   // 输入防抖
   useEffect(() => {
@@ -66,6 +67,13 @@ function TodosPageContent() {
     try {
       const data = await api.listTodos({ status, keyword });
       setItems(data.items);
+      // This is a local User Timing milestone rather than an analytics event.
+      // The Hobby Vercel plan has no custom Web Analytics events, while this
+      // mark is inspectable in browser traces and automated performance checks.
+      if (!hasMarkedInitialData.current && status === 'all' && !keyword) {
+        hasMarkedInitialData.current = true;
+        requestAnimationFrame(() => performance.mark('swan:todos-data-visible'));
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载失败');
     } finally {

@@ -1,10 +1,10 @@
 /**
  * 生成 Vercel 全站产物：dist/vercel/
  *
- * deephos.com 整站由 Vercel 托管（Cloudflare 只保留 api.deephos.com）：
+ * deephos.com 整站由 Vercel 托管（Cloudflare 提供 api.deephos.com）：
  * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
  * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + 静态 import map），其他用 shell-global.html（同源 vendor）；
- * - `/api/*` 反代到 swan-worker.312bdf.workers.dev（Worker + D1），浏览器仍是同源；
+ * - 新版本浏览器直连 api.deephos.com；保留 `/api/*` rewrite 兼容旧 HTML；
  * - static/vendor 随部署上传，供全球版使用；CN 的 JS/CSS 仍在 OSS。
  *
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
@@ -20,7 +20,7 @@ import {
 
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
-const API = 'https://swan-worker.312bdf.workers.dev';
+const LEGACY_API = 'https://api.deephos.com';
 
 const required = ['index.html', 'home.html', 'home-cn.html', 'index-cn.html', 'favicon.svg'];
 // index.html 必须改名：部署里存在 index.html 时 / 会直接命中静态文件，rewrite 不生效。
@@ -51,7 +51,9 @@ for (const dir of ['static', 'vendor']) {
 const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
 const config = {
   rewrites: [
-    { source: '/api/:path*', destination: `${API}/api/:path*` },
+    // Older HTML is cached at the edge. Keep its same-origin API path working
+    // during the transition; new builds use api.deephos.com directly.
+    { source: '/api/:path*', destination: `${LEGACY_API}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },
     { source: '/', destination: '/home.html' },
     { source: '/todos', has: CN, destination: '/index-cn.html' },

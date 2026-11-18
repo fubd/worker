@@ -10,7 +10,8 @@ export interface Todo {
 
 export interface TodoListResponse {
   items: Todo[];
-  total: number;
+  /** Only returned when the caller explicitly requests includeTotal=1. */
+  total?: number;
 }
 
 export interface TodoStats {

@@ -1,4 +1,5 @@
 import type { Todo, TodoListResponse, TodoStats, TodoStatusFilter } from '@/shared/types';
+import { API_ORIGIN, apiPath } from '@/shared/api-config';
 
 declare global {
   interface Window {
@@ -7,7 +8,11 @@ declare global {
   }
 }
 
-const BASE_URL = '/api';
+const useSameOriginApi = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+// Development keeps Rsbuild's local /api proxy.  Production goes directly to
+// the Worker custom domain, bypassing Vercel's rewrite hop.
+const BASE_URL = useSameOriginApi ? '' : API_ORIGIN;
 
 export class ApiError extends Error {
   status: number;
@@ -20,12 +25,16 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const headers = new Headers(init?.headers);
+  // Do not add Content-Type to GET requests: that turns a cross-origin read
+  // into a CORS preflight and costs an additional round trip.
+  if (init?.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(`${BASE_URL}${apiPath(path)}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
+    headers,
   });
 
   const text = await response.text();

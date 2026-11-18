@@ -24,6 +24,29 @@ export const VIEWPORTS = [
 export type ViewportName = (typeof VIEWPORTS)[number]['name'];
 export type CaptureMap = Record<ViewportName, Capture>;
 
+/**
+ * Keep browser requests on the production API origin while routing them to
+ * the deterministic capture server. This also exercises the cross-origin
+ * fetch path instead of silently falling back to the old same-origin URL.
+ */
+export async function routeApiToCaptureServer(
+  page: import('playwright-core').Page,
+  baseUrl: string,
+): Promise<void> {
+  await page.route('https://api.deephos.com/**', async (route) => {
+    const requested = new URL(route.request().url());
+    const localUrl = `${baseUrl}${requested.pathname}${requested.search}`;
+    const response = await fetch(localUrl);
+    const headers = new Headers(response.headers);
+    headers.set('Access-Control-Allow-Origin', '*');
+    await route.fulfill({
+      status: response.status,
+      headers: Object.fromEntries(headers),
+      body: await response.text(),
+    });
+  });
+}
+
 const CHROME_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -88,6 +111,7 @@ async function captureAt(
 
   try {
     const page = await context.newPage();
+    await routeApiToCaptureServer(page, baseUrl);
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {

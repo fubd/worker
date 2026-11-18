@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
+import { invalidateStatsCache } from '../stats-cache';
 import * as repo from '../db/todos';
+import { measureDb } from '../timing';
 import type { AppEnv } from '../types';
 
 export const todoRoutes = new Hono<AppEnv>();
@@ -26,12 +28,15 @@ todoRoutes.get('/', async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
 
-  const result = await repo.listTodos(c.env.DB, {
-    status,
-    keyword: c.req.query('q') ?? '',
-    limit,
-    offset,
-  });
+  const result = await measureDb(c, () =>
+    repo.listTodos(c.env.DB, {
+      status,
+      keyword: c.req.query('q') ?? '',
+      limit,
+      offset,
+      includeTotal: c.req.query('includeTotal') === '1',
+    }),
+  );
 
   return c.json(result);
 });
@@ -45,13 +50,15 @@ todoRoutes.post('/', async (c) => {
     return c.json({ error: 'title 必填，且长度需在 1~200 之间' }, 400);
   }
 
-  const todo = await repo.createTodo(c.env.DB, title);
+  const todo = await measureDb(c, () => repo.createTodo(c.env.DB, title));
+  invalidateStatsCache(c);
   return c.json(todo, 201);
 });
 
 /** DELETE /api/todos/completed —— 清空已完成 */
 todoRoutes.delete('/completed', async (c) => {
-  const removed = await repo.clearCompleted(c.env.DB);
+  const removed = await measureDb(c, () => repo.clearCompleted(c.env.DB));
+  if (removed > 0) invalidateStatsCache(c);
   return c.json({ removed });
 });
 
@@ -82,9 +89,10 @@ todoRoutes.patch('/:id', async (c) => {
     input.completed = body.completed;
   }
 
-  const todo = await repo.updateTodo(c.env.DB, id, input);
+  const todo = await measureDb(c, () => repo.updateTodo(c.env.DB, id, input));
   if (!todo) return c.json({ error: 'Todo 不存在' }, 404);
 
+  invalidateStatsCache(c);
   return c.json(todo);
 });
 
@@ -93,8 +101,9 @@ todoRoutes.delete('/:id', async (c) => {
   const id = parseId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const ok = await repo.deleteTodo(c.env.DB, id);
+  const ok = await measureDb(c, () => repo.deleteTodo(c.env.DB, id));
   if (!ok) return c.json({ error: 'Todo 不存在' }, 404);
 
+  invalidateStatsCache(c);
   return c.json({ ok: true, id });
 });

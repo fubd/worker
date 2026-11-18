@@ -15,6 +15,8 @@ import { injectLoadingShell } from './loading-shell';
 import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
 import { apiPrefetchScript, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
+import { productionApiUrl } from '../src/shared/api-config';
+import { injectStaticSpeedInsights } from './static-speed-insights';
 
 const DIST = 'dist';
 const VENDOR_DIR = `${DIST}/vendor`;
@@ -32,7 +34,7 @@ const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
     for (var i = 0; i < nodes.length; i++) nodes[i].textContent = String(value);
   }
   window
-    .fetch('/api/stats', { headers: { accept: 'application/json' }, cache: 'no-store' })
+    .fetch(${JSON.stringify(productionApiUrl('/stats'))}, { headers: { accept: 'application/json' }, cache: 'no-store' })
     .then(function (res) { return res.ok ? res.json() : null; })
     .then(function (stats) {
       if (!stats || typeof stats.total !== 'number') return;
@@ -211,7 +213,6 @@ function toCn(
   if (options.staticHome && /<script\b[^>]*type="module"/i.test(out)) {
     throw new Error('CN static home still contains a module script');
   }
-
   return out;
 }
 
@@ -222,10 +223,13 @@ writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files,
 
 const homePath = `${DIST}/home.html`;
 if (existsSync(homePath)) {
-  writeFileSync(
-    `${DIST}/home-cn.html`,
+  const homeCn = injectStaticSpeedInsights(
     toCn(readFileSync(homePath, 'utf8'), files, antd, { staticHome: true }),
   );
+  if (!homeCn.includes('/_vercel/speed-insights/script.js')) {
+    throw new Error('CN static home is missing Speed Insights');
+  }
+  writeFileSync(`${DIST}/home-cn.html`, homeCn);
   console.log(`[cn-html] wrote dist/index-cn.html (OSS import map) and static dist/home-cn.html`);
 } else {
   console.log(
