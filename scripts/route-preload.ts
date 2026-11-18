@@ -100,10 +100,10 @@ export function apiPrefetchScript(): string {
  * 浏览器解析到这里即可并行建立 API 连接，不必等到整个 <head> 解析完。
  */
 export function injectApiPrefetch(html: string): string {
-  const anchor = '<link rel="preconnect" href="https://api.deephos.com" crossorigin />';
+  const anchor = '<meta name="swan-vendor" content="global-static" />';
   const occurrences = html.split(anchor).length - 1;
   if (occurrences !== 1) {
-    throw new Error(`expected one API preconnect anchor, found ${occurrences}`);
+    throw new Error(`expected one vendor marker anchor, found ${occurrences}`);
   }
   if (html.includes('id="swan-api-prefetch"')) {
     throw new Error('API prefetch script was injected more than once');

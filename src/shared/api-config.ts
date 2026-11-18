@@ -1,9 +1,9 @@
 /**
- * Production API is served by the Worker custom domain.  Keeping this value
- * shared between the browser client and build scripts prevents the shell
- * prefetch from taking a different route than interactive API calls.
+ * Browser API requests stay on deephos.com and Vercel proxies /api/* to the
+ * Worker custom domain. Build and operational scripts still need the direct
+ * upstream origin, especially when no Vercel server is available.
  */
-export const API_ORIGIN = 'https://api.deephos.com';
+export const API_UPSTREAM_ORIGIN = 'https://api.deephos.com';
 export const API_PREFIX = '/api';
 
 export function apiPath(path: string): string {
@@ -11,5 +11,9 @@ export function apiPath(path: string): string {
 }
 
 export function productionApiUrl(path: string): string {
-  return `${API_ORIGIN}${apiPath(path)}`;
+  return apiPath(path);
+}
+
+export function upstreamApiUrl(path: string): string {
+  return `${API_UPSTREAM_ORIGIN}${apiPath(path)}`;
 }

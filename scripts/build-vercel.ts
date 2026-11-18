@@ -4,7 +4,7 @@
  * deephos.com 整站由 Vercel 托管（Cloudflare 提供 api.deephos.com）：
  * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
  * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + 静态 import map），其他用 shell-global.html（同源 vendor）；
- * - 新版本浏览器直连 api.deephos.com；保留 `/api/*` rewrite 兼容旧 HTML；
+ * - 浏览器统一请求 deephos.com/api/*，由 Vercel 代理到 api.deephos.com；
  * - static/vendor 随部署上传，供全球版使用；CN 的 JS/CSS 仍在 OSS。
  *
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
@@ -58,8 +58,9 @@ for (const dir of ['static', 'vendor']) {
 const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
 const config = {
   rewrites: [
-    // Older HTML is cached at the edge. Keep its same-origin API path working
-    // during the transition; new builds use api.deephos.com directly.
+    // Keep API requests on the same origin so mainland browsers connect to
+    // Vercel's Asia edge instead of being routed directly to a distant
+    // Cloudflare PoP.
     { source: '/api/:path*', destination: `${LEGACY_API}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },
     { source: '/', destination: '/home.html' },
@@ -83,6 +84,17 @@ const config = {
     {
       source: '/vendor/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+    {
+      // Vercel can cache external rewrites. Keep the list cache short so a
+      // mutation is visible quickly, while stale responses can be served
+      // immediately during background revalidation.
+      source: '/api/todos',
+      headers: [
+        { key: 'x-vercel-enable-rewrite-caching', value: '1' },
+        { key: 'CDN-Cache-Control', value: 'max-age=5, stale-while-revalidate=15' },
+        { key: 'Vercel-Cache-Tag', value: 'swan-todos' },
+      ],
     },
   ],
 };

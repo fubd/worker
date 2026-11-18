@@ -206,10 +206,10 @@ CHROME_PATH=/path/to/chrome bun run build
 
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
 - `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + 静态 import map），其他返回 `shell-global.html`（同源 vendor）；
-- 新构建的 API 请求：浏览器直连 `https://api.deephos.com/api/*`（Worker + D1），避免 Vercel rewrite；
+- 新构建的 API 请求：浏览器统一访问同域 `/api/*`，由 Vercel 亚洲边缘代理到 `api.deephos.com`；
 - `/todos` 在 HTML 的 API `preconnect` 后立即内联预取默认待办列表，早于 importmap 和模块脚本；`/about` 不预取未使用的数据；
 - 待办列表允许浏览器先显示短时间内的旧响应并在后台重新验证；写操作和手动刷新强制重新请求；
-- `/api/*`：Vercel 仍反代到 `api.deephos.com`，只用于兼容尚未刷新的旧 HTML；
+- `/api/*`：Vercel 反代到 `api.deephos.com`；`/api/todos` 使用 5 秒 CDN 缓存和 15 秒后台重验证；
 - Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
 - `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS/CSS 仍在 OSS。
 

@@ -1,5 +1,5 @@
 import type { Todo, TodoListResponse, TodoStats, TodoStatusFilter } from '@/shared/types';
-import { API_ORIGIN, apiPath } from '@/shared/api-config';
+import { apiPath } from '@/shared/api-config';
 
 declare global {
   interface Window {
@@ -7,12 +7,6 @@ declare global {
     __swanTodosPrefetch?: Promise<TodoListResponse | null> | null;
   }
 }
-
-const useSameOriginApi = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-// Development keeps Rsbuild's local /api proxy.  Production goes directly to
-// the Worker custom domain, bypassing Vercel's rewrite hop.
-const BASE_URL = useSameOriginApi ? '' : API_ORIGIN;
 
 export class ApiError extends Error {
   status: number;
@@ -32,7 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${BASE_URL}${apiPath(path)}`, {
+  const response = await fetch(apiPath(path), {
     ...init,
     headers,
   });
