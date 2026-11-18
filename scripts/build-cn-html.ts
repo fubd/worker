@@ -4,13 +4,15 @@
  *   dist/home-cn.html   (first-screen snapshot for /, if home.html exists)
  *
  * The CN variant uses a static import map pointing React / ReactDOM / React
- * Router at OSS /static/vendor/*; the app entry, async chunks, antd chunk and
- * CSS also live on OSS (see scripts/oss-config.ts). No npmmirror tarball,
- * loader, SHA check or blob URLs at runtime.
+ * Router at OSS /static/vendor/*; the app entry, async chunks and antd chunk
+ * also live on OSS (see scripts/oss-config.ts). The small app CSS is inlined so
+ * the static loading shell can paint without a render-blocking cross-origin
+ * request. No npmmirror tarball, loader, SHA check or blob URLs at runtime.
  *
  * Run after `rsbuild build` and `first-screen` (which writes home.html).
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { inlineAppCss } from './inline-app-css';
 import { injectLoadingShell } from './loading-shell';
 import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
 import { injectTodosBootstrap, routePreloadScript, todosRouteFiles } from './route-preload';
@@ -137,9 +139,6 @@ function toCn(
     `<meta name="swan-vendor" content="${variant}" />`,
   );
 
-  // Static files live on OSS in the CN variant; paths match 1:1.
-  out = out.replaceAll('href="/static/css/', `href="${ossBase}/static/css/`);
-
   if (options.staticHome) {
     // 静态首页（POC）：快照就是最终页面，不加载 React/antd，也不 hydrate。
     out = out.replace(/<script id="swan-first-screen-ready">[\s\S]*?<\/script>\s*/i, '');
@@ -206,7 +205,8 @@ function toCn(
     !options.staticHome &&
     (!out.includes(vendorUrl(files.react)) ||
       !out.includes(`${ossBase}${appScripts[0]}`) ||
-      !out.includes(`${ossBase}/static/css/`) ||
+      !out.includes('id="swan-app-css"') ||
+      /<link\b[^>]*\brel=["']stylesheet["']/i.test(out) ||
       out.includes('cdn.npmmirror.com') ||
       out.includes('DecompressionStream') ||
       out.includes('href="/static/'))
@@ -225,7 +225,10 @@ function toCn(
 const files = vendorFiles();
 const antd = antdFile();
 const todosSnapshot = readTodosSnapshot(DIST);
-const indexHtml = injectTodosBootstrap(readFileSync(`${DIST}/index.html`, 'utf8'), todosSnapshot);
+const indexHtml = injectTodosBootstrap(
+  inlineAppCss(readFileSync(`${DIST}/index.html`, 'utf8'), DIST),
+  todosSnapshot,
+);
 writeFileSync(
   `${DIST}/index-cn.html`,
   injectLoadingShell(toCn(indexHtml, files, antd), todosSnapshot),

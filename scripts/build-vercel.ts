@@ -10,6 +10,7 @@
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { inlineAppCss } from './inline-app-css';
 import { injectLoadingShell } from './loading-shell';
 import {
   findAntdFile,
@@ -40,7 +41,10 @@ for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 const todosSnapshot = readTodosSnapshot(DIST);
 const globalShell = injectLoadingShell(
-  injectTodosBootstrap(readFileSync(`${DIST}/index.html`, 'utf8'), todosSnapshot),
+  injectTodosBootstrap(
+    inlineAppCss(readFileSync(`${DIST}/index.html`, 'utf8'), DIST),
+    todosSnapshot,
+  ),
   todosSnapshot,
 ).replace(
   '</head>',

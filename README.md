@@ -212,7 +212,8 @@ CHROME_PATH=/path/to/chrome bun run build
 - 待办列表允许浏览器先显示短时间内的旧响应并在后台重新验证；写操作和手动刷新强制重新请求；
 - `/api/*`：Vercel 反代到 `api.deephos.com`；`/api/todos` 使用 5 秒 CDN 缓存和 15 秒后台重验证；
 - Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
-- `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS/CSS 仍在 OSS。
+- `static/`、`vendor/` 随 Vercel 部署，供全球版使用；CN 的 JS 仍在 OSS；
+  约 9 kB 的应用 CSS 内联进 HTML，避免渲染阻塞和额外 RTT。
 
 `scripts/build-vercel.ts` 生成 `dist/vercel/`。注意 `index.html` 会改名成
 `shell-global.html`：部署里存在 `index.html` 时 `/` 会直接命中静态文件，rewrite 不生效。
@@ -229,8 +230,9 @@ CHROME_PATH=/path/to/chrome bun run build
 CN vendor 全部来自 OSS：没有 loader、SHA 校验、`DecompressionStream` 和 blob URL；
 `scripts/upload-oss.ts` 同时上传 `dist/vendor` → `static/vendor/`。
 
-入口、async chunk 和 CSS 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
-免备案）；CI 在 `wrangler deploy` 之前执行 `bun run upload:oss`，再由
+入口和 async chunk 由 `scripts/upload-oss.ts` 镜像到 OSS（同域默认域名，
+免备案）；小体积应用 CSS 直接内联进 shell；CI 在 `wrangler deploy` 之前执行
+`bun run upload:oss`，再由
 `bun run verify:oss` 对每个本地产物检查 HTTP 200、MIME、长期缓存头和 SHA-256。
 上传需要仓库 secrets
 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`（RAM 用户只授权该桶的
