@@ -64,11 +64,14 @@ export const api = {
 
   stats: () => request<TodoStats>('/stats'),
 
-  listTodos: (params: { status?: TodoStatusFilter; keyword?: string } = {}) => {
+  listTodos: (
+    params: { status?: TodoStatusFilter; keyword?: string } = {},
+    options: { fresh?: boolean } = {},
+  ) => {
     const status = params.status ?? 'all';
     const keyword = params.keyword?.trim() ?? '';
     // shell 已在 HTML 解析时预取默认列表；只消费一次，失败则回退到正常请求
-    if (status === 'all' && !keyword && window.__swanTodosPrefetch) {
+    if (!options.fresh && status === 'all' && !keyword && window.__swanTodosPrefetch) {
       const prefetch = window.__swanTodosPrefetch;
       window.__swanTodosPrefetch = null;
       return prefetch.then((data) =>
@@ -79,7 +82,10 @@ export const api = {
     if (status !== 'all') search.set('status', status);
     if (keyword) search.set('q', keyword);
     const query = search.toString();
-    return request<TodoListResponse>(`/todos${query ? `?${query}` : ''}`);
+    return request<TodoListResponse>(
+      `/todos${query ? `?${query}` : ''}`,
+      options.fresh ? { cache: 'reload' } : undefined,
+    );
   },
 
   createTodo: (title: string) =>

@@ -38,6 +38,10 @@ todoRoutes.get('/', async (c) => {
     }),
   );
 
+  // The default page reload can show the last small list immediately while
+  // Chrome revalidates it in the background. Mutations and the manual refresh
+  // action bypass this cache so the UI never waits on stale data after a write.
+  c.header('Cache-Control', 'private, max-age=0, stale-while-revalidate=30');
   return c.json(result);
 });
 

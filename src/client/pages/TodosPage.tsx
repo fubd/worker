@@ -62,24 +62,27 @@ function TodosPageContent() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.listTodos({ status, keyword });
-      setItems(data.items);
-      // This is a local User Timing milestone rather than an analytics event.
-      // The Hobby Vercel plan has no custom Web Analytics events, while this
-      // mark is inspectable in browser traces and automated performance checks.
-      if (!hasMarkedInitialData.current && status === 'all' && !keyword) {
-        hasMarkedInitialData.current = true;
-        requestAnimationFrame(() => performance.mark('swan:todos-data-visible'));
+  const load = useCallback(
+    async (fresh = false) => {
+      setLoading(true);
+      try {
+        const data = await api.listTodos({ status, keyword }, { fresh });
+        setItems(data.items);
+        // This is a local User Timing milestone rather than an analytics event.
+        // The Hobby Vercel plan has no custom Web Analytics events, while this
+        // mark is inspectable in browser traces and automated performance checks.
+        if (!hasMarkedInitialData.current && status === 'all' && !keyword) {
+          hasMarkedInitialData.current = true;
+          requestAnimationFrame(() => performance.mark('swan:todos-data-visible'));
+        }
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '加载失败');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [status, keyword, message]);
+    },
+    [status, keyword, message],
+  );
 
   useEffect(() => {
     void load();
@@ -96,7 +99,7 @@ function TodosPageContent() {
     try {
       await api.createTodo(title);
       setDraft('');
-      await load();
+      await load(true);
       message.success('已添加');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '创建失败');
@@ -112,7 +115,7 @@ function TodosPageContent() {
       setItems((prev) => prev.map((item) => (item.id === todo.id ? { ...item, completed } : item)));
     } catch (error) {
       message.error(error instanceof Error ? error.message : '更新失败');
-      await load();
+      await load(true);
     } finally {
       setBusyId(null);
     }
@@ -147,7 +150,7 @@ function TodosPageContent() {
   const handleClearCompleted = async () => {
     try {
       const { removed } = await api.clearCompleted();
-      await load();
+      await load(true);
       message.success(removed > 0 ? `已清理 ${removed} 条` : '没有已完成的任务');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '清理失败');
@@ -203,7 +206,7 @@ function TodosPageContent() {
             style={{ flex: '1 1 200px', maxWidth: 280 }}
           />
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => void load()}>
+            <Button icon={<ReloadOutlined />} onClick={() => void load(true)}>
               刷新
             </Button>
             <Popconfirm
