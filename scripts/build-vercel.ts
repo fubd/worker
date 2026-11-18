@@ -77,6 +77,17 @@ const config = {
       source: '/vendor/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
     },
+    {
+      // Start the cross-origin API request while the HTML body is still arriving.
+      // Scope this to /todos so /about does not fetch data it never uses.
+      source: '/todos',
+      headers: [
+        {
+          key: 'Link',
+          value: '<https://api.deephos.com/api/todos>; rel=preload; as=fetch; crossorigin',
+        },
+      ],
+    },
   ],
 };
 writeFileSync(`${OUT}/vercel.json`, `${JSON.stringify(config, null, 2)}\n`);
