@@ -1,4 +1,10 @@
-import type { Todo, TodoListResponse, TodoStats, TodoStatusFilter } from '@/shared/types';
+import type {
+  Todo,
+  TodoListResponse,
+  TodoListSnapshot,
+  TodoStats,
+  TodoStatusFilter,
+} from '@/shared/types';
 import { apiPath } from '@/shared/api-config';
 
 declare global {
@@ -17,6 +23,19 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+function readInitialTodos(): TodoListSnapshot | null {
+  const node = document.getElementById('swan-todos-snapshot');
+  if (!node?.textContent) return null;
+  try {
+    const parsed = JSON.parse(node.textContent) as TodoListSnapshot;
+    return Array.isArray(parsed.items) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+const initialTodos = readInitialTodos();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -53,6 +72,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  initialTodos: () => initialTodos,
+
   health: () =>
     request<{ ok: boolean; runtime: string; environment: string; time: string }>('/health'),
 

@@ -13,10 +13,11 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { injectLoadingShell } from './loading-shell';
 import { STATIC_MENU, STATIC_MENU_SCRIPT, STATIC_PAGE_STYLE } from './static-page';
-import { injectApiPrefetch, routePreloadScript, todosRouteFiles } from './route-preload';
+import { injectTodosBootstrap, routePreloadScript, todosRouteFiles } from './route-preload';
 import { OSS_STATIC } from './oss-config';
 import { productionApiUrl } from '../src/shared/api-config';
 import { injectStaticSpeedInsights } from './static-speed-insights';
+import { readTodosSnapshot } from './todos-snapshot';
 
 const DIST = 'dist';
 const VENDOR_DIR = `${DIST}/vendor`;
@@ -223,7 +224,10 @@ function toCn(
 
 const files = vendorFiles();
 const antd = antdFile();
-const indexHtml = injectApiPrefetch(readFileSync(`${DIST}/index.html`, 'utf8'));
+const indexHtml = injectTodosBootstrap(
+  readFileSync(`${DIST}/index.html`, 'utf8'),
+  readTodosSnapshot(DIST),
+);
 writeFileSync(`${DIST}/index-cn.html`, injectLoadingShell(toCn(indexHtml, files, antd)));
 
 const homePath = `${DIST}/home.html`;

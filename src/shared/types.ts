@@ -14,6 +14,11 @@ export interface TodoListResponse {
   total?: number;
 }
 
+export interface TodoListSnapshot {
+  items: Todo[];
+  capturedAt: string;
+}
+
 export interface TodoStats {
   total: number;
   completed: number;

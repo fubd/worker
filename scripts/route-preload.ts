@@ -9,6 +9,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { productionApiUrl } from '../src/shared/api-config';
+import type { TodoListSnapshot } from '../src/shared/types';
 
 export function findEntryFile(distDir: string): string {
   const files = readdirSync(`${distDir}/static/js`).filter((file) =>
@@ -95,11 +96,17 @@ export function apiPrefetchScript(): string {
 </script>`;
 }
 
+function todosSnapshotScript(snapshot: TodoListSnapshot | null): string {
+  if (!snapshot) return '';
+  const json = JSON.stringify(snapshot).replaceAll('<', '\\u003c');
+  return `<script id="swan-todos-snapshot" type="application/json">${json}</script>`;
+}
+
 /**
- * 把 API 预取放到 preconnect 后面、importmap 和模块脚本前面。
- * 浏览器解析到这里即可并行建立 API 连接，不必等到整个 <head> 解析完。
+ * 把 API 预取和最近列表快照放到 importmap、模块脚本前面。
+ * 快照负责立即渲染，API 预取负责后台刷新。
  */
-export function injectApiPrefetch(html: string): string {
+export function injectTodosBootstrap(html: string, snapshot: TodoListSnapshot | null): string {
   const anchor = '<meta name="swan-vendor" content="global-static" />';
   const occurrences = html.split(anchor).length - 1;
   if (occurrences !== 1) {
@@ -108,5 +115,11 @@ export function injectApiPrefetch(html: string): string {
   if (html.includes('id="swan-api-prefetch"')) {
     throw new Error('API prefetch script was injected more than once');
   }
-  return html.replace(anchor, `${anchor}\n    ${apiPrefetchScript()}`);
+  if (html.includes('id="swan-todos-snapshot"')) {
+    throw new Error('todos snapshot was injected more than once');
+  }
+  return html.replace(
+    anchor,
+    `${anchor}\n    ${apiPrefetchScript()}\n    ${todosSnapshotScript(snapshot)}`,
+  );
 }

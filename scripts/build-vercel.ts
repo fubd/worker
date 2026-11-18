@@ -13,10 +13,11 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { injectLoadingShell } from './loading-shell';
 import {
   findAntdFile,
-  injectApiPrefetch,
+  injectTodosBootstrap,
   routePreloadScript,
   todosRouteFiles,
 } from './route-preload';
+import { readTodosSnapshot } from './todos-snapshot';
 
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
@@ -38,7 +39,7 @@ mkdirSync(OUT, { recursive: true });
 for (const file of required.filter((f) => f !== 'index.html'))
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 const globalShell = injectLoadingShell(
-  injectApiPrefetch(readFileSync(`${DIST}/index.html`, 'utf8')),
+  injectTodosBootstrap(readFileSync(`${DIST}/index.html`, 'utf8'), readTodosSnapshot(DIST)),
 ).replace(
   '</head>',
   `    <link rel="modulepreload" href="/static/js/${findAntdFile(DIST)}" />\n` +

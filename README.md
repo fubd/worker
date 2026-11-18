@@ -207,7 +207,8 @@ CHROME_PATH=/path/to/chrome bun run build
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
 - `/todos`、`/about`：CN 返回 `index-cn.html`（OSS + 静态 import map），其他返回 `shell-global.html`（同源 vendor）；
 - 新构建的 API 请求：浏览器统一访问同域 `/api/*`，由 Vercel 亚洲边缘代理到 `api.deephos.com`；
-- `/todos` 在 HTML 的 API `preconnect` 后立即内联预取默认待办列表，早于 importmap 和模块脚本；`/about` 不预取未使用的数据；
+- `/todos` 在 importmap 和模块脚本之前同域预取默认待办列表；`/about` 不预取未使用的数据；
+- `/todos` 构建时内联最近一次待办快照，React 首帧直接渲染，随后用 API 在后台刷新；
 - 待办列表允许浏览器先显示短时间内的旧响应并在后台重新验证；写操作和手动刷新强制重新请求；
 - `/api/*`：Vercel 反代到 `api.deephos.com`；`/api/todos` 使用 5 秒 CDN 缓存和 15 秒后台重验证；
 - Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
@@ -270,7 +271,7 @@ CN 的 vendor 与 antd chunk 全部从 OSS `/static/vendor/*`、`/static/js/*` �
   - 这是按当前项目 IP 固定下来的：Vercel 换 IP 时站点会断，需用
     `dig +short 8a55bf6822ee61dd.vercel-dns-017.com` 对照并更新这两条 A 记录；
   - 实测换 A 后大陆 DNS p90 429→198ms、首页总耗时 p50 399→317ms、p90 728→535ms；
-- API 自定义域名为 `api.deephos.com`，共享配置在 `src/shared/api-config.ts`；Vercel 的兼容 rewrite 目标写在 `scripts/build-vercel.ts`。
+- 浏览器 API 基址为同域 `/api`；上游仍为 `api.deephos.com`，共享配置在 `src/shared/api-config.ts`，Vercel rewrite 写在 `scripts/build-vercel.ts`。
 
 ## 部署到 Cloudflare
 

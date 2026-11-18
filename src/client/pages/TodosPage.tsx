@@ -45,16 +45,19 @@ export default function TodosPage() {
 
 function TodosPageContent() {
   const { message } = App.useApp();
+  const initialTodos = api.initialTodos();
 
-  const [items, setItems] = useState<Todo[]>([]);
+  const [items, setItems] = useState<Todo[]>(() => initialTodos?.items ?? []);
   const [status, setStatus] = useState<TodoStatusFilter>('all');
   const [keyword, setKeyword] = useState('');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => initialTodos === null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const hasMarkedInitialData = useRef(false);
+  const hasInitialSnapshot = useRef(initialTodos !== null);
+  const hasStartedInitialLoad = useRef(false);
 
   // 输入防抖
   useEffect(() => {
@@ -63,8 +66,8 @@ function TodosPageContent() {
   }, [search]);
 
   const load = useCallback(
-    async (fresh = false) => {
-      setLoading(true);
+    async (fresh = false, background = false) => {
+      if (!background) setLoading(true);
       try {
         const data = await api.listTodos({ status, keyword }, { fresh });
         setItems(data.items);
@@ -85,7 +88,19 @@ function TodosPageContent() {
   );
 
   useEffect(() => {
-    void load();
+    if (hasInitialSnapshot.current) {
+      requestAnimationFrame(() => {
+        if (hasMarkedInitialData.current) return;
+        hasMarkedInitialData.current = true;
+        performance.mark('swan:todos-data-visible');
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const background = !hasStartedInitialLoad.current && hasInitialSnapshot.current;
+    hasStartedInitialLoad.current = true;
+    void load(false, background);
   }, [load]);
 
   const handleCreate = async () => {
