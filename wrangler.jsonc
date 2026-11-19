@@ -16,8 +16,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "swan-worker-db",
-      "database_id": "972f2269-ed6b-4787-aef9-673b37bdf801",
+      "database_name": "swan-worker-db-apac",
+      "database_id": "57673fd1-de8d-4f09-b92b-0fd90e7f05e3",
       "migrations_dir": "migrations",
     },
   ],
