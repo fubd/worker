@@ -48,10 +48,12 @@ bun run dev:api         # 只启动 Worker
 bun run vendor          # 生成 public/vendor/ 下的 react 系 ESM 模块（构建时拷进 dist/vendor/）
 bun run build                # vendor + 构建前端到 dist/（含静态首屏快照和 Vercel 产物）
 bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
+bun run build:static-about   # 只生成最终静态页 dist/about.html（需先 rsbuild build）
 bun run build:cn-home        # 只生成静态 dist/home-cn.html（需先 build:first-screen）
 bun run build:vercel         # 只生成 dist/vercel/（需先 build:cn-home）
 bun run verify:vercel        # 检查所有静态资源已进入 Vercel 产物且没有外部 CDN
 bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
+bun run check:static-about   # 检查 about.html 不含 React/module 依赖
 bun run check                # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
 bun run fmt:check       # 只检查不写入，CI 用
@@ -161,7 +163,7 @@ swan-worker/
 真实应用渲染完成后由一段内联脚本无缝接管。
 
 - 只影响 `/`：Vercel 按 `x-vercel-ip-country` 返回 `home-cn.html` 或
-  `home.html`；`/todos`、`/about` 全球统一使用 `shell-global.html`。
+  `home.html`；`/about` 直接返回构建期生成的最终静态页。
 - 无 JS 也能看到完整首页；快照带 `inert` + `aria-hidden`，不会抢焦点。
 - 快照缺失或生成失败时自动回退到 SPA shell，不会阻塞构建/部署。
 - 代价：`/` 的 HTML 从 ~0.9 kB 增加到 ~16.8 kB Brotli；不减少 JS，也不改善
@@ -173,6 +175,8 @@ swan-worker/
 ```bash
 bun run build:first-screen          # 只跑快照生成（需先 rsbuild build）
 bun run check:first-screen          # 结构检查，不启动浏览器
+bun run build:static-about          # 生成不加载 React/antd 的 /about
+bun run check:static-about --strict # CI 检查 /about 必须存在且完全静态
 FIRST_SCREEN_SKIP=1 bun run build   # 跳过快照（CI 没有 Chrome 时）
 FIRST_SCREEN_STRICT=1 bun run build # 快照失败时让构建失败
 FIRST_SCREEN_CSS_MODE=async bun run build # inline-css | async | blocking
@@ -186,7 +190,8 @@ CHROME_PATH=/path/to/chrome bun run build
 `deephos.com` 整站由 Vercel 托管，Cloudflare 提供独立 API 域名：
 
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
-- `/todos`、`/about`：全球统一返回 `shell-global.html`，entry、async chunk、antd 与 vendor 全部从 Vercel 同源加载；
+- `/about`：返回 `about.html`，桌面和移动端 DOM/CSS 均在构建期生成，不加载 React、antd、vendor 或 module script；
+- `/todos`：返回 `shell-global.html`，entry、async chunk、antd 与 vendor 全部从 Vercel 同源加载；
 - 新构建的 API 请求：浏览器统一访问同域 `/api/*`，由 Vercel 亚洲边缘代理到 `api.deephos.com`；
 - `/todos` 在 importmap 和模块脚本之前同域预取默认待办列表；`/about` 不预取未使用的数据；
 - `/todos` 构建时内联最近一次待办快照，React 首帧直接渲染，随后用 API 在后台刷新；
@@ -257,10 +262,10 @@ bun run deploy
 
 `.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑
 `bun install --frozen-lockfile` → `fmt:check` → `check` → `build` →
-`check:first-screen` → Vercel 部署 → `wrangler deploy`。`build` 内的
+`check:first-screen` → `check:static-about --strict` → Vercel 部署 → `wrangler deploy`。`build` 内的
 `verify:vercel` 会检查所有静态文件已随站点上传；任一步失败都会停止后续发布。
 
-`bun run build` 会生成 `dist/home.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell，不影响部署。
+`bun run build` 会生成 `dist/home.html` 和 `dist/about.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell；CI 的严格结构检查会阻止这种回退进入生产部署。
 
 启用前在仓库 **Settings → Secrets and variables → Actions** 配置：
 

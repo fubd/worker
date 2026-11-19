@@ -1,7 +1,7 @@
-# First-screen snapshot
+# Build-time static pages
 
-Build-time static first screen for the home page. `bun run build` runs this
-after Rsbuild:
+The capture pipeline supports the home first screen and final static pages.
+`bun run build` runs this after Rsbuild:
 
 1. start a local server for `dist/` with mocked `/api/stats` and `/vendor/*` from `dist/vendor/`
 2. capture the built home page at 1440×900 and 390×844 with headless Chrome
@@ -10,7 +10,9 @@ after Rsbuild:
    inline when it is small (otherwise preload it asynchronously)
 5. verify handover in the browser; on failure, delete `home.html`
 
-The Worker serves `home.html` for `/` only; other routes keep `index.html`.
+`scripts/build-about.ts` reuses the same responsive capture and CSS extraction
+to generate `dist/about.html` as a final page with no React handover. Vercel
+serves that file for `/about`; `/todos` keeps the normal SPA shell.
 
 ## Env
 

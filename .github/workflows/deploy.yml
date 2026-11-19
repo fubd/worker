@@ -47,6 +47,9 @@ jobs:
       - name: Check first-screen snapshot
         run: bun run check:first-screen
 
+      - name: Check static about page
+        run: bun run check:static-about -- --strict
+
       # 先发 Vercel 再发 Worker：API 反代目标不能指向还没发布的 Worker。
       - name: Deploy full site to Vercel
         run: bunx vercel@latest deploy dist/vercel --prod --yes

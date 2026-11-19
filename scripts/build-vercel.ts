@@ -3,7 +3,8 @@
  *
  * deephos.com 整站由 Vercel 托管（Cloudflare 提供 api.deephos.com）：
  * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
- * - `/todos`、`/about` 全球统一使用 shell-global.html，所有 JS/CSS 同源加载；
+ * - `/about` 使用构建期生成的最终静态页；
+ * - `/todos` 使用 shell-global.html，所有 JS/CSS 同源加载；
  * - 浏览器统一请求 deephos.com/api/*，由 Vercel 代理到 api.deephos.com；
  * - static/vendor 随 Vercel 部署上传，不依赖外部静态资源域名。
  *
@@ -26,6 +27,7 @@ const LEGACY_API = 'https://api.deephos.com';
 const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 
 const required = ['index.html', 'home.html', 'home-cn.html', 'favicon.svg'];
+const hasStaticAbout = existsSync(`${DIST}/about.html`);
 // index.html 必须改名：部署里存在 index.html 时 / 会直接命中静态文件，rewrite 不生效。
 const GLOBAL_SHELL = 'shell-global.html';
 for (const file of required) {
@@ -38,8 +40,9 @@ for (const file of required) {
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-for (const file of required.filter((f) => f !== 'index.html'))
-  cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
+const copied = [...required.filter((f) => f !== 'index.html')];
+if (hasStaticAbout) copied.push('about.html');
+for (const file of copied) cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 const todosSnapshot = readTodosSnapshot(DIST);
 const globalShell = injectLoadingShell(
   injectTodosBootstrap(
@@ -73,7 +76,7 @@ const config = {
     { source: '/', has: CN, destination: '/home-cn.html' },
     { source: '/', destination: '/home.html' },
     { source: '/todos', destination: `/${GLOBAL_SHELL}` },
-    { source: '/about', destination: `/${GLOBAL_SHELL}` },
+    { source: '/about', destination: hasStaticAbout ? '/about.html' : `/${GLOBAL_SHELL}` },
   ],
   headers: [
     {

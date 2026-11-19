@@ -9,6 +9,8 @@
  *   in production)
  * - / serves dist/index.html during capture, and dist/home.html during the
  *   post-generation verification (setServeHome)
+ * - /about serves the SPA during capture, and dist/about.html during the
+ *   post-generation verification (setServeAbout)
  *
  * Everything is no-store so each capture starts from a clean cache.
  */
@@ -51,6 +53,7 @@ function resolveInside(root: string, pathname: string): string | null {
 export type CaptureServer = {
   url: string;
   setServeHome(value: boolean): void;
+  setServeAbout(value: boolean): void;
   setStatsDelay(ms: number): void;
   stop(): void;
 };
@@ -59,6 +62,7 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
   const distRoot = resolve(distDir);
   const vendorRoot = resolve(vendorDir);
   let serveHome = false;
+  let serveAbout = false;
   let statsDelayMs = 0;
 
   const server = Bun.serve({
@@ -81,6 +85,11 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
           { ok: true, runtime: 'capture', environment: 'capture' },
           { headers: NO_STORE },
         );
+      }
+      if (pathname === '/_vercel/speed-insights/script.js') {
+        return new Response('', {
+          headers: { 'Content-Type': 'text/javascript; charset=utf-8', ...NO_STORE },
+        });
       }
       if (pathname === '/api' || pathname.startsWith('/api/')) {
         return Response.json(
@@ -110,6 +119,9 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
         }
         pathname = '/index.html';
       }
+      if (pathname === '/about' && serveAbout) {
+        pathname = '/about.html';
+      }
 
       const file = resolveInside(distRoot, pathname);
       if (file && existsSync(file)) {
@@ -134,6 +146,9 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
     url: `http://127.0.0.1:${server.port}`,
     setServeHome(value: boolean) {
       serveHome = value;
+    },
+    setServeAbout(value: boolean) {
+      serveAbout = value;
     },
     setStatsDelay(ms: number) {
       statsDelayMs = ms;

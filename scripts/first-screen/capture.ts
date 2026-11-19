@@ -24,6 +24,12 @@ export const VIEWPORTS = [
 export type ViewportName = (typeof VIEWPORTS)[number]['name'];
 export type CaptureMap = Record<ViewportName, Capture>;
 
+export type RouteCaptureOptions = {
+  path: string;
+  label: string;
+  readySelectors: string[];
+};
+
 /**
  * Keep browser requests on the production API origin while routing them to
  * the deterministic capture server. This also exercises the cross-origin
@@ -78,6 +84,18 @@ export async function captureSnapshots(
   baseUrl: string,
   executablePath: string,
 ): Promise<CaptureMap> {
+  return captureRouteSnapshots(baseUrl, executablePath, {
+    path: '/',
+    label: 'home',
+    readySelectors: ['#root .swan-hero h1', '#root .swan-stat-value', '#root .swan-code-block'],
+  });
+}
+
+export async function captureRouteSnapshots(
+  baseUrl: string,
+  executablePath: string,
+  options: RouteCaptureOptions,
+): Promise<CaptureMap> {
   const browser = await chromium.launch({
     executablePath,
     headless: true,
@@ -87,7 +105,7 @@ export async function captureSnapshots(
   try {
     const captures = {} as CaptureMap;
     for (const viewport of VIEWPORTS) {
-      captures[viewport.name] = await captureAt(browser, baseUrl, viewport);
+      captures[viewport.name] = await captureAt(browser, baseUrl, viewport, options);
     }
     return captures;
   } finally {
@@ -99,6 +117,7 @@ async function captureAt(
   browser: Browser,
   baseUrl: string,
   viewport: (typeof VIEWPORTS)[number],
+  options: RouteCaptureOptions,
 ): Promise<Capture> {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
@@ -118,10 +137,16 @@ async function captureAt(
       if (message.type() === 'error') errors.push(message.text());
     });
 
-    await page.goto(`${baseUrl}/`, { waitUntil: 'load', timeout: 30_000 });
-    await page.waitForSelector('#root .swan-hero h1', { timeout: 15_000 });
-    await page.waitForSelector('#root .swan-stat-value', { timeout: 15_000 });
-    await page.waitForSelector('#root .swan-code-block', { timeout: 15_000 });
+    await page.goto(`${baseUrl}${options.path}`, { waitUntil: 'load', timeout: 30_000 });
+    for (const selector of options.readySelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 15_000 });
+      } catch {
+        throw new Error(
+          `${options.label} ${viewport.name} did not render ready selector: ${selector}`,
+        );
+      }
+    }
     await page.evaluate(() => document.fonts.ready.then(() => true));
 
     // Freeze animations for the capture. The style is marked so the CSS
@@ -144,10 +169,13 @@ async function captureAt(
     const capture = await page.evaluate(captureInPage);
 
     if (errors.length > 0) {
-      console.warn(`[first-screen] ${viewport.name} console errors:`, errors.slice(0, 5));
+      console.warn(
+        `[first-screen] ${options.label} ${viewport.name} console errors:`,
+        errors.slice(0, 5),
+      );
     }
     if (!capture.html || !capture.css) {
-      throw new Error(`empty ${viewport.name} capture`);
+      throw new Error(`empty ${options.label} ${viewport.name} capture`);
     }
 
     return capture;
