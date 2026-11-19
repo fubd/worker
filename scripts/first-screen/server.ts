@@ -5,8 +5,8 @@
  * the home page needs:
  * - /api/stats returns deterministic mock data (the snapshot must not depend
  *   on production data or network timing)
- * - /vendor/* comes from dist/vendor (the same static asset path production
- *   serves through Workers Static Assets)
+ * - /vendor/* comes from dist/vendor (the same same-origin path Vercel serves
+ *   in production)
  * - / serves dist/index.html during capture, and dist/home.html during the
  *   post-generation verification (setServeHome)
  *

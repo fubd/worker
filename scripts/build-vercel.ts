@@ -3,9 +3,9 @@
  *
  * deephos.com 整站由 Vercel 托管（Cloudflare 提供 api.deephos.com）：
  * - `/` 按 x-vercel-ip-country 分流：CN 用静态快照 home-cn.html，其他用 home.html；
- * - `/todos`、`/about` 同理：CN 用 index-cn.html（OSS + 静态 import map），其他用 shell-global.html（同源 vendor）；
+ * - `/todos`、`/about` 全球统一使用 shell-global.html，所有 JS/CSS 同源加载；
  * - 浏览器统一请求 deephos.com/api/*，由 Vercel 代理到 api.deephos.com；
- * - static/vendor 随部署上传，供全球版使用；CN 的 JS/CSS 仍在 OSS。
+ * - static/vendor 随 Vercel 部署上传，不依赖外部静态资源域名。
  *
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
@@ -24,13 +24,13 @@ const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
 const LEGACY_API = 'https://api.deephos.com';
 
-const required = ['index.html', 'home.html', 'home-cn.html', 'index-cn.html', 'favicon.svg'];
+const required = ['index.html', 'home.html', 'home-cn.html', 'favicon.svg'];
 // index.html 必须改名：部署里存在 index.html 时 / 会直接命中静态文件，rewrite 不生效。
 const GLOBAL_SHELL = 'shell-global.html';
 for (const file of required) {
   if (!existsSync(`${DIST}/${file}`)) {
     throw new Error(
-      `vercel bundle missing dist/${file}; run build:first-screen and build:cn-html first`,
+      `vercel bundle missing dist/${file}; run build:first-screen and build:cn-home first`,
     );
   }
 }
@@ -71,9 +71,7 @@ const config = {
     { source: '/api/:path*', destination: `${LEGACY_API}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },
     { source: '/', destination: '/home.html' },
-    { source: '/todos', has: CN, destination: '/index-cn.html' },
     { source: '/todos', destination: `/${GLOBAL_SHELL}` },
-    { source: '/about', has: CN, destination: '/index-cn.html' },
     { source: '/about', destination: `/${GLOBAL_SHELL}` },
   ],
   headers: [

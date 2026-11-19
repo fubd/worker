@@ -1,8 +1,8 @@
 /**
  * 给 SPA shell 注入首帧加载骨架：React 启动前 #root 不再纯白。
  *
- * 只注入 index-cn.html 和 shell-global.html；首页有首屏快照，不注入。
- * 骨架用内联 CSS 和唯一前缀，不依赖尚未加载的 OSS/Vercel CSS。
+ * 只注入 shell-global.html；首页有首屏快照，不注入。
+ * 骨架用内联 CSS 和唯一前缀，不依赖尚未加载的 Vercel CSS。
  * React 挂载前由 src/client/main.tsx 的 container.replaceChildren() 清空。
  */
 import type { TodoListSnapshot } from '../src/shared/types';

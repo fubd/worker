@@ -105,7 +105,7 @@ const TREE = `swan-worker/
 │       ├── routes/        # API 路由
 │       └── index.ts       # Worker 入口
 ├── rsbuild.config.ts
-├── wrangler.jsonc         # Worker / 静态资源 / D1 绑定
+├── wrangler.jsonc         # Worker API / D1 绑定
 └── tsconfig.json`;
 
 const COMMANDS = `bun install                 # 安装依赖
@@ -116,16 +116,17 @@ bun run db:seed:local       # 写入演示数据
 bun run build               # 构建前端到 dist/
 bun run deploy              # 构建并 wrangler deploy`;
 
-const DEPLOY = `# 1. 登录 Cloudflare
-bunx wrangler login
+const DEPLOY = `# 1. 构建 Vercel 站点和 Worker API
+bun run build
+bunx vercel deploy dist/vercel --prod --yes
 
-# 2. 创建 D1 数据库，把返回的 database_id 填进 wrangler.jsonc
+# 2. 首次使用时创建 D1 数据库，把 database_id 填进 wrangler.jsonc
 bun run db:create
 
 # 3. 在线上库执行迁移
 bun run db:migrate:remote
 
-# 4. 部署
+# 4. 部署 API Worker
 bun run deploy`;
 
 export default function AboutPage() {
@@ -136,8 +137,8 @@ export default function AboutPage() {
           技术栈
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          同一个 Worker 同时承担静态资源托管与 API 服务：<code>/api/*</code> 走 Hono，
-          其余路径交给静态资源绑定，未命中时回退到 SPA 的 index.html。
+          <code>deephos.com</code> 的 HTML、JS、CSS 与 vendor 由 Vercel 托管； Cloudflare Worker
+          只提供 <code>/api/*</code>，通过同域反向代理接入。
         </Typography.Paragraph>
       </Card>
 
@@ -173,7 +174,7 @@ export default function AboutPage() {
           <Card
             variant="borderless"
             className="swan-card"
-            title="部署到 Cloudflare"
+            title="部署"
             styles={{ body: { padding: 16 } }}
           >
             <pre className="swan-code-block">
@@ -205,8 +206,8 @@ export default function AboutPage() {
         <Space direction="vertical" size={10}>
           <Typography.Text>
             <Tag color="blue">wrangler.jsonc</Tag>
-            <code>assets.run_worker_first: ["/api/*"]</code> 保证 API 先到 Worker，
-            其余请求直接命中静态资源。
+            <code>deephos.com</code> 由 Vercel 提供全部静态资源；
+            <code>api.deephos.com</code> 的 Worker 只处理 API。
           </Typography.Text>
           <Typography.Text>
             <Tag color="blue">D1</Tag>

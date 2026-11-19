@@ -3,8 +3,8 @@
  * 输出到 public/vendor/。
  *
  * 输出放在 public/ 下，rsbuild build 会把它们原样拷进 dist/vendor/，
- * 由 Workers Static Assets 直接托管。这样 /vendor/* 和 /static/* 一样
- * 走 Cloudflare 的边缘缓存，不再每次请求都进 Worker 回源 R2。
+ * 由 Vercel 静态托管。这样 /vendor/* 和 /static/* 一样
+ * 走 Vercel 边缘缓存，不再经过 API Worker。
  *
  * 为什么不能直接 bun build react：
  * - react / react-dom 的 npm 包只有 CJS 产物，浏览器不能直接 import
@@ -17,8 +17,7 @@
  * 合成一份既能少发请求，也不会出现两份 React 实例（Invalid hook call）。
  * router 单独一份，因为它只依赖 react，不依赖 react-dom。
  *
- * 同一份产物也用于发布 @meteor957/swan-vendor（见 README）：
- * 大陆 HTML 的 importmap 指向 OSS 上的同名文件，海外仍指向 /vendor/*。
+ * 大陆和海外 HTML 的 importmap 都指向同源 /vendor/*。
  */
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';

@@ -12,12 +12,12 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build & Deploy to Cloudflare Workers
+    name: Build & Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     # VERCEL_ORG_ID / VERCEL_PROJECT_ID 只是项目标识，不是凭据；
-    # 真正的 token 走仓库 secret，缺失时跳过 Vercel 步骤（站点会停在旧产物）。
+    # 站点静态资源全部由 Vercel 托管，因此缺少 token 时必须让部署失败。
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_YGqOJG3kJ2aprfzzfz5gtMcr
@@ -47,18 +47,8 @@ jobs:
       - name: Check first-screen snapshot
         run: bun run check:first-screen
 
-      - name: Upload static assets to OSS
-        env:
-          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
-          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
-        run: bun run upload:oss
-
-      - name: Verify OSS static assets
-        run: bun run verify:oss
-
       # 先发 Vercel 再发 Worker：API 反代目标不能指向还没发布的 Worker。
-      - name: Deploy CN entry to Vercel
-        if: env.VERCEL_TOKEN != ''
+      - name: Deploy full site to Vercel
         run: bunx vercel@latest deploy dist/vercel --prod --yes
 
       - name: Deploy

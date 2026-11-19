@@ -21,7 +21,7 @@ export default defineConfig(({ command }) => ({
       'theme-color': '#ffffff',
     },
     // vendor 的 modulepreload 写在 src/client/index.html 里：
-    // 现在是同源 /vendor/*，由 Workers Static Assets 托管，不需要 preconnect/dns-prefetch
+    // 现在由 Vercel 同源托管 /vendor/*，不需要 preconnect/dns-prefetch
   },
 
   output: {
@@ -51,7 +51,7 @@ export default defineConfig(({ command }) => ({
             'react-router/dom': 'react-router/dom',
           }
         : undefined,
-    // 模块脚本必须按真实 MIME 提供，Cloudflare 静态资源按扩展名推断，.mjs → text/javascript
+    // 模块脚本必须按真实 MIME 提供，Vercel 按扩展名推断，.mjs → text/javascript
     filename: {
       js: '[name].[contenthash:8].mjs',
     },
