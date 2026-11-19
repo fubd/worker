@@ -23,6 +23,7 @@ import { readTodosSnapshot } from './todos-snapshot';
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
 const LEGACY_API = 'https://api.deephos.com';
+const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 
 const required = ['index.html', 'home.html', 'home-cn.html', 'favicon.svg'];
 // index.html 必须改名：部署里存在 index.html 时 / 会直接命中静态文件，rewrite 不生效。
@@ -89,6 +90,22 @@ const config = {
     {
       source: '/vendor/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+    {
+      // The shell is static for a deployment and embeds a data snapshot. Let
+      // Vercel serve it from the nearest edge while browsers revalidate.
+      source: '/todos',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
+    },
+    {
+      source: '/about',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
     },
     {
       // Vercel can cache external rewrites. Keep the list cache short so a

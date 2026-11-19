@@ -123,7 +123,10 @@ swan-worker/
 
 **类型只写一次。** `src/shared/types.ts` 被前端和 Worker 同时引用，接口字段改名会立刻在两边报错。
 
-**缓存与安全头由 `scripts/build-vercel.ts` 生成的 `vercel.json` 负责。** `/static/*`、`/vendor/*` 拿到 `max-age=31536000, immutable`（文件名带 hash/版本号），HTML 走 Vercel 默认的 `no-cache`，全局加 `X-Content-Type-Options` 与 `Referrer-Policy`。
+**缓存与安全头由 `scripts/build-vercel.ts` 生成的 `vercel.json` 负责。**
+`/static/*`、`/vendor/*` 拿到 `max-age=31536000, immutable`（文件名带 hash/版本号）；
+`/todos`、`/about` 的 HTML 浏览器端仍重新验证，Vercel 边缘缓存 60 秒并允许
+`stale-while-revalidate=300`；全局加 `X-Content-Type-Options` 与 `Referrer-Policy`。
 
 **错误不泄漏内部信息。** Worker 的 `onError` 只把堆栈写日志，响应里返回 `{ error, traceId }`（`traceId` 取 `cf-ray`，方便回查）；前端 `request()` 对非 JSON 响应做了兜底，边缘层直接吐 HTML 错误页时不会变成 `SyntaxError`。
 
