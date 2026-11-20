@@ -9,8 +9,8 @@ import {
   Input,
   Popconfirm,
   Segmented,
-  Skeleton,
   Space,
+  Spin,
   Tag,
   Typography,
 } from 'antd';
@@ -234,7 +234,7 @@ function TodosPageContent() {
             style={{ flex: '1 1 200px', maxWidth: 280 }}
           />
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => void load(true)}>
+            <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void load(true)}>
               刷新
             </Button>
             <Popconfirm
@@ -270,8 +270,10 @@ function TodosPageContent() {
         }
         styles={{ body: { padding: '8px 20px 16px' } }}
       >
-        {loading ? (
-          <Skeleton active paragraph={{ rows: 4 }} />
+        {items.length === 0 && loading ? (
+          <Flex justify="center" style={{ padding: '32px 0' }}>
+            <Spin size="small" />
+          </Flex>
         ) : items.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}

@@ -15,7 +15,7 @@ if (!container) {
   throw new Error('找不到 #root 挂载节点');
 }
 
-// shell 里预置了首帧加载骨架；React 挂载前清空，避免骨架和真实页面同时存在
+// shell 里预置了首帧待办快照；React 挂载前清空，避免快照和真实页面同时存在
 container.replaceChildren();
 
 createRoot(container).render(

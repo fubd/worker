@@ -1,8 +1,8 @@
 /**
- * 给 SPA shell 注入首帧加载骨架：React 启动前 #root 不再纯白。
+ * 给 SPA shell 注入首帧待办快照：React 启动前 #root 不再纯白。
  *
  * 只注入 shell-global.html；首页有首屏快照，不注入。
- * 骨架用内联 CSS 和唯一前缀，不依赖尚未加载的 Vercel CSS。
+ * 快照用内联 CSS 和唯一前缀，不依赖尚未加载的 Vercel CSS。
  * React 挂载前由 src/client/main.tsx 的 container.replaceChildren() 清空。
  */
 import type { TodoListSnapshot } from '../src/shared/types';
@@ -12,11 +12,8 @@ const SHELL_STYLE = `<style id="swan-boot-style">
   .swan-boot { display: flex; min-height: 100vh; }
   .swan-boot-sider { width: 240px; flex: 0 0 240px; background: var(--swan-panel, #fff); border-right: 1px solid var(--swan-border, #e9ebf0); }
   .swan-boot-main { flex: 1; min-width: 0; padding: 24px; }
-  .swan-boot-header { height: 32px; width: 180px; border-radius: 8px; background: var(--swan-skeleton, #e9eef5); margin-bottom: 24px; }
-  .swan-boot-card { height: 120px; border-radius: 12px; background: var(--swan-skeleton, #e9eef5); margin-bottom: 16px; }
   .swan-boot-todos { display: none; overflow: hidden; border: 1px solid var(--swan-border, #e9ebf0); border-radius: 12px; background: var(--swan-panel, #fff); }
   html[data-swan-shell-route="todos"] .swan-boot-todos { display: block; }
-  html[data-swan-shell-route="todos"] .swan-boot-skeleton { display: none; }
   .swan-boot-todos-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--swan-border, #e9ebf0); font-size: 16px; font-weight: 600; }
   .swan-boot-todos-count { padding: 2px 8px; border-radius: 6px; background: #e8f1ff; color: #1677ff; font-size: 12px; font-weight: 500; }
   .swan-boot-todos-list { padding: 8px 20px 16px; }
@@ -30,8 +27,6 @@ const SHELL_STYLE = `<style id="swan-boot-style">
   @media (max-width: 991.98px) {
     .swan-boot-sider { display: none; }
     .swan-boot-main { padding: 16px; }
-    .swan-boot-header { height: 28px; width: 140px; }
-    .swan-boot-card { height: 96px; }
   }
 </style>`;
 
@@ -63,7 +58,7 @@ function todosSnapshotHtml(snapshot: TodoListSnapshot | null): string {
 }
 
 function shellRoot(snapshot: TodoListSnapshot | null): string {
-  return `<div id="root"><div class="swan-boot" aria-hidden="true"><div class="swan-boot-sider"></div><div class="swan-boot-main"><div class="swan-boot-header"></div>${todosSnapshotHtml(snapshot)}<div class="swan-boot-skeleton"><div class="swan-boot-card"></div><div class="swan-boot-card"></div></div></div></div></div>`;
+  return `<div id="root"><div class="swan-boot" aria-hidden="true"><div class="swan-boot-sider"></div><div class="swan-boot-main">${todosSnapshotHtml(snapshot)}</div></div></div>`;
 }
 
 function shellRouteScript(snapshot: TodoListSnapshot | null): string {
