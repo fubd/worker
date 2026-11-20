@@ -257,6 +257,79 @@ body {
   transform: translateX(0);
 }
 
+.swan-todos-preview {
+  overflow: hidden;
+}
+
+.swan-todos-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--swan-border);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.swan-todos-preview-count {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e8f1ff;
+  color: #1677ff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.swan-todos-preview-list {
+  padding: 8px 20px 16px;
+}
+
+.swan-todos-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--swan-border);
+  color: var(--swan-text);
+}
+
+.swan-todos-preview-row:last-child {
+  border-bottom: 0;
+}
+
+.swan-todos-preview-check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.swan-todos-preview-check.is-done {
+  border-color: #1677ff;
+  background: #1677ff;
+}
+
+.swan-todos-preview-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-todos-preview-title.is-done {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.swan-todos-preview-id {
+  margin-left: auto;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
 .swan-route-skeleton {
   padding: 24px;
 }

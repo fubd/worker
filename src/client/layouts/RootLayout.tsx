@@ -12,6 +12,8 @@ import {
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
+import { api } from '../api/client';
+
 /** 只接管普通左键点击，保留 Ctrl/Cmd/Shift/中键在新标签页打开的行为。 */
 function isPlainLeftClick(event: {
   button: number;
@@ -69,6 +71,47 @@ function Logo({ showText }: { showText: boolean }) {
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * /todos 的静态 HTML 已经带有数据快照，路由 chunk 加载期间继续显示这份快照。
+ * 页面刷新时不会再从完整列表闪成灰色骨架。
+ */
+function TodosRouteFallback() {
+  const snapshot = api.initialTodos();
+  if (!snapshot) return null;
+
+  const completed = snapshot.items.filter((todo) => todo.completed).length;
+
+  return (
+    <section className="swan-card swan-todos-preview" aria-label="待办快照">
+      <div className="swan-todos-preview-head">
+        <span>任务列表</span>
+        <span className="swan-todos-preview-count">
+          {completed}/{snapshot.items.length}
+        </span>
+      </div>
+      <div className="swan-todos-preview-list">
+        {snapshot.items.map((todo) => (
+          <div className="swan-todos-preview-row" key={todo.id}>
+            <span
+              className={
+                todo.completed ? 'swan-todos-preview-check is-done' : 'swan-todos-preview-check'
+              }
+            />
+            <span
+              className={
+                todo.completed ? 'swan-todos-preview-title is-done' : 'swan-todos-preview-title'
+              }
+            >
+              {todo.title}
+            </span>
+            <span className="swan-todos-preview-id">#{todo.id}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -180,14 +223,18 @@ export default function RootLayout() {
 
         <main className="swan-content">
           <div className="swan-content-inner">
-            {/* 懒加载路由的加载态：只在首次进入 /todos、/about 时短暂出现 */}
+            {/* /todos 保持静态快照；其他懒加载路由短暂显示加载态 */}
             <Suspense
               fallback={
-                <div className="swan-card swan-route-skeleton">
-                  <div className="swan-skeleton-line" />
-                  <div className="swan-skeleton-block" />
-                  <div className="swan-skeleton-block" />
-                </div>
+                selectedKey === '/todos' ? (
+                  <TodosRouteFallback />
+                ) : (
+                  <div className="swan-card swan-route-skeleton">
+                    <div className="swan-skeleton-line" />
+                    <div className="swan-skeleton-block" />
+                    <div className="swan-skeleton-block" />
+                  </div>
+                )
               }
             >
               <Outlet />
