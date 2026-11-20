@@ -89,7 +89,7 @@ export function apiPrefetchScript(): string {
   return `<script id="swan-api-prefetch">
 (function () {
   if (location.pathname !== '/todos') return;
-  window.__swanTodosPrefetch = fetch(${JSON.stringify(productionApiUrl('/todos'))}, { headers: { accept: 'application/json' } })
+  window.__swanTodosPrefetch = fetch(${JSON.stringify(productionApiUrl('/todos'))}, { headers: { accept: 'application/json' }, cache: 'no-store' })
     .then(function (response) { return response.ok ? response.json() : null; })
     .catch(function () { return null; });
 })();

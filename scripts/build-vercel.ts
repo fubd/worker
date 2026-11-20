@@ -111,14 +111,12 @@ const config = {
       ],
     },
     {
-      // Vercel can cache external rewrites. Keep the list cache short so a
-      // mutation is visible quickly, while stale responses can be served
-      // immediately during background revalidation.
+      // Todo reads must be fresh after a mutation. The build-time snapshot is
+      // only the first-paint placeholder; it must never become a CDN cache.
       source: '/api/todos',
       headers: [
-        { key: 'x-vercel-enable-rewrite-caching', value: '1' },
-        { key: 'CDN-Cache-Control', value: 'max-age=5, stale-while-revalidate=15' },
-        { key: 'Vercel-Cache-Tag', value: 'swan-todos' },
+        { key: 'Cache-Control', value: 'no-store, max-age=0' },
+        { key: 'CDN-Cache-Control', value: 'no-store' },
       ],
     },
   ],

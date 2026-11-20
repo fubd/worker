@@ -38,10 +38,10 @@ todoRoutes.get('/', async (c) => {
     }),
   );
 
-  // The default page reload can show the last small list immediately while
-  // Chrome revalidates it in the background. Mutations and the manual refresh
-  // action bypass this cache so the UI never waits on stale data after a write.
-  c.header('Cache-Control', 'private, max-age=0, stale-while-revalidate=30');
+  // Todo data is mutable and small. Caching the list creates a read-after-write
+  // window where a page reload can show the previous state after a mutation.
+  c.header('Cache-Control', 'no-store, max-age=0');
+  c.header('CDN-Cache-Control', 'no-store');
   return c.json(result);
 });
 

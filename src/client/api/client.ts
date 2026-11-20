@@ -90,17 +90,18 @@ export const api = {
       const prefetch = window.__swanTodosPrefetch;
       window.__swanTodosPrefetch = null;
       return prefetch.then((data) =>
-        data && Array.isArray(data.items) ? data : request<TodoListResponse>('/todos'),
+        data && Array.isArray(data.items)
+          ? data
+          : request<TodoListResponse>('/todos', { cache: 'no-store' }),
       );
     }
     const search = new URLSearchParams();
     if (status !== 'all') search.set('status', status);
     if (keyword) search.set('q', keyword);
     const query = search.toString();
-    return request<TodoListResponse>(
-      `/todos${query ? `?${query}` : ''}`,
-      options.fresh ? { cache: 'reload' } : undefined,
-    );
+    return request<TodoListResponse>(`/todos${query ? `?${query}` : ''}`, {
+      cache: options.fresh ? 'reload' : 'no-store',
+    });
   },
 
   createTodo: (title: string) =>

@@ -118,10 +118,17 @@ function TodosPageContent() {
 
     setCreating(true);
     try {
-      await api.createTodo(title);
+      const created = await api.createTodo(title);
       setDraft('');
-      await load(true);
+      const normalizedKeyword = keyword.toLocaleLowerCase();
+      const matchesCurrentView =
+        status !== 'completed' &&
+        (!normalizedKeyword || created.title.toLocaleLowerCase().includes(normalizedKeyword));
+      if (matchesCurrentView) {
+        setItems((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+      }
       message.success('已添加');
+      void load(true, true);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '创建失败');
     } finally {
