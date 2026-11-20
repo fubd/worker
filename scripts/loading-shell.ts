@@ -118,24 +118,6 @@ function shellRoot(snapshot: TodoListSnapshot | null): string {
   </div></div>`;
 }
 
-function shellRouteScript(snapshot: TodoListSnapshot | null): string {
-  const mark =
-    snapshot === null
-      ? ''
-      : `document.documentElement.dataset.swanShellRoute = 'todos';
-  requestAnimationFrame(function () {
-    if (!performance.getEntriesByName('swan:todos-data-visible').length) {
-      performance.mark('swan:todos-data-visible');
-    }
-  });`;
-  return `<script id="swan-shell-route">
-(function () {
-  if (location.pathname !== '/todos') return;
-  ${mark}
-})();
-</script>`;
-}
-
 export function injectLoadingShell(
   html: string,
   todosSnapshot: TodoListSnapshot | null = null,
@@ -145,8 +127,5 @@ export function injectLoadingShell(
   }
   return html
     .replace('</head>', `    ${SHELL_STYLE}\n  </head>`)
-    .replace(
-      '<div id="root"></div>',
-      `${shellRoot(todosSnapshot)}\n    ${shellRouteScript(todosSnapshot)}`,
-    );
+    .replace('<div id="root"></div>', shellRoot(todosSnapshot));
 }

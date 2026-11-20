@@ -7,13 +7,6 @@ import type {
 } from '@/shared/types';
 import { apiPath } from '@/shared/api-config';
 
-declare global {
-  interface Window {
-    /** shell 内联预取的默认列表；客户端只消费一次 */
-    __swanTodosPrefetch?: Promise<TodoListResponse | null> | null;
-  }
-}
-
 export class ApiError extends Error {
   status: number;
 
@@ -85,16 +78,6 @@ export const api = {
   ) => {
     const status = params.status ?? 'all';
     const keyword = params.keyword?.trim() ?? '';
-    // shell 已在 HTML 解析时预取默认列表；只消费一次，失败则回退到正常请求
-    if (!options.fresh && status === 'all' && !keyword && window.__swanTodosPrefetch) {
-      const prefetch = window.__swanTodosPrefetch;
-      window.__swanTodosPrefetch = null;
-      return prefetch.then((data) =>
-        data && Array.isArray(data.items)
-          ? data
-          : request<TodoListResponse>('/todos', { cache: 'no-store' }),
-      );
-    }
     const search = new URLSearchParams();
     if (status !== 'all') search.set('status', status);
     if (keyword) search.set('q', keyword);

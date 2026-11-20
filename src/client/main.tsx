@@ -15,33 +15,38 @@ if (!container) {
   throw new Error('找不到 #root 挂载节点');
 }
 
-// shell 里预置了首帧待办快照；React 挂载前清空，避免快照和真实页面同时存在
-container.replaceChildren();
+const todosPage = location.pathname === '/todos' ? import('./pages/TodosPage') : Promise.resolve();
 
-createRoot(container).render(
-  <StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 10,
-          fontFamily:
-            "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
-        },
-        components: {
-          Layout: {
-            headerBg: 'transparent',
-            bodyBg: 'transparent',
-            siderBg: '#ffffff',
-          },
-          Menu: {
-            itemBorderRadius: 8,
-          },
-        },
-      }}
-    >
-      <RouterProvider router={router} />
-    </ConfigProvider>
-  </StrictMode>,
-);
+// 保留首帧静态 shell，直到 /todos 路由块可渲染；React 挂载前再清空预置内容。
+void todosPage
+  .catch(() => undefined)
+  .finally(() => {
+    container.replaceChildren();
+    createRoot(container).render(
+      <StrictMode>
+        <ConfigProvider
+          locale={zhCN}
+          theme={{
+            token: {
+              colorPrimary: '#1677ff',
+              borderRadius: 10,
+              fontFamily:
+                "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+            },
+            components: {
+              Layout: {
+                headerBg: 'transparent',
+                bodyBg: 'transparent',
+                siderBg: '#ffffff',
+              },
+              Menu: {
+                itemBorderRadius: 8,
+              },
+            },
+          }}
+        >
+          <RouterProvider router={router} />
+        </ConfigProvider>
+      </StrictMode>,
+    );
+  });

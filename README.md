@@ -193,10 +193,8 @@ CHROME_PATH=/path/to/chrome bun run build
 - `/about`：返回 `about.html`，桌面和移动端 DOM/CSS 均在构建期生成，不加载 React、antd、vendor 或 module script；
 - `/todos`：返回 `shell-global.html`，entry、async chunk、antd 与 vendor 全部从 Vercel 同源加载；
 - 新构建的 API 请求：浏览器统一访问同域 `/api/*`，由 Vercel 亚洲边缘代理到 `api.deephos.com`；
-- `/todos` 在 importmap 和模块脚本之前同域预取默认待办列表；`/about` 不预取未使用的数据；
-- `/todos` 构建时内联最近一次待办快照，React 首帧直接渲染，随后用 API 在后台刷新；
-- 待办列表允许浏览器先显示短时间内的旧响应并在后台重新验证；写操作和手动刷新强制重新请求；
-- `/api/*`：Vercel 反代到 `api.deephos.com`；`/api/todos` 使用 5 秒 CDN 缓存和 15 秒后台重验证；
+- `/todos` 构建时内联最近一次待办快照，React 路由加载后立即用 API 刷新；
+- `/api/*`：Vercel 反代到 `api.deephos.com`；动态 API 响应统一使用 `no-store`，写操作和刷新都能立即读到新数据；
 - Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
 - `static/`、`vendor/` 全部随 Vercel 部署；
   约 9 kB 的应用 CSS 内联进 HTML，避免渲染阻塞和额外 RTT。
@@ -287,8 +285,8 @@ max，并解析 `Server-Timing` 的 `worker` 与 `db`。跨域响应同时发送
 
 Speed Insights 的下一轮判断门槛：`/todos` 至少累计 100 个真实事件，或继续观察
 7 天；Desktop / Mobile 分开看；RES、LCP、INP、TTFB 同时看 P75 / P90，并参考
-浏览器中的 `swan:todos-data-visible`。自动化和人工验收请求也会被 Speed Insights
-计入，因此样本较少时不要把验收访问当作真实用户趋势。
+浏览器 Performance 面板中的资源与长任务时间线。自动化和人工验收请求也会被
+Speed Insights 计入，因此样本较少时不要把验收访问当作真实用户趋势。
 
 数据库迁移**不会**自动执行，结构变更仍需手动 `bun run db:migrate:remote`，避免 CI 误改线上数据。
 

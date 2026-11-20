@@ -13,12 +13,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { inlineAppCss } from './inline-app-css';
 import { injectLoadingShell } from './loading-shell';
-import {
-  findAntdFile,
-  injectTodosBootstrap,
-  routePreloadScript,
-  todosRouteFiles,
-} from './route-preload';
+import { injectTodosSnapshot } from './todos-bootstrap';
 import { readTodosSnapshot } from './todos-snapshot';
 
 const DIST = 'dist';
@@ -45,22 +40,12 @@ if (hasStaticAbout) copied.push('about.html');
 for (const file of copied) cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 const todosSnapshot = readTodosSnapshot(DIST);
 const globalShell = injectLoadingShell(
-  injectTodosBootstrap(
+  injectTodosSnapshot(
     inlineAppCss(readFileSync(`${DIST}/index.html`, 'utf8'), DIST),
     todosSnapshot,
   ),
   todosSnapshot,
-).replace(
-  '</head>',
-  `    <link rel="modulepreload" href="/static/js/${findAntdFile(DIST)}" />\n` +
-    `    ${routePreloadScript(todosRouteFiles(DIST), '/static/js/async/', false)}\n` +
-    `  </head>`,
 );
-const prefetchIndex = globalShell.indexOf('id="swan-api-prefetch"');
-const appModuleIndex = globalShell.indexOf('<script type="module" src="/static/js/index.');
-if (prefetchIndex < 0 || appModuleIndex < 0 || prefetchIndex > appModuleIndex) {
-  throw new Error('API prefetch must run before the app module');
-}
 writeFileSync(`${OUT}/${GLOBAL_SHELL}`, globalShell);
 for (const dir of ['static', 'vendor']) {
   cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });

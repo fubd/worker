@@ -55,7 +55,6 @@ function TodosPageContent() {
   const [loading, setLoading] = useState(() => initialTodos === null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const hasMarkedInitialData = useRef(false);
   const hasInitialSnapshot = useRef(initialTodos !== null);
   const hasStartedInitialLoad = useRef(false);
 
@@ -71,17 +70,6 @@ function TodosPageContent() {
       try {
         const data = await api.listTodos({ status, keyword }, { fresh });
         setItems(data.items);
-        // This is a local User Timing milestone rather than an analytics event.
-        // The Hobby Vercel plan has no custom Web Analytics events, while this
-        // mark is inspectable in browser traces and automated performance checks.
-        if (!hasMarkedInitialData.current && status === 'all' && !keyword) {
-          hasMarkedInitialData.current = true;
-          requestAnimationFrame(() => {
-            if (!performance.getEntriesByName('swan:todos-data-visible').length) {
-              performance.mark('swan:todos-data-visible');
-            }
-          });
-        }
       } catch (error) {
         message.error(error instanceof Error ? error.message : '加载失败');
       } finally {
@@ -90,18 +78,6 @@ function TodosPageContent() {
     },
     [status, keyword, message],
   );
-
-  useEffect(() => {
-    if (hasInitialSnapshot.current) {
-      requestAnimationFrame(() => {
-        if (hasMarkedInitialData.current) return;
-        hasMarkedInitialData.current = true;
-        if (!performance.getEntriesByName('swan:todos-data-visible').length) {
-          performance.mark('swan:todos-data-visible');
-        }
-      });
-    }
-  }, []);
 
   useEffect(() => {
     const background = !hasStartedInitialLoad.current && hasInitialSnapshot.current;
