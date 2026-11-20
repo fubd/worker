@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { invalidateStatsCache } from '../stats-cache';
 import * as repo from '../db/todos';
 import { measureDb } from '../timing';
 import type { AppEnv } from '../types';
@@ -38,10 +37,6 @@ todoRoutes.get('/', async (c) => {
     }),
   );
 
-  // Todo data is mutable and small. Caching the list creates a read-after-write
-  // window where a page reload can show the previous state after a mutation.
-  c.header('Cache-Control', 'no-store, max-age=0');
-  c.header('CDN-Cache-Control', 'no-store');
   return c.json(result);
 });
 
@@ -55,14 +50,12 @@ todoRoutes.post('/', async (c) => {
   }
 
   const todo = await measureDb(c, () => repo.createTodo(c.env.DB, title));
-  invalidateStatsCache(c);
   return c.json(todo, 201);
 });
 
 /** DELETE /api/todos/completed —— 清空已完成 */
 todoRoutes.delete('/completed', async (c) => {
   const removed = await measureDb(c, () => repo.clearCompleted(c.env.DB));
-  if (removed > 0) invalidateStatsCache(c);
   return c.json({ removed });
 });
 
@@ -96,7 +89,6 @@ todoRoutes.patch('/:id', async (c) => {
   const todo = await measureDb(c, () => repo.updateTodo(c.env.DB, id, input));
   if (!todo) return c.json({ error: 'Todo 不存在' }, 404);
 
-  invalidateStatsCache(c);
   return c.json(todo);
 });
 
@@ -108,6 +100,5 @@ todoRoutes.delete('/:id', async (c) => {
   const ok = await measureDb(c, () => repo.deleteTodo(c.env.DB, id));
   if (!ok) return c.json({ error: 'Todo 不存在' }, 404);
 
-  invalidateStatsCache(c);
   return c.json({ ok: true, id });
 });

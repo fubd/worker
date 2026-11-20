@@ -19,12 +19,8 @@ app.use('*', async (c, next) => {
 
   const workerMs = performance.now() - startedAt;
   const dbMs = c.get('dbMs');
-  const cacheStatus = c.get('cacheStatus');
   c.header('Server-Timing', `worker;dur=${workerMs.toFixed(1)}, db;dur=${dbMs.toFixed(1)}`);
   c.header('Timing-Allow-Origin', '*');
-  if (cacheStatus) {
-    c.header('X-Swan-Cache', cacheStatus);
-  }
 
   console.log(
     JSON.stringify({
@@ -35,16 +31,20 @@ app.use('*', async (c, next) => {
       cfRay: c.req.header('cf-ray') ?? null,
       workerMs: Number(workerMs.toFixed(1)),
       dbMs: Number(dbMs.toFixed(1)),
-      cache: cacheStatus ?? null,
     }),
   );
 });
 app.use(
   '/api/*',
   cors({
-    exposeHeaders: ['Server-Timing', 'X-Swan-Cache'],
+    exposeHeaders: ['Server-Timing'],
   }),
 );
+app.use('/api/*', async (c, next) => {
+  await next();
+  c.header('Cache-Control', 'no-store, max-age=0');
+  c.header('CDN-Cache-Control', 'no-store');
+});
 
 /** 健康检查。本地 wrangler dev 没有 cf-ray 头，线上一定有 */
 app.get('/api/health', (c) =>

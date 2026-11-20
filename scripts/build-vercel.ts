@@ -111,9 +111,10 @@ const config = {
       ],
     },
     {
-      // Todo reads must be fresh after a mutation. The build-time snapshot is
-      // only the first-paint placeholder; it must never become a CDN cache.
-      source: '/api/todos',
+      // API responses contain live runtime or database state. The build-time
+      // snapshot is only a first-paint placeholder and must never become a
+      // CDN cache.
+      source: '/api/:path*',
       headers: [
         { key: 'Cache-Control', value: 'no-store, max-age=0' },
         { key: 'CDN-Cache-Control', value: 'no-store' },

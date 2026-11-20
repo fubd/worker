@@ -17,7 +17,6 @@ interface Sample {
   totalMs: number;
   workerMs: number | null;
   dbMs: number | null;
-  cache: string | null;
   status: number;
 }
 
@@ -54,7 +53,6 @@ async function probe(path: string): Promise<Sample[]> {
       totalMs: performance.now() - startedAt,
       workerMs: readTiming(response, 'worker'),
       dbMs: readTiming(response, 'db'),
-      cache: response.headers.get('x-swan-cache'),
       status: response.status,
     });
   }
@@ -69,12 +67,6 @@ for (const path of paths) {
     sample.workerMs === null ? [] : [sample.workerMs],
   );
   const dbSamples = samples.flatMap((sample) => (sample.dbMs === null ? [] : [sample.dbMs]));
-  const cacheCounts = samples.reduce<Record<string, number>>((counts, sample) => {
-    const key = sample.cache ?? 'n/a';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-
   console.log(
     JSON.stringify({
       path,
@@ -82,7 +74,6 @@ for (const path of paths) {
       total: summarize(samples.map((sample) => sample.totalMs)),
       worker: workerSamples.length ? summarize(workerSamples) : 'n/a',
       db: dbSamples.length ? summarize(dbSamples) : 'n/a',
-      cache: cacheCounts,
     }),
   );
 }
