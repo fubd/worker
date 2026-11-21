@@ -3,28 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <title>Swan Worker</title>
-    <!-- 供探针判断当前 HTML 用的是哪套 vendor；CN 首页快照由 build-cn-home 改写 -->
-    <meta name="swan-vendor" content="global-static" />
-    <!-- react / react-dom / react-router 不打进产物，由 importmap 指向 Vercel 上的
-         同源 /vendor/*。大陆首页静态快照不加载这些模块。 -->
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "/vendor/<%= vendor.react %>",
-          "react/jsx-runtime": "/vendor/<%= vendor.react %>",
-          "react-dom": "/vendor/<%= vendor.reactDom %>",
-          "react-dom/client": "/vendor/<%= vendor.reactDom %>",
-          "react-router": "/vendor/<%= vendor.router %>",
-          "react-router/dom": "/vendor/<%= vendor.router %>"
-        }
-      }
-    </script>
-    <!-- 外部化后这些依赖不在打包器依赖图里，它不会自动注入 preload；
-         不预加载就要等 index.mjs 下载并解析完才知道要请求它们，多一段串行等待。
-         同源预取不要加 crossorigin，否则会按 CORS 模式再取一次。 -->
-    <link rel="modulepreload" href="/vendor/<%= vendor.react %>" />
-    <link rel="modulepreload" href="/vendor/<%= vendor.reactDom %>" />
-    <link rel="modulepreload" href="/vendor/<%= vendor.router %>" />
   </head>
   <body>
     <div id="root"></div>

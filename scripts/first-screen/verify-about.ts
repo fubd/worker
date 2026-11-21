@@ -77,7 +77,7 @@ export async function verifyAboutHtml(
         });
         page.on('request', (request) => {
           const url = request.url();
-          if (url.includes('/static/js/') || url.includes('/vendor/')) reactAssets.push(url);
+          if (url.includes('/static/js/')) reactAssets.push(url);
         });
 
         const response = await page.goto(`${server.url}/about`, {

@@ -10,10 +10,6 @@ export function apiPath(path: string): string {
   return `${API_PREFIX}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-export function productionApiUrl(path: string): string {
-  return apiPath(path);
-}
-
 export function upstreamApiUrl(path: string): string {
   return `${API_UPSTREAM_ORIGIN}${apiPath(path)}`;
 }

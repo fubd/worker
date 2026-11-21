@@ -28,8 +28,8 @@ function isPlainLeftClick(event: {
 
 const CHAIN_STEPS = [
   { title: '浏览器', description: 'React 19 + antd 6' },
-  { title: '静态资源', description: 'Rsbuild 产物托管在 Workers' },
-  { title: 'Hono API', description: '/api/* 由 Worker 处理' },
+  { title: 'Vercel', description: 'Rsbuild 产物与 HTML' },
+  { title: 'Hono API', description: '/api/* 反代到 Worker' },
   { title: 'D1 数据库', description: '边缘 SQLite，SQL 直连' },
 ];
 
@@ -67,7 +67,7 @@ export default function HomePage() {
         <h1>全栈跑在边缘节点上的 Swan Worker</h1>
         <p>
           一个可直接上手的最小全栈模板：Rsbuild 打包 React 19 + Ant Design 6 前端，Hono 提供 API，D1
-          作为边缘数据库，全部由同一个 Worker 对外服务。
+          作为边缘数据库。站点静态资源由 Vercel 托管，API 由 Cloudflare Worker 处理。
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
           {/* href 让首屏快照（不 hydrate）也能导航；hydrate 后 onClick 接管为 SPA 跳转 */}

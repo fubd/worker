@@ -19,7 +19,6 @@ import { startCaptureServer } from './server';
 import { verifyHomeHtml } from './verify';
 
 const distDir = 'dist';
-const vendorDir = 'dist/vendor';
 
 async function main() {
   if (process.env.FIRST_SCREEN_SKIP === '1') {
@@ -31,7 +30,7 @@ async function main() {
   }
 
   const executablePath = findChrome();
-  const server = startCaptureServer(distDir, vendorDir);
+  const server = startCaptureServer(distDir);
 
   try {
     console.log(`[first-screen] capturing from ${server.url}`);

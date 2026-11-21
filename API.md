@@ -32,15 +32,15 @@ interface Todo {
 
 ## 接口一览
 
-| 方法   | 路径                                                         | 说明                                    |
-| ------ | ------------------------------------------------------------ | --------------------------------------- |
-| GET    | `/api/health`                                                | 健康检查                                |
-| GET    | `/api/stats`                                                 | 任务统计（总数 / 已完成 / 完成率）      |
-| GET    | `/api/todos?status=all\|active\|completed&q=&limit=&offset=` | 列表                                    |
-| POST   | `/api/todos`                                                 | 新建，body `{ "title": "..." }`         |
-| PATCH  | `/api/todos/:id`                                             | 更新，body `{ "title"?, "completed"? }` |
-| DELETE | `/api/todos/:id`                                             | 删除单条                                |
-| DELETE | `/api/todos/completed`                                       | 清空已完成                              |
+| 方法   | 路径                                                                       | 说明                                    |
+| ------ | -------------------------------------------------------------------------- | --------------------------------------- |
+| GET    | `/api/health`                                                              | 健康检查                                |
+| GET    | `/api/stats`                                                               | 任务统计（总数 / 已完成 / 完成率）      |
+| GET    | `/api/todos?status=all\|active\|completed&q=&limit=&offset=&includeTotal=` | 列表                                    |
+| POST   | `/api/todos`                                                               | 新建，body `{ "title": "..." }`         |
+| PATCH  | `/api/todos/:id`                                                           | 更新，body `{ "title"?, "completed"? }` |
+| DELETE | `/api/todos/:id`                                                           | 删除单条                                |
+| DELETE | `/api/todos/completed`                                                     | 清空已完成                              |
 
 ---
 
@@ -89,15 +89,16 @@ curl http://127.0.0.1:8787/api/stats
 
 列表查询，按「未完成在前、id 倒序」排序。
 
-| 参数     | 类型                             | 默认  | 说明                          |
-| -------- | -------------------------------- | ----- | ----------------------------- |
-| `status` | `all` \| `active` \| `completed` | `all` | 过滤状态，非法值按 `all` 处理 |
-| `q`      | string                           | 空    | 标题模糊匹配（`LIKE %q%`）    |
-| `limit`  | number                           | 100   | 每页条数，最大 500            |
-| `offset` | number                           | 0     | 偏移量                        |
+| 参数           | 类型                             | 默认  | 说明                                    |
+| -------------- | -------------------------------- | ----- | --------------------------------------- |
+| `status`       | `all` \| `active` \| `completed` | `all` | 过滤状态，非法值按 `all` 处理           |
+| `q`            | string                           | 空    | 标题模糊匹配（`LIKE %q%`）              |
+| `limit`        | number                           | 100   | 每页条数，最大 500                      |
+| `offset`       | number                           | 0     | 偏移量                                  |
+| `includeTotal` | `0` \| `1`                       | `0`   | 为 `1` 时额外返回满足条件的总数 `total` |
 
 ```bash
-curl "http://127.0.0.1:8787/api/todos?status=active&limit=10"
+curl "http://127.0.0.1:8787/api/todos?status=active&limit=10&includeTotal=1"
 ```
 
 ```json
@@ -115,7 +116,8 @@ curl "http://127.0.0.1:8787/api/todos?status=active&limit=10"
 }
 ```
 
-`total` 是**满足过滤条件的总数**，不受 `limit` 影响，可用于分页；`items` 是当前页数据。
+默认不执行 `COUNT(*)`，响应只有 `items`。传入 `includeTotal=1` 时，
+`total` 表示**满足过滤条件的总数**，不受 `limit` 影响，可用于分页。
 
 ## POST /api/todos
 

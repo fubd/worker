@@ -16,13 +16,7 @@
   },
   {
     "name": "initial JS",
-    "path": [
-      "dist/vercel/static/js/index.*.mjs",
-      "dist/vercel/static/js/lib-antd.*.mjs",
-      "dist/vercel/vendor/react-*.mjs",
-      "dist/vercel/vendor/react-dom-*.mjs",
-      "dist/vercel/vendor/router-*.mjs"
-    ],
+    "path": ["dist/vercel/static/js/index.*.mjs", "dist/vercel/static/js/lib-*.mjs"],
     "limit": "215 kB"
   }
 ]

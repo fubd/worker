@@ -20,8 +20,8 @@ function walk(dir: string): string[] {
   return files;
 }
 
-if (!existsSync(`${OUT}/static`) || !existsSync(`${OUT}/vendor`)) {
-  throw new Error('Vercel bundle is missing static/ or vendor/');
+if (!existsSync(`${OUT}/static`)) {
+  throw new Error('Vercel bundle is missing static/');
 }
 
 const files = walk(OUT);
@@ -39,9 +39,7 @@ for (const file of files) {
   }
 
   if (extname(file) !== '.html') continue;
-  for (const match of content.matchAll(
-    /\b(?:src|href)=["'](\/(?:static|vendor|favicon)[^"'?#]*)/g,
-  )) {
+  for (const match of content.matchAll(/\b(?:src|href)=["'](\/(?:static|favicon)[^"'?#]*)/g)) {
     const asset = match[1];
     if (!existsSync(join(OUT, asset.slice(1)))) {
       throw new Error(`${name} references missing Vercel asset ${asset}`);

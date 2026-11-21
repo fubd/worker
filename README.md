@@ -1,6 +1,7 @@
 # Swan Worker
 
-一个可直接上手的最小全栈模板：**React 19 + Ant Design 6 前端** 与 **Hono API + Cloudflare D1** 跑在同一个 Cloudflare Worker 上。
+一个可直接上手的最小全栈模板：**React 19 + Ant Design 6 前端** 由 Vercel 托管，
+**Hono API + Cloudflare D1** 运行在 Cloudflare Worker 上。
 
 ## 技术栈
 
@@ -45,8 +46,7 @@ bun run dev
 bun run dev             # 前端 + Worker 同时开发
 bun run dev:web         # 只启动前端
 bun run dev:api         # 只启动 Worker
-bun run vendor          # 生成 public/vendor/ 下的 react 系 ESM 模块（构建时拷进 dist/vendor/）
-bun run build                # vendor + 构建前端到 dist/（含静态首屏快照和 Vercel 产物）
+bun run build                # 构建前端到 dist/（含静态首屏快照和 Vercel 产物）
 bun run build:first-screen   # 只生成 dist/home.html（需先 rsbuild build）
 bun run build:static-about   # 只生成最终静态页 dist/about.html（需先 rsbuild build）
 bun run build:cn-home        # 只生成静态 dist/home-cn.html（需先 build:first-screen）
@@ -82,12 +82,11 @@ swan-worker/
 ├── seed/                  # 演示数据，不属于迁移
 │   └── seed.sql
 ├── public/                # 静态资源，构建时拷到 dist/
-│   └── vendor/            # 构建时生成，react 系 ESM 模块（已 gitignore）
+│   └── favicon.svg
 ├── scripts/
-│   ├── build-vendor.ts    # 把 react/react-dom/router 打成 ESM 供 importmap 使用
 │   ├── build-cn-home.ts   # 生成大陆首页静态快照 home-cn.html
 │   ├── build-vercel.ts    # 生成 dist/vercel/（整站 + geo rewrite）
-│   ├── loading-shell.ts   # SPA shell 的首帧加载骨架
+│   ├── loading-shell.ts   # SPA shell 的首帧布局与待办快照
 │   └── first-screen/      # 构建期首屏快照（capture → filter → home.html）
 ├── API.md                 # 接口文档（参数 / 响应 / 错误码）
 ├── src/
@@ -129,7 +128,7 @@ swan-worker/
 **类型只写一次。** `src/shared/types.ts` 被前端和 Worker 同时引用，接口字段改名会立刻在两边报错。
 
 **缓存与安全头由 `scripts/build-vercel.ts` 生成的 `vercel.json` 负责。**
-`/static/*`、`/vendor/*` 拿到 `max-age=31536000, immutable`（文件名带 hash/版本号）；
+`/static/*` 拿到 `max-age=31536000, immutable`（文件名带 content hash）；
 `/todos`、`/about` 的 HTML 浏览器端仍重新验证，Vercel 边缘缓存 60 秒并允许
 `stale-while-revalidate=300`；全局加 `X-Content-Type-Options` 与 `Referrer-Policy`。
 
@@ -137,19 +136,10 @@ swan-worker/
 
 **产物是 ES Module。** `output.module: true`，产物为 `.mjs` + `<script type="module">`，没有 IIFE 包装和 `rspackChunks` 注册表。Vercel 对 `.mjs` 返回 `text/javascript`，模块能正常执行。
 
-**react 系模块不打进产物，作为静态资源部署。** 生产构建用 `output.externals` 把 `react` / `react/jsx-runtime` / `react-dom` / `react-dom/client` / `react-router` / `react-router/dom` 外部化，`index.html` 的 **importmap** 指向同源的 `/vendor/*.mjs`：
-
-| 项       | 值                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------ |
-| 生成位置 | `public/vendor/`（`scripts/build-vendor.ts`，gitignore）                                                     |
-| 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                                                            |
-| 线上路径 | `/vendor/react-<版本>.<hash>.mjs`、`/vendor/react-dom-<版本>.<hash>.mjs`、`/vendor/router-<版本>.<hash>.mjs` |
-| 缓存     | `vercel.json`（build-vercel 生成）的 `max-age=31536000, immutable`                                           |
-| 托管     | Vercel 静态资源；`/static/*` 与 `/vendor/*` 都随部署上传并走 Vercel 边缘缓存                                 |
-
-这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 14 个 API，避免把整个 router 包拉进首屏）。文件名包含包版本和产物内容 hash，`manifest.json` 再由 Rsbuild 注入 importmap 和 modulepreload，因此只调整导出集合也不会命中旧的一年缓存。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
-
-`/vendor/*` 随 Vercel 部署，浏览器同源加载；Worker 已不再托管静态资源。大陆和海外访问 `/todos`、`/about` 时使用同一套同源静态资源。
+**依赖拆包交给 Rsbuild。** React、ReactDOM、Router、antd 与业务代码由 Rsbuild
+按依赖图拆包，文件名带 content hash，并自动注入模块脚本。此前手写的
+React vendor bundle、import map 和 modulepreload 清单已移除；它们复制了打包器
+已有的能力，还要求维护导出白名单和额外的构建校验。
 
 **路由使用 React Router 原生能力。** `/todos`、`/about` 使用路由级 `lazy` 拆分；待办页通过 `loader`、`action`、`useFetcher` 和自动 revalidation 完成读写，菜单使用 `NavLink`，标题来自 `useMatches()`。静态 shell 负责首帧，路由加载阶段不再额外渲染骨架屏。
 
@@ -194,13 +184,13 @@ CHROME_PATH=/path/to/chrome bun run build
 `deephos.com` 整站由 Vercel 托管，Cloudflare 提供独立 API 域名：
 
 - `/`：按 `x-vercel-ip-country` 分流，CN 返回 `home-cn.html`（纯静态快照），其他返回 `home.html`；
-- `/about`：返回 `about.html`，桌面和移动端 DOM/CSS 均在构建期生成，不加载 React、antd、vendor 或 module script；
-- `/todos`：返回 `shell-global.html`，entry、async chunk、antd 与 vendor 全部从 Vercel 同源加载；
+- `/about`：返回 `about.html`，桌面和移动端 DOM/CSS 均在构建期生成，不加载 React、antd 或 module script；
+- `/todos`：返回 `shell-global.html`，entry、async chunk、React、Router 与 antd 全部从 Vercel 同源加载；
 - 新构建的 API 请求：浏览器统一访问同域 `/api/*`，由 Vercel 亚洲边缘代理到 `api.deephos.com`；
 - `/todos` 构建时内联最近一次待办快照，React 路由加载后立即用 API 刷新；
 - `/api/*`：Vercel 反代到 `api.deephos.com`；动态 API 响应统一使用 `no-store`，写操作和刷新都能立即读到新数据；
 - Speed Insights 覆盖 SPA 路由与纯静态 CN 首页，生产环境按实际 pathname 归因；
-- `static/`、`vendor/` 全部随 Vercel 部署；
+- `static/` 全部随 Vercel 部署；
   约 9 kB 的应用 CSS 内联进 HTML，避免渲染阻塞和额外 RTT。
 
 `scripts/build-vercel.ts` 生成 `dist/vercel/`。注意 `index.html` 会改名成
@@ -209,17 +199,17 @@ CHROME_PATH=/path/to/chrome bun run build
 边缘缓存不串区）。
 
 `scripts/build-cn-home.ts` 只把 `home.html` 转成不加载模块的纯静态快照。
-`scripts/build-vercel.ts` 将 `static/`、`vendor/`、favicon 和所有 HTML 一起打包到
+`scripts/build-vercel.ts` 将 `static/`、favicon 和所有 HTML 一起打包到
 `dist/vercel/`；`scripts/verify-vercel-assets.ts` 会检查 HTML 引用的本地资源确实存在，
 并拒绝 `aliyuncs.com`、`oss-cn-*`、npmmirror 等外部静态源重新混入产物。
 
 ### 托管策略
 
-- `/` 的 CN 静态快照不请求 React、antd 或 vendor 模块；
-- `/todos`、`/about` 的 JS、CSS、React、antd 全部由 Vercel 同源返回；
+- `/` 的 CN 静态快照不请求 React 或 antd；
+- `/todos` 的 JS、CSS、React、antd 全部由 Vercel 同源返回；
 - 静态文件名带 hash/version，缓存一年；
-- 此前三城实测中阿里云 OSS 下载大型 vendor 文件快于 Vercel；迁移到全 Vercel
-  后换取的是零 OSS 费用、单一发布链路和更简单的缓存失效模型。
+- 早期曾按地域把大型静态文件放到阿里云 OSS；现在统一到 Vercel，换取零 OSS
+  费用、单一发布链路和更简单的缓存失效模型。
 
 ### 线上验证
 

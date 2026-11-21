@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
-import { logger } from 'hono/logger';
 import { timing } from 'hono/timing';
 import { statsRoutes } from './routes/stats';
 import { todoRoutes } from './routes/todos';
@@ -14,7 +13,6 @@ import type { AppEnv } from './types';
 const app = new Hono<AppEnv>();
 
 app.use('*', timing({ totalDescription: 'worker', crossOrigin: '*' }));
-app.use('*', logger());
 app.use(
   '/api/*',
   cors({

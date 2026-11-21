@@ -6,7 +6,7 @@
  * - `/about` 使用构建期生成的最终静态页；
  * - `/todos` 使用 shell-global.html，所有 JS/CSS 同源加载；
  * - 浏览器统一请求 deephos.com/api/*，由 Vercel 代理到 api.deephos.com；
- * - static/vendor 随 Vercel 部署上传，不依赖外部静态资源域名。
+ * - Rsbuild 产物随 Vercel 部署上传，不依赖外部静态资源域名。
  *
  * 地理分流用 vercel.json 的 `has: x-vercel-ip-country`，实测边缘缓存按变体隔离。
  */
@@ -48,9 +48,7 @@ const globalShell = injectLoadingShell(
   todosSnapshot,
 );
 writeFileSync(`${OUT}/${GLOBAL_SHELL}`, globalShell);
-for (const dir of ['static', 'vendor']) {
-  cpSync(`${DIST}/${dir}`, `${OUT}/${dir}`, { recursive: true });
-}
+cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 
 const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
 const config = {
@@ -74,10 +72,6 @@ const config = {
     },
     {
       source: '/static/:path*',
-      headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-    },
-    {
-      source: '/vendor/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
     },
     {

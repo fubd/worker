@@ -1,21 +1,5 @@
-import { readFileSync } from 'node:fs';
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
-
-type VendorManifest = {
-  react: string;
-  reactDom: string;
-  router: string;
-};
-
-function readVendorManifest(): VendorManifest {
-  const file = 'public/vendor/manifest.json';
-  try {
-    return JSON.parse(readFileSync(file, 'utf8')) as VendorManifest;
-  } catch {
-    throw new Error(`${file} is missing; run "bun run vendor" before Rsbuild`);
-  }
-}
 
 export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
@@ -30,17 +14,12 @@ export default defineConfig(({ command }) => ({
 
   html: {
     template: './src/client/index.html',
-    templateParameters: {
-      vendor: readVendorManifest(),
-    },
     favicon: './public/favicon.svg',
     meta: {
       description: 'Bun + React 19 + Ant Design 6 + Hono + Cloudflare D1 on Workers',
       viewport: 'width=device-width, initial-scale=1',
       'theme-color': '#ffffff',
     },
-    // vendor 的 modulepreload 写在 src/client/index.html 里：
-    // 现在由 Vercel 同源托管 /vendor/*，不需要 preconnect/dns-prefetch
   },
 
   output: {
@@ -57,19 +36,6 @@ export default defineConfig(({ command }) => ({
     legalComments: 'none',
     // 输出 ES Module：产物为 .mjs + <script type="module">，去掉 IIFE 包装和 chunk 注册表
     module: true,
-    // 生产构建把 react 系模块外部化，改由 importmap 指向 dist/vendor 的静态文件；
-    // dev 不外部化，保证 HMR 与依赖解析走 bundler
-    externals:
-      command === 'build'
-        ? {
-            react: 'react',
-            'react/jsx-runtime': 'react/jsx-runtime',
-            'react-dom': 'react-dom',
-            'react-dom/client': 'react-dom/client',
-            'react-router': 'react-router',
-            'react-router/dom': 'react-router/dom',
-          }
-        : undefined,
     // 模块脚本必须按真实 MIME 提供，Vercel 按扩展名推断，.mjs → text/javascript
     filename: {
       js: '[name].[contenthash:8].mjs',

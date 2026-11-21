@@ -3,7 +3,7 @@
 The capture pipeline supports the home first screen and final static pages.
 `bun run build` runs this after Rsbuild:
 
-1. start a local server for `dist/` with mocked `/api/stats` and `/vendor/*` from `dist/vendor/`
+1. start a local server for `dist/` with mocked API responses
 2. capture the built home page at 1440×900 and 390×844 with headless Chrome
 3. filter the captured CSS to rules matching the captured DOM
 4. write `dist/home.html` with both variants inline; Rsbuild has already inlined
@@ -30,7 +30,7 @@ serves that file for `/about`; `/todos` keeps the normal SPA shell.
   values are the app's initial state (`src/shared/first-screen.ts`), so the
   handover does not wait for the live request; the real values replace the
   placeholders once it completes.
-- `home.html` is public at `/home`; the Worker redirects it to `/`.
+- Vercel serves `home.html` for the global `/` rewrite.
 - Re-capture on every build. If capture or verification fails, the build falls
   back to the normal SPA shell rather than shipping a stale snapshot.
 - `bun scripts/first-screen/check.ts [--strict]` does a quick structural check

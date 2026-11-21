@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   ApiOutlined,
   CheckSquareOutlined,
@@ -33,22 +33,19 @@ function prefetchTodosRoute() {
   });
 }
 
-/**
- * 同步初始化的媒体查询 hook，避免首帧先渲染桌面再闪成移动端。
- */
+function subscribeToViewport(onChange: () => void) {
+  const media = window.matchMedia(MOBILE_QUERY);
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+
+function isBelowLg() {
+  return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+/** React 同步读取媒体查询，避免首帧先渲染桌面再闪成移动端。 */
 function useIsBelowLg() {
-  const [isBelow, setIsBelow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches,
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia(MOBILE_QUERY);
-    const onChange = (event: MediaQueryListEvent) => setIsBelow(event.matches);
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, []);
-
-  return isBelow;
+  return useSyncExternalStore(subscribeToViewport, isBelowLg, () => false);
 }
 
 function Logo({ showText }: { showText: boolean }) {

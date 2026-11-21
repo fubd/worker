@@ -26,7 +26,7 @@ async function main() {
   }
 
   const executablePath = findChrome();
-  const server = startCaptureServer(distDir, `${distDir}/vendor`);
+  const server = startCaptureServer(distDir);
 
   try {
     const captures = await captureRouteSnapshots(server.url, executablePath, {

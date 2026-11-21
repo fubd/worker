@@ -15,7 +15,6 @@ export function generateAboutHtml(distDir: string, captures: CaptureMap): AboutG
   let html = readFileSync(`${distDir}/index.html`, 'utf8');
 
   html = html.replace(/<script\b[^>]*type=["']module["'][^>]*>[\s\S]*?<\/script>\s*/gi, '');
-  html = html.replace(/<script\b[^>]*type=["']importmap["'][^>]*>[\s\S]*?<\/script>\s*/gi, '');
   html = html.replace(/<link\b[^>]*rel=["']modulepreload["'][^>]*>\s*/gi, '');
   html = html.replace(/<link\b[^>]*rel=["']stylesheet["'][^>]*>\s*/gi, '');
 
@@ -70,7 +69,6 @@ ${mobileCss}
     !html.includes('id="swan-static-backdrop"') ||
     !html.includes('data-route="/about"') ||
     /<script\b[^>]*type=["']module["']/i.test(html) ||
-    /<script\b[^>]*type=["']importmap["']/i.test(html) ||
     /<link\b[^>]*rel=["']modulepreload["']/i.test(html) ||
     /<div\s+id=["']root["']/i.test(html)
   ) {

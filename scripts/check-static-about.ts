@@ -29,7 +29,6 @@ const checks: Array<[string, boolean]> = [
   ['stack table content', html.includes('运行时 / 包管理')],
   ['Speed Insights route', html.includes('data-route="/about"')],
   ['no module scripts', !/<script\b[^>]*type=["']module["']/i.test(html)],
-  ['no import map', !/<script\b[^>]*type=["']importmap["']/i.test(html)],
   ['no module preload', !/<link\b[^>]*rel=["']modulepreload["']/i.test(html)],
   ['no React root', !/<div\s+id=["']root["']/i.test(html)],
 ];

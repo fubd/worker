@@ -5,8 +5,6 @@
  * the home page needs:
  * - /api/stats returns deterministic mock data (the snapshot must not depend
  *   on production data or network timing)
- * - /vendor/* comes from dist/vendor (the same same-origin path Vercel serves
- *   in production)
  * - / serves dist/index.html during capture, and dist/home.html during the
  *   post-generation verification (setServeHome)
  * - /about serves the SPA during capture, and dist/about.html during the
@@ -58,9 +56,8 @@ export type CaptureServer = {
   stop(): void;
 };
 
-export function startCaptureServer(distDir: string, vendorDir: string): CaptureServer {
+export function startCaptureServer(distDir: string): CaptureServer {
   const distRoot = resolve(distDir);
-  const vendorRoot = resolve(vendorDir);
   let serveHome = false;
   let serveAbout = false;
   let statsDelayMs = 0;
@@ -96,16 +93,6 @@ export function startCaptureServer(distDir: string, vendorDir: string): CaptureS
           { error: 'Not Found', path: pathname },
           { status: 404, headers: NO_STORE },
         );
-      }
-
-      if (pathname.startsWith('/vendor/')) {
-        const file = resolveInside(vendorRoot, pathname.slice('/vendor/'.length));
-        if (file && existsSync(file)) {
-          return new Response(Bun.file(file), {
-            headers: { 'Content-Type': 'text/javascript; charset=utf-8', ...NO_STORE },
-          });
-        }
-        return new Response('Not Found', { status: 404, headers: NO_STORE });
       }
 
       if (pathname === '/') {

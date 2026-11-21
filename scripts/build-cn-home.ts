@@ -3,8 +3,8 @@
  *   dist/home-cn.html
  *
  * The snapshot contains all required markup and CSS inline, so it does not
- * request React, antd, or vendor modules. Every remaining runtime asset is
- * served by Vercel from deephos.com.
+ * request React or antd modules. Every remaining runtime asset is served by
+ * Vercel from deephos.com.
  *
  * /todos and /about intentionally use the same Vercel-hosted SPA shell for all
  * regions. This keeps every JS and CSS request same-origin.
@@ -24,7 +24,6 @@ const OUTPUT = `${DIST}/home-cn.html`;
  */
 function toStaticHome(html: string): string {
   let out = html.replace(/<script type="module" src="\/static\/js\/[^"]+"><\/script>\s*/g, '');
-  out = out.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/i, '');
   out = out.replace(/<link rel="modulepreload" href="[^"]+"\s*\/?>\s*/gi, '');
   out = out.replace(/<script id="swan-first-screen-ready">[\s\S]*?<\/script>\s*/i, '');
   out = out.replace(/\s*<div id="root"><\/div>/, '');

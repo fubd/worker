@@ -137,8 +137,8 @@ export default function AboutPage() {
           技术栈
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          <code>deephos.com</code> 的 HTML、JS、CSS 与 vendor 由 Vercel 托管； Cloudflare Worker
-          只提供 <code>/api/*</code>，通过同域反向代理接入。
+          <code>deephos.com</code> 的 HTML、JS 与 CSS 由 Vercel 托管； Cloudflare Worker 只提供{' '}
+          <code>/api/*</code>，通过同域反向代理接入。
         </Typography.Paragraph>
       </Card>
 
