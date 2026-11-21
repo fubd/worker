@@ -41,6 +41,11 @@ if (
   throw new Error('/todos is missing its React Router static content');
 }
 
+const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
+if (!docsHtml.includes('swan-doc-list-panel') || !docsHtml.includes('>新建<')) {
+  throw new Error('/docs is missing its React Router document shell');
+}
+
 const homeHtml = readFileSync(`${OUT}/home.html`, 'utf8');
 if (!homeHtml.includes('class="swan-hero"') || homeHtml.includes('swan-first-screen')) {
   throw new Error('/ does not contain the React Router static home page');

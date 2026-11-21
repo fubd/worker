@@ -5,7 +5,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   DatabaseOutlined,
-  ThunderboltOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
 
@@ -71,7 +71,18 @@ export default function HomePage() {
           {/* href 让首屏快照（不 hydrate）也能导航；hydrate 后 onClick 接管为 SPA 跳转 */}
           <Button
             type="primary"
-            icon={<ThunderboltOutlined />}
+            icon={<FileTextOutlined />}
+            href="/docs"
+            onClick={(event) => {
+              if (!isPlainLeftClick(event)) return;
+              event.preventDefault();
+              navigate('/docs');
+            }}
+          >
+            打开知识库
+          </Button>
+          <Button
+            icon={<ArrowRightOutlined />}
             href="/todos"
             onClick={(event) => {
               if (!isPlainLeftClick(event)) return;
@@ -79,18 +90,7 @@ export default function HomePage() {
               navigate('/todos');
             }}
           >
-            打开当前 Demo
-          </Button>
-          <Button
-            icon={<ArrowRightOutlined />}
-            href="/about"
-            onClick={(event) => {
-              if (!isPlainLeftClick(event)) return;
-              event.preventDefault();
-              navigate('/about');
-            }}
-          >
-            查看技术栈
+            查看待办 Demo
           </Button>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 22 }}>

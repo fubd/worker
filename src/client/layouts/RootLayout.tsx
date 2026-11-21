@@ -4,6 +4,7 @@ import {
   CheckSquareOutlined,
   CloudServerOutlined,
   DashboardOutlined,
+  FileTextOutlined,
   InfoCircleOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -19,6 +20,7 @@ import { BrandMark } from '../components/BrandMark';
 // 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
   { to: '/', icon: <DashboardOutlined />, label: '概览' },
+  { to: '/docs', icon: <FileTextOutlined />, label: '文档' },
   { to: '/todos', icon: <CheckSquareOutlined />, label: '待办 Demo' },
   { to: '/about', icon: <InfoCircleOutlined />, label: '技术栈' },
 ];

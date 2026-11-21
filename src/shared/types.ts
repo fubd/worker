@@ -30,3 +30,22 @@ export interface TodoStats {
 }
 
 export type TodoStatusFilter = 'all' | 'active' | 'completed';
+
+export interface DocumentSummary {
+  id: number;
+  title: string;
+  excerpt: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentRecord extends DocumentSummary {
+  content: Record<string, unknown>;
+  contentHtml: string;
+  contentText: string;
+}
+
+export interface DocumentListResponse {
+  items: DocumentSummary[];
+}

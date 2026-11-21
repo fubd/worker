@@ -4,7 +4,7 @@ import RootLayout from './layouts/RootLayout';
 import HomePage from './pages/HomePage';
 import ErrorPage from './pages/ErrorPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { loadTodosRoute } from './route-loaders';
+import { loadDocsRoute, loadTodosRoute } from './route-loaders';
 
 function RouteFallback() {
   return null;
@@ -18,6 +18,17 @@ export const routes: RouteObject[] = [
     HydrateFallback: RouteFallback,
     children: [
       { index: true, element: <HomePage />, handle: { title: '概览' } },
+      {
+        path: 'docs',
+        lazy: async () => {
+          const route = await loadDocsRoute();
+          return {
+            Component: route.default,
+            HydrateFallback: route.HydrateFallback,
+          };
+        },
+        handle: { title: '文档' },
+      },
       {
         path: 'todos',
         lazy: async () => {

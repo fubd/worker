@@ -43,6 +43,17 @@ const ITEMS = [
   },
 ];
 
+const DOCUMENTS = [
+  {
+    id: 1,
+    title: '雨燕编辑器验证',
+    excerpt: '这是用于性能审计的文档快照。',
+    version: 3,
+    createdAt: '2026-11-21T00:00:00.000Z',
+    updatedAt: '2026-11-21T00:03:00.000Z',
+  },
+];
+
 function safeFile(pathname: string): string | null {
   const file = resolve(ROOT, `.${pathname}`);
   return file === ROOT || file.startsWith(`${ROOT}${sep}`) ? file : null;
@@ -56,6 +67,28 @@ const server = Bun.serve({
 
     if (url.pathname === '/api/todos') {
       return Response.json({ items: ITEMS }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (url.pathname === '/api/documents') {
+      return Response.json({ items: DOCUMENTS }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (url.pathname === '/api/documents/1') {
+      return Response.json(
+        {
+          ...DOCUMENTS[0],
+          content: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: '这是用于性能审计的文档快照。' }],
+              },
+            ],
+          },
+          contentHtml: '<p>这是用于性能审计的文档快照。</p>',
+          contentText: '这是用于性能审计的文档快照。',
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
     }
     if (url.pathname === '/api/stats') {
       return Response.json(
@@ -78,11 +111,13 @@ const server = Bun.serve({
     const pathname =
       url.pathname === '/'
         ? '/home.html'
-        : url.pathname === '/todos'
-          ? '/todos.html'
-          : url.pathname === '/about'
-            ? '/about.html'
-            : url.pathname;
+        : url.pathname === '/docs'
+          ? '/docs.html'
+          : url.pathname === '/todos'
+            ? '/todos.html'
+            : url.pathname === '/about'
+              ? '/about.html'
+              : url.pathname;
     const file = safeFile(pathname);
     if (!file || !existsSync(file)) return new Response('not found', { status: 404 });
 

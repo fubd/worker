@@ -32,6 +32,9 @@
   "dependencies": {
     "@ant-design/cssinjs": "^2.1.2",
     "@ant-design/icons": "^6.3.4",
+    "@tiptap/extension-placeholder": "^3.35.0",
+    "@tiptap/react": "^3.35.0",
+    "@tiptap/starter-kit": "^3.35.0",
     "@vercel/speed-insights": "^2.1.0",
     "antd": "^6.6.8",
     "hono": "^4.13.14",

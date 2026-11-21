@@ -1,4 +1,6 @@
 import type {
+  DocumentListResponse,
+  DocumentRecord,
   Todo,
   TodoListResponse,
   TodoListSnapshot,
@@ -107,4 +109,41 @@ export const api = {
     }),
 
   clearCompleted: () => request<{ removed: number }>('/todos/completed', { method: 'DELETE' }),
+
+  listDocuments: (options: { signal?: AbortSignal } = {}) =>
+    request<DocumentListResponse>('/documents', {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  getDocument: (id: number, options: { signal?: AbortSignal } = {}) =>
+    request<DocumentRecord>(`/documents/${id}`, {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  createDocument: (title = '无标题文档') =>
+    request<DocumentRecord>('/documents', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }),
+
+  updateDocument: (
+    id: number,
+    input: {
+      title?: string;
+      content?: Record<string, unknown>;
+      contentHtml?: string;
+      contentText?: string;
+    },
+  ) =>
+    request<DocumentRecord>(`/documents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  deleteDocument: (id: number) =>
+    request<{ ok: boolean; id: number }>(`/documents/${id}`, {
+      method: 'DELETE',
+    }),
 };

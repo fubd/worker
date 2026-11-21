@@ -15,6 +15,7 @@ const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 const required = [
   'home.html',
   'home-cn.html',
+  'docs.html',
   'todos.html',
   'about.html',
   'favicon.svg',
@@ -35,6 +36,7 @@ mkdirSync(OUT, { recursive: true });
 for (const file of [
   'home.html',
   'home-cn.html',
+  'docs.html',
   'todos.html',
   'about.html',
   'favicon.svg',
@@ -57,6 +59,7 @@ const config = {
     { source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` },
     { source: '/', has: CN, destination: '/home-cn.html' },
     { source: '/', destination: '/home.html' },
+    { source: '/docs', destination: '/docs.html' },
     { source: '/todos', destination: '/todos.html' },
     { source: '/about', destination: '/about.html' },
   ],
@@ -71,6 +74,13 @@ const config = {
     {
       source: '/static/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+    {
+      source: '/docs',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
     },
     {
       source: '/todos',

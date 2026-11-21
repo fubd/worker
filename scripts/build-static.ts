@@ -61,7 +61,7 @@ const template = readFileSync(`${DIST}/index.html`, 'utf8');
 const todosSnapshot = readTodosSnapshot(DIST);
 const server = (await import(pathToFileURL(SERVER_ENTRY).href)) as ServerEntry;
 
-for (const path of ['/', '/todos', '/about'] as const) {
+for (const path of ['/', '/docs', '/todos', '/about'] as const) {
   const render = await server.renderStaticRoute({ path, todosSnapshot });
   let html = injectRender(template, render);
   if (path === '/about') {

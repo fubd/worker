@@ -21,4 +21,22 @@ export interface TodoRow {
   updated_at: string;
 }
 
-export type { Todo, TodoStats, TodoStatusFilter } from '../shared/types';
+export interface DocumentRow {
+  id: number;
+  title: string;
+  content_json: string;
+  content_html: string;
+  content_text: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type {
+  DocumentListResponse,
+  DocumentRecord,
+  DocumentSummary,
+  Todo,
+  TodoStats,
+  TodoStatusFilter,
+} from '../shared/types';
