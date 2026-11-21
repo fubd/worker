@@ -4,6 +4,7 @@ import RootLayout from './layouts/RootLayout';
 import HomePage from './pages/HomePage';
 import ErrorPage from './pages/ErrorPage';
 import NotFoundPage from './pages/NotFoundPage';
+import { loadTodosRoute } from './route-loaders';
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
       {
         path: 'todos',
         lazy: async () => {
-          const route = await import('./pages/TodosPage');
+          const route = await loadTodosRoute();
           return {
             Component: route.default,
             HydrateFallback: route.HydrateFallback,

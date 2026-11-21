@@ -34,10 +34,15 @@ for (const file of required) {
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-const copied = [...required.filter((f) => f !== 'index.html')];
-if (hasStaticAbout) copied.push('about.html');
-for (const file of copied) cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 const todosSnapshot = readTodosSnapshot(DIST);
+for (const file of ['home.html', 'home-cn.html']) {
+  writeFileSync(
+    `${OUT}/${file}`,
+    injectTodosSnapshot(readFileSync(`${DIST}/${file}`, 'utf8'), todosSnapshot),
+  );
+}
+cpSync(`${DIST}/favicon.svg`, `${OUT}/favicon.svg`);
+if (hasStaticAbout) cpSync(`${DIST}/about.html`, `${OUT}/about.html`);
 const globalShell = injectLoadingShell(
   injectTodosSnapshot(readFileSync(`${DIST}/index.html`, 'utf8'), todosSnapshot),
   todosSnapshot,

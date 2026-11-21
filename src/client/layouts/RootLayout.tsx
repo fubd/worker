@@ -12,6 +12,8 @@ import {
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { NavLink, Outlet, useLocation, useMatches } from 'react-router';
 
+import { loadTodosRoute } from '../route-loaders';
+
 // 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
   { to: '/', icon: <DashboardOutlined />, label: '概览' },
@@ -24,6 +26,12 @@ type RouteHandle = { title?: string };
 /** lg 断点（992px）以下视为移动端。与 Sider 的断点对齐 */
 const MOBILE_QUERY = '(max-width: 991.98px)';
 const enableSpeedInsights = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+function prefetchTodosRoute() {
+  void loadTodosRoute().catch(() => {
+    // A failed prefetch is harmless; navigation will retry and surface any real error.
+  });
+}
 
 /**
  * 同步初始化的媒体查询 hook，避免首帧先渲染桌面再闪成移动端。
@@ -77,7 +85,10 @@ export default function RootLayout() {
           key={item.to}
           className={({ isActive }) => (isActive ? 'swan-menu-item is-selected' : 'swan-menu-item')}
           end={item.to === '/'}
+          onFocus={item.to === '/todos' ? prefetchTodosRoute : undefined}
           onClick={closeDrawer ? () => setMobileOpen(false) : undefined}
+          onPointerEnter={item.to === '/todos' ? prefetchTodosRoute : undefined}
+          onTouchStart={item.to === '/todos' ? prefetchTodosRoute : undefined}
           to={item.to}
         >
           <span className="swan-menu-icon">{item.icon}</span>

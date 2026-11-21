@@ -53,7 +53,12 @@ type TodosLoaderData = TodoListResponse & {
   fromSnapshot: boolean;
 };
 
-let hasLoadedTodos = false;
+let latestTodos: TodoListResponse | null = null;
+let forceNetworkLoad = false;
+
+function refreshTodosFromNetwork() {
+  forceNetworkLoad = true;
+}
 
 function parseStatus(value: string | null): TodoStatusFilter {
   return value === 'active' || value === 'completed' ? value : 'all';
@@ -82,16 +87,16 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<TodosLoad
   const url = new URL(request.url);
   const status = parseStatus(url.searchParams.get('status'));
   const keyword = url.searchParams.get('q')?.trim() ?? '';
+  const isDefaultView = status === 'all' && !keyword;
 
-  if (!hasLoadedTodos) {
-    hasLoadedTodos = true;
-    const snapshot = api.initialTodos();
-    if (status === 'all' && !keyword && snapshot) {
-      return { items: snapshot.items, fromSnapshot: true };
-    }
+  if (isDefaultView && !forceNetworkLoad) {
+    const cached = latestTodos ?? api.initialTodos();
+    if (cached) return { items: cached.items, fromSnapshot: true };
   }
 
+  if (isDefaultView) forceNetworkLoad = false;
   const data = await api.listTodos({ status, keyword }, { signal: request.signal });
+  if (isDefaultView) latestTodos = data;
   return { ...data, fromSnapshot: false };
 }
 
@@ -104,6 +109,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<TodoActio
       case 'create': {
         const title = String(form.get('title') ?? '').trim();
         await api.createTodo(title);
+        refreshTodosFromNetwork();
         return { intent, ok: true };
       }
 
@@ -111,6 +117,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<TodoActio
         const id = parseId(form.get('id'));
         if (!id) return { intent, ok: false, error: 'id 非法' };
         await api.updateTodo(id, { completed: form.get('completed') === 'true' });
+        refreshTodosFromNetwork();
         return { intent, ok: true };
       }
 
@@ -120,6 +127,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<TodoActio
         if (!id) return { intent, ok: false, error: 'id 非法' };
         if (!title) return { intent, ok: false, error: '标题不能为空' };
         await api.updateTodo(id, { title });
+        refreshTodosFromNetwork();
         return { intent, ok: true };
       }
 
@@ -127,11 +135,13 @@ export async function action({ request }: ActionFunctionArgs): Promise<TodoActio
         const id = parseId(form.get('id'));
         if (!id) return { intent, ok: false, error: 'id 非法' };
         await api.deleteTodo(id);
+        refreshTodosFromNetwork();
         return { intent, ok: true };
       }
 
       case 'clear-completed': {
         const { removed } = await api.clearCompleted();
+        refreshTodosFromNetwork();
         return { intent, ok: true, removed };
       }
 
@@ -280,7 +290,9 @@ function TodosPageContent() {
     refreshedSnapshot.current = true;
 
     const refresh = () => {
-      if (revalidator.state === 'idle') void revalidator.revalidate();
+      if (revalidator.state !== 'idle') return;
+      refreshTodosFromNetwork();
+      void revalidator.revalidate();
     };
     const idleId = window.requestIdleCallback?.(refresh, { timeout: 1_000 });
     const timer = idleId === undefined ? setTimeout(refresh, 0) : undefined;
@@ -401,7 +413,10 @@ function TodosPageContent() {
             <Button
               icon={<ReloadOutlined />}
               loading={loading}
-              onClick={() => void revalidator.revalidate()}
+              onClick={() => {
+                refreshTodosFromNetwork();
+                void revalidator.revalidate();
+              }}
             >
               刷新
             </Button>
