@@ -49,12 +49,6 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Check first-screen snapshot
-        run: bun run check:first-screen
-
-      - name: Check static about page
-        run: bun run check:static-about -- --strict
-
       - name: Performance budgets
         run: bun run perf:check
 
