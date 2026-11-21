@@ -374,6 +374,8 @@ body {
   min-width: 66px;
   gap: 8px;
   padding-inline: 7px;
+  background-color: var(--swan-brand);
+  color: #fff;
 }
 
 .swan-doc-count {
