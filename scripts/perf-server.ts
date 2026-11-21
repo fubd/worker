@@ -1,9 +1,9 @@
 /**
  * Stable local fixture server for the Lighthouse CI budget.
  *
- * The production /todos route is a Vercel rewrite, so LHCI's plain static
- * server cannot reproduce it. This server maps that one route and returns
- * deterministic API data; Lighthouse still owns the audit and assertions.
+ * Vercel rewrites public routes to static HTML files, so LHCI's plain static
+ * server needs the same mappings. It also returns deterministic API data;
+ * Lighthouse still owns the audit and assertions.
  */
 import { existsSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
@@ -75,7 +75,14 @@ const server = Bun.serve({
       return new Response('', { headers: { 'Content-Type': MIME['.js'] } });
     }
 
-    const pathname = url.pathname === '/todos' ? '/shell-global.html' : url.pathname;
+    const pathname =
+      url.pathname === '/'
+        ? '/home.html'
+        : url.pathname === '/todos'
+          ? '/todos.html'
+          : url.pathname === '/about'
+            ? '/about.html'
+            : url.pathname;
     const file = safeFile(pathname);
     if (!file || !existsSync(file)) return new Response('not found', { status: 404 });
 

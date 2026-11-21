@@ -1,12 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ConfigProvider } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
 import { RouterProvider } from 'react-router/dom';
 
 import 'antd/dist/reset.css';
 import './styles/global.css';
 
+import { AppProviders } from './app-providers';
 import { router } from './router';
 
 const container = document.getElementById('root');
@@ -14,34 +13,17 @@ const container = document.getElementById('root');
 if (!container) {
   throw new Error('找不到 #root 挂载节点');
 }
+const rootElement = container;
 
-// shell 里预置了首帧静态内容；React 接管前清空，避免两套 DOM 同时存在。
-container.replaceChildren();
-
-createRoot(container).render(
+const app = (
   <StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 10,
-          fontFamily:
-            "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
-        },
-        components: {
-          Layout: {
-            headerBg: 'transparent',
-            bodyBg: 'transparent',
-            siderBg: '#ffffff',
-          },
-          Menu: {
-            itemBorderRadius: 8,
-          },
-        },
-      }}
-    >
+    <AppProviders>
       <RouterProvider router={router} />
-    </ConfigProvider>
-  </StrictMode>,
+    </AppProviders>
+  </StrictMode>
 );
+
+// The build-time DOM is a paint snapshot. Client-side data loading and actions
+// are the source of truth after React takes over.
+rootElement.replaceChildren();
+createRoot(rootElement).render(app);

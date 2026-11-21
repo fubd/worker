@@ -18,6 +18,7 @@ export class ApiError extends Error {
 }
 
 function readInitialTodos(): TodoListSnapshot | null {
+  if (typeof document === 'undefined') return null;
   const node = document.getElementById('swan-todos-snapshot');
   if (!node?.textContent) return null;
   try {

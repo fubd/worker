@@ -10,7 +10,7 @@ import {
 import { useNavigate } from 'react-router';
 
 import { api } from '../api/client';
-import { FIRST_SCREEN_STATS } from '@/shared/first-screen';
+import { PLACEHOLDER_STATS } from '@/shared/placeholder-stats';
 import type { TodoStats } from '@/shared/types';
 
 const STACK_TAGS = ['Bun', 'React 19', 'React Router 8', 'Ant Design 6', 'Rsbuild', 'Hono', 'D1'];
@@ -38,7 +38,7 @@ export default function HomePage() {
   // Start with the same values the static snapshot shows, so the app can
   // render the dashboard immediately and hand over without waiting for the
   // API. The request below replaces them with live values.
-  const [stats, setStats] = useState<TodoStats>(FIRST_SCREEN_STATS);
+  const [stats, setStats] = useState<TodoStats>(PLACEHOLDER_STATS);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

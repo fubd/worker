@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 import {
   ApiOutlined,
   CheckSquareOutlined,
@@ -23,29 +23,13 @@ const MENU_ITEMS = [
 
 type RouteHandle = { title?: string };
 
-/** lg 断点（992px）以下视为移动端。与 Sider 的断点对齐 */
-const MOBILE_QUERY = '(max-width: 991.98px)';
-const enableSpeedInsights = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+const enableSpeedInsights =
+  typeof window === 'undefined' || !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 function prefetchTodosRoute() {
   void loadTodosRoute().catch(() => {
     // A failed prefetch is harmless; navigation will retry and surface any real error.
   });
-}
-
-function subscribeToViewport(onChange: () => void) {
-  const media = window.matchMedia(MOBILE_QUERY);
-  media.addEventListener('change', onChange);
-  return () => media.removeEventListener('change', onChange);
-}
-
-function isBelowLg() {
-  return window.matchMedia(MOBILE_QUERY).matches;
-}
-
-/** React 同步读取媒体查询，避免首帧先渲染桌面再闪成移动端。 */
-function useIsBelowLg() {
-  return useSyncExternalStore(subscribeToViewport, isBelowLg, () => false);
 }
 
 function Logo({ showText }: { showText: boolean }) {
@@ -65,9 +49,7 @@ function Logo({ showText }: { showText: boolean }) {
 export default function RootLayout() {
   const location = useLocation();
   const matches = useMatches();
-  const isMobile = useIsBelowLg();
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const title =
     [...matches]
@@ -75,7 +57,7 @@ export default function RootLayout() {
       .map((match) => (match.handle as RouteHandle | undefined)?.title)
       .find((value): value is string => typeof value === 'string') ?? 'Swan Worker';
 
-  const renderMenu = ({ closeDrawer = false } = {}) => (
+  const renderMenu = ({ closeDetails = false } = {}) => (
     <nav className="swan-menu" aria-label="站点导航">
       {MENU_ITEMS.map((item) => (
         <NavLink
@@ -83,7 +65,11 @@ export default function RootLayout() {
           className={({ isActive }) => (isActive ? 'swan-menu-item is-selected' : 'swan-menu-item')}
           end={item.to === '/'}
           onFocus={item.to === '/todos' ? prefetchTodosRoute : undefined}
-          onClick={closeDrawer ? () => setMobileOpen(false) : undefined}
+          onClick={
+            closeDetails
+              ? (event) => event.currentTarget.closest('details')?.removeAttribute('open')
+              : undefined
+          }
           onPointerEnter={item.to === '/todos' ? prefetchTodosRoute : undefined}
           onTouchStart={item.to === '/todos' ? prefetchTodosRoute : undefined}
           to={item.to}
@@ -97,51 +83,34 @@ export default function RootLayout() {
 
   return (
     <div className="swan-shell">
-      {/* 桌面端：Sider 在文档流内，可折叠 */}
-      {!isMobile && (
-        <aside
-          className={collapsed ? 'swan-sider is-collapsed' : 'swan-sider'}
-          style={{ width: collapsed ? 0 : 228 }}
-        >
-          <Logo showText={!collapsed} />
-          {!collapsed && renderMenu()}
-        </aside>
-      )}
-
-      {/* 移动端：浮层覆盖，不挤压页面内容 */}
-      {isMobile && (
-        <>
-          <div
-            className={mobileOpen ? 'swan-mobile-backdrop is-open' : 'swan-mobile-backdrop'}
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside
-            className={mobileOpen ? 'swan-mobile-panel is-open' : 'swan-mobile-panel'}
-            aria-hidden={!mobileOpen}
-          >
-            <Logo showText />
-            {renderMenu({ closeDrawer: true })}
-          </aside>
-        </>
-      )}
+      <aside
+        className={collapsed ? 'swan-sider is-collapsed' : 'swan-sider'}
+        style={{ width: collapsed ? 0 : 228 }}
+      >
+        <Logo showText={!collapsed} />
+        {!collapsed && renderMenu()}
+      </aside>
 
       <div className="swan-main">
         <header className="swan-header">
           <div className="swan-header-left">
             <button
               type="button"
-              className="swan-icon-button"
-              aria-label={isMobile ? '打开菜单' : collapsed ? '展开菜单' : '收起菜单'}
-              onClick={() => (isMobile ? setMobileOpen(true) : setCollapsed((value) => !value))}
+              className="swan-icon-button swan-desktop-menu-toggle"
+              aria-label={collapsed ? '展开菜单' : '收起菜单'}
+              onClick={() => setCollapsed((value) => !value)}
             >
-              {isMobile ? (
-                <MenuOutlined />
-              ) : collapsed ? (
-                <MenuUnfoldOutlined />
-              ) : (
-                <MenuFoldOutlined />
-              )}
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </button>
+            <details className="swan-mobile-menu">
+              <summary className="swan-icon-button" aria-label="打开菜单">
+                <MenuOutlined />
+              </summary>
+              <aside className="swan-mobile-panel">
+                <Logo showText />
+                {renderMenu({ closeDetails: true })}
+              </aside>
+            </details>
             <span className="swan-title">{title}</span>
           </div>
 

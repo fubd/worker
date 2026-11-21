@@ -24,6 +24,28 @@ if (!existsSync(`${OUT}/static`)) {
   throw new Error('Vercel bundle is missing static/');
 }
 
+const aboutHtml = readFileSync(`${OUT}/about.html`, 'utf8');
+if (/<script\b[^>]*type=["']module["']/i.test(aboutHtml)) {
+  throw new Error('/about must not load the React runtime');
+}
+if (!aboutHtml.includes('运行时 / 包管理') || !aboutHtml.includes('class="ant-table')) {
+  throw new Error('/about is missing its static content');
+}
+
+const todosHtml = readFileSync(`${OUT}/todos.html`, 'utf8');
+if (
+  !todosHtml.includes('placeholder="要做什么？回车即可添加"') ||
+  !todosHtml.includes('任务列表') ||
+  !todosHtml.includes('id="swan-todos-snapshot"')
+) {
+  throw new Error('/todos is missing its React Router static content');
+}
+
+const homeHtml = readFileSync(`${OUT}/home.html`, 'utf8');
+if (!homeHtml.includes('class="swan-hero"') || homeHtml.includes('swan-first-screen')) {
+  throw new Error('/ does not contain the React Router static home page');
+}
+
 const files = walk(OUT);
 let checkedRefs = 0;
 

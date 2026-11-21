@@ -6,11 +6,10 @@
   "scripts": {
     "dev": "bun run --parallel dev:api dev:web",
     "dev:api": "wrangler dev",
-    "dev:web": "rsbuild dev",
-    "build": "rsbuild build && bun run build:todos-snapshot && bun run build:first-screen && bun run build:static-about && bun run build:cn-home && bun run build:vercel && bun run verify:vercel",
+    "dev:web": "rsbuild dev --environment web",
+    "build": "rsbuild build && bun run build:todos-snapshot && bun run build:static && bun run build:cn-home && bun run build:vercel && bun run verify:vercel",
     "build:todos-snapshot": "bun scripts/todos-snapshot.ts",
-    "build:first-screen": "bun scripts/first-screen/index.ts",
-    "build:static-about": "bun scripts/build-about.ts",
+    "build:static": "NODE_ENV=production bun scripts/build-static.ts",
     "build:cn-home": "bun scripts/build-cn-home.ts",
     "build:vercel": "bun scripts/build-vercel.ts",
     "verify:vercel": "bun scripts/verify-vercel-assets.ts",
@@ -18,8 +17,6 @@
     "perf:budget": "size-limit",
     "perf:lighthouse": "node node_modules/@lhci/cli/src/cli.js autorun",
     "perf:check": "bun run perf:budget && bun run perf:lighthouse",
-    "check:first-screen": "bun scripts/first-screen/check.ts",
-    "check:static-about": "bun scripts/check-static-about.ts",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun check",
@@ -33,6 +30,7 @@
     "db:studio": "wrangler d1 execute DB --local --command=\"select * from todos\""
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.2",
     "@ant-design/icons": "^6.3.4",
     "@vercel/speed-insights": "^2.1.0",
     "antd": "^6.6.8",
@@ -49,7 +47,6 @@
     "@size-limit/file": "^14.3.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "playwright-core": "^1.65.0",
     "size-limit": "^14.3.0",
     "wrangler": "^4.154.0"
   },

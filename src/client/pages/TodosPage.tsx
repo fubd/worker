@@ -56,6 +56,11 @@ type TodosLoaderData = TodoListResponse & {
 let latestTodos: TodoListResponse | null = null;
 let forceNetworkLoad = false;
 
+export function setTodosSnapshotForStaticRender(snapshot: TodoListSnapshot | null) {
+  latestTodos = snapshot;
+  forceNetworkLoad = false;
+}
+
 function refreshTodosFromNetwork() {
   forceNetworkLoad = true;
 }

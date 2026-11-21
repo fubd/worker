@@ -35,7 +35,7 @@ const STACK: StackRow[] = [
     layer: '路由',
     tech: 'React Router',
     version: version('react-router'),
-    usage: 'createBrowserRouter 客户端路由',
+    usage: 'Data Mode 路由、静态渲染与 hydration',
   },
   {
     key: 'antd',
@@ -137,8 +137,8 @@ export default function AboutPage() {
           技术栈
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          <code>deephos.com</code> 的 HTML、JS 与 CSS 由 Vercel 托管； Cloudflare Worker 只提供{' '}
-          <code>/api/*</code>，通过同域反向代理接入。
+          <code>deephos.com</code> 的页面由 React Router 在构建期渲染，Vercel 托管 HTML、JS 与
+          CSS；Cloudflare Worker 只提供 <code>/api/*</code>，通过同域反向代理接入。
         </Typography.Paragraph>
       </Card>
 
