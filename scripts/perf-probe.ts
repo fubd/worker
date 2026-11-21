@@ -26,7 +26,10 @@ function percentile(sorted: number[], fraction: number): number {
 
 function readTiming(response: Response, metric: 'worker' | 'db'): number | null {
   const timing = response.headers.get('server-timing') ?? '';
-  const match = timing.match(new RegExp(`(?:^|,\\s*)${metric};dur=([0-9.]+)`));
+  // Hono timing() names the overall metric "total" and exposes its human label
+  // through desc="worker". Keep accepting "worker" for older deployments.
+  const name = metric === 'worker' ? '(?:worker|total)' : 'db';
+  const match = timing.match(new RegExp(`(?:^|,\\s*)${name};dur=([0-9.]+)`));
   return match ? Number(match[1]) : null;
 }
 

@@ -1,13 +1,13 @@
 import { Hono } from 'hono';
+import { wrapTime } from 'hono/timing';
 import { getStats } from '../db/todos';
-import { measureDb } from '../timing';
 import type { AppEnv } from '../types';
 
 export const statsRoutes = new Hono<AppEnv>();
 
 /** GET /api/stats —— 首页看板数据 */
 statsRoutes.get('/', async (c) => {
-  const stats = await measureDb(c, () => getStats(c.env.DB));
+  const stats = await wrapTime(c, 'db', getStats(c.env.DB));
 
   return c.json({
     ...stats,

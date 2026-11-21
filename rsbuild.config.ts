@@ -55,6 +55,12 @@ export default defineConfig(({ command }) => ({
     filename: {
       js: '[name].[contenthash:8].mjs',
     },
+    // 应用 CSS 很小且没有外链，交给 Rsbuild 在构建期直接内联。
+    inlineStyles: {
+      enable: 'auto',
+      test: ({ name, size }: { name: string; size: number }) =>
+        name.includes('/css/') && size <= 50_000,
+    },
   },
 
   server: {

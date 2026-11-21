@@ -10,3 +10,4 @@ bun.lockb
 public/vendor/
 # 由 scripts/build-vendor-package.ts 生成的 npm 发布目录
 .vendor-package/
+.lighthouseci/

@@ -74,7 +74,7 @@ export const api = {
 
   listTodos: (
     params: { status?: TodoStatusFilter; keyword?: string } = {},
-    options: { fresh?: boolean } = {},
+    options: { fresh?: boolean; signal?: AbortSignal } = {},
   ) => {
     const status = params.status ?? 'all';
     const keyword = params.keyword?.trim() ?? '';
@@ -84,6 +84,7 @@ export const api = {
     const query = search.toString();
     return request<TodoListResponse>(`/todos${query ? `?${query}` : ''}`, {
       cache: options.fresh ? 'reload' : 'no-store',
+      signal: options.signal,
     });
   },
 

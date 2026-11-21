@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
+import { wrapTime } from 'hono/timing';
 import * as repo from '../db/todos';
-import { measureDb } from '../timing';
 import type { AppEnv } from '../types';
 
 export const todoRoutes = new Hono<AppEnv>();
@@ -27,7 +27,9 @@ todoRoutes.get('/', async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
 
-  const result = await measureDb(c, () =>
+  const result = await wrapTime(
+    c,
+    'db',
     repo.listTodos(c.env.DB, {
       status,
       keyword: c.req.query('q') ?? '',
@@ -49,13 +51,13 @@ todoRoutes.post('/', async (c) => {
     return c.json({ error: 'title 必填，且长度需在 1~200 之间' }, 400);
   }
 
-  const todo = await measureDb(c, () => repo.createTodo(c.env.DB, title));
+  const todo = await wrapTime(c, 'db', repo.createTodo(c.env.DB, title));
   return c.json(todo, 201);
 });
 
 /** DELETE /api/todos/completed —— 清空已完成 */
 todoRoutes.delete('/completed', async (c) => {
-  const removed = await measureDb(c, () => repo.clearCompleted(c.env.DB));
+  const removed = await wrapTime(c, 'db', repo.clearCompleted(c.env.DB));
   return c.json({ removed });
 });
 
@@ -86,7 +88,7 @@ todoRoutes.patch('/:id', async (c) => {
     input.completed = body.completed;
   }
 
-  const todo = await measureDb(c, () => repo.updateTodo(c.env.DB, id, input));
+  const todo = await wrapTime(c, 'db', repo.updateTodo(c.env.DB, id, input));
   if (!todo) return c.json({ error: 'Todo 不存在' }, 404);
 
   return c.json(todo);
@@ -97,7 +99,7 @@ todoRoutes.delete('/:id', async (c) => {
   const id = parseId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const ok = await measureDb(c, () => repo.deleteTodo(c.env.DB, id));
+  const ok = await wrapTime(c, 'db', repo.deleteTodo(c.env.DB, id));
   if (!ok) return c.json({ error: 'Todo 不存在' }, 404);
 
   return c.json({ ok: true, id });

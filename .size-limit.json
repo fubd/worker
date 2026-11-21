@@ -1,0 +1,28 @@
+[
+  {
+    "name": "entry",
+    "path": "dist/vercel/static/js/index.*.mjs",
+    "limit": "14 kB"
+  },
+  {
+    "name": "todos route",
+    "path": "dist/vercel/static/js/async/a.*.mjs",
+    "limit": "4 kB"
+  },
+  {
+    "name": "shared antd",
+    "path": "dist/vercel/static/js/lib-antd.*.mjs",
+    "limit": "105 kB"
+  },
+  {
+    "name": "initial JS",
+    "path": [
+      "dist/vercel/static/js/index.*.mjs",
+      "dist/vercel/static/js/lib-antd.*.mjs",
+      "dist/vercel/vendor/react-*.mjs",
+      "dist/vercel/vendor/react-dom-*.mjs",
+      "dist/vercel/vendor/router-*.mjs"
+    ],
+    "limit": "215 kB"
+  }
+]

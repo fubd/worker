@@ -4,8 +4,7 @@
  * home.html is served only for "/" by the Worker. It contains:
  * - both responsive snapshots, switched by CSS media queries
  * - the snapshot CSS inline
- * - the app's global CSS inline when it is small (the default here), otherwise
- *   loaded asynchronously with a handover gate
+ * - the app's global CSS already inlined by Rsbuild
  * - a tiny readiness script that removes the snapshot once the real app has
  *   rendered, and keeps it as a fallback if the app never becomes ready
  */
@@ -14,39 +13,13 @@ import type { CaptureMap } from './capture';
 
 const MOBILE_QUERY = '(max-width: 991.98px)';
 const DESKTOP_QUERY = '(min-width: 992px)';
-const INLINE_CSS_LIMIT = 50_000;
-
-export type AppCssMode = 'auto' | 'inline-css' | 'async' | 'blocking';
 
 export type GenerateResult = {
   bytes: number;
-  mode: Exclude<AppCssMode, 'auto'>;
-  appCssBytes: number;
 };
 
-export function generateHomeHtml(
-  distDir: string,
-  captures: CaptureMap,
-  requestedMode: AppCssMode = 'auto',
-): GenerateResult {
+export function generateHomeHtml(distDir: string, captures: CaptureMap): GenerateResult {
   let html = readFileSync(`${distDir}/index.html`, 'utf8');
-
-  const cssHrefs = stylesheetHrefs(html);
-  const appCss = cssHrefs.map((href) => readFileSync(`${distDir}${href}`, 'utf8'));
-  const canInline =
-    appCss.length > 0 &&
-    appCss.every(
-      (css) => css.length <= INLINE_CSS_LIMIT && !/url\s*\(/i.test(css) && !/@import/i.test(css),
-    );
-
-  const mode: Exclude<AppCssMode, 'auto'> =
-    requestedMode !== 'auto'
-      ? requestedMode
-      : appCss.length === 0
-        ? 'blocking'
-        : canInline
-          ? 'inline-css'
-          : 'async';
 
   const baseCss = `
 html, body { margin: 0; }
@@ -92,7 +65,6 @@ ${mobileCss}
   performance.mark('swan:first-screen:static-visible');
 
   function ready() {
-    if (typeof window.__swanAppCssPending === 'number' && window.__swanAppCssPending > 0) return false;
     return !!(document.querySelector('#root .swan-hero h1') &&
               document.querySelector('#root .swan-stat-value') &&
               document.querySelector('#root .swan-code-block'));
@@ -137,29 +109,6 @@ ${mobileCss}
 })();
 </script>`;
 
-  html = replaceStylesheetLinks(html, (href, index) => {
-    if (mode === 'inline-css') {
-      return `<style data-swan-app-css>${escapeCss(appCss[index] ?? '')}</style>`;
-    }
-    if (mode === 'async') {
-      return (
-        `<link rel="preload" as="style" href="${href}" ` +
-        `onload="this.onload=null;this.rel='stylesheet';if(window.__swanAppCssPending>0)window.__swanAppCssPending--" ` +
-        `onerror="if(window.__swanAppCssPending>0)window.__swanAppCssPending--">` +
-        `<noscript><link rel="stylesheet" href="${href}"></noscript>`
-      );
-    }
-    return `<link href="${href}" rel="stylesheet">`;
-  });
-
-  if (mode === 'async' && cssHrefs.length > 0) {
-    // The counter must exist before the preload links can fire onload.
-    html = html.replace(
-      /<head\b[^>]*>/i,
-      (tag) => `${tag}\n    <script>window.__swanAppCssPending=${cssHrefs.length};</script>`,
-    );
-  }
-
   html = html.replace(/<html\b([^>]*)>/i, (match, attrs: string) => {
     if (/\bdata-swan-first-screen=/.test(attrs)) return match;
     return `<html${attrs} data-swan-first-screen="preparing">`;
@@ -184,8 +133,6 @@ ${mobileCss}
 
   return {
     bytes: Buffer.byteLength(html),
-    mode,
-    appCssBytes: appCss.reduce((sum, css) => sum + Buffer.byteLength(css), 0),
   };
 }
 
@@ -201,29 +148,6 @@ function prepareSnapshot(html: string): string {
       return `<a${withTabIndex(attrs)}${extra}>`;
     })
     .replace(/<button\b([^>]*)>/gi, (match, attrs: string) => `<button${withTabIndex(attrs)}>`);
-}
-
-function stylesheetHrefs(html: string): string[] {
-  const hrefs: string[] = [];
-  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
-    if (!/\brel="stylesheet"/i.test(tag)) continue;
-    const href = tag.match(/\bhref="([^"]+\.css)"/i)?.[1];
-    if (href) hrefs.push(href);
-  }
-  return hrefs;
-}
-
-function replaceStylesheetLinks(
-  html: string,
-  transform: (href: string, index: number) => string,
-): string {
-  let index = 0;
-  return html.replace(/<link\b[^>]*>/gi, (tag) => {
-    if (!/\brel="stylesheet"/i.test(tag)) return tag;
-    const href = tag.match(/\bhref="([^"]+\.css)"/i)?.[1];
-    if (!href) return tag;
-    return transform(href, index++);
-  });
 }
 
 function escapeCss(css: string): string {

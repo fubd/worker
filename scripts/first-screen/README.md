@@ -6,8 +6,8 @@ The capture pipeline supports the home first screen and final static pages.
 1. start a local server for `dist/` with mocked `/api/stats` and `/vendor/*` from `dist/vendor/`
 2. capture the built home page at 1440×900 and 390×844 with headless Chrome
 3. filter the captured CSS to rules matching the captured DOM
-4. write `dist/home.html` with both variants inline, plus the app's global CSS
-   inline when it is small (otherwise preload it asynchronously)
+4. write `dist/home.html` with both variants inline; Rsbuild has already inlined
+   the app's global CSS
 5. verify handover in the browser; on failure, delete `home.html`
 
 `scripts/build-about.ts` reuses the same responsive capture and CSS extraction
@@ -16,12 +16,11 @@ serves that file for `/about`; `/todos` keeps the normal SPA shell.
 
 ## Env
 
-| Variable                                                  | Meaning                                |
-| --------------------------------------------------------- | -------------------------------------- |
-| `FIRST_SCREEN_SKIP=1`                                     | skip the snapshot (CI without Chrome)  |
-| `FIRST_SCREEN_STRICT=1`                                   | fail the build instead of falling back |
-| `FIRST_SCREEN_CSS_MODE=auto\|inline-css\|async\|blocking` | override the app CSS strategy          |
-| `CHROME_PATH=/path/to/chrome`                             | Chrome/Chromium executable             |
+| Variable                      | Meaning                                |
+| ----------------------------- | -------------------------------------- |
+| `FIRST_SCREEN_SKIP=1`         | skip the snapshot (CI without Chrome)  |
+| `FIRST_SCREEN_STRICT=1`       | fail the build instead of falling back |
+| `CHROME_PATH=/path/to/chrome` | Chrome/Chromium executable             |
 
 ## Notes
 

@@ -54,6 +54,9 @@ bun run build:vercel         # 只生成 dist/vercel/（需先 build:cn-home）
 bun run verify:vercel        # 检查所有静态资源已进入 Vercel 产物且没有外部 CDN
 bun run check:first-screen   # 检查 home.html 结构（不启动浏览器）
 bun run check:static-about   # 检查 about.html 不含 React/module 依赖
+bun run perf:budget          # size-limit：入口、路由、antd 和首屏 JS 预算
+bun run perf:lighthouse      # Lighthouse CI：/todos 的 LCP/TBT/CLS 回归门槛
+bun run perf:check           # 依次执行两项性能检查
 bun run check                # 类型检查（bun check，约 80ms，无需安装 typescript）
 bun run fmt             # 格式化（Bun 内置，零依赖）
 bun run fmt:check       # 只检查不写入，CI 用
@@ -144,11 +147,13 @@ swan-worker/
 | 缓存     | `vercel.json`（build-vercel 生成）的 `max-age=31536000, immutable`                     |
 | 托管     | Vercel 静态资源；`/static/*` 与 `/vendor/*` 都随部署上传并走 Vercel 边缘缓存           |
 
-这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 7 个 API，避免把整个 data router 拉进首屏）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
+这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 14 个 API，避免把整个 router 包拉进首屏）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
 
 `/vendor/*` 随 Vercel 部署，浏览器同源加载；Worker 已不再托管静态资源。大陆和海外访问 `/todos`、`/about` 时使用同一套同源静态资源。
 
-**首屏路由只加载概览页。** `/todos`、`/about` 用 `React.lazy()` 拆分，首次进入时才拉对应 chunk（`Suspense` 兜底是骨架屏）；404 与错误页作为兜底留在主包。首屏 JS（不含外部化的 vendor）约 483 kB（gzip 约 156 kB）；Table、表单等懒加载部分按需加载。
+**路由使用 React Router 原生能力。** `/todos`、`/about` 使用路由级 `lazy` 拆分；待办页通过 `loader`、`action`、`useFetcher` 和自动 revalidation 完成读写，菜单使用 `NavLink`，标题来自 `useMatches()`。静态 shell 负责首帧，路由加载阶段不再额外渲染骨架屏。
+
+**性能原语优先使用框架实现。** Rsbuild 的 `output.inlineStyles` 在构建期内联小型 CSS；Hono 的 `timing()` / `wrapTime()` 生成 `Server-Timing` 和跨域计时头。业务代码不再维护对应的手工实现。
 
 **antd 6 的用法。** 根节点用 `<ConfigProvider locale={zhCN}>` 提供主题和中文 locale；`<App>` 只包在需要 `message` / `modal` 的懒加载页面（`TodosPage`）里，首屏因此不下载 message/modal 代码。`message` / `modal` 从 `App.useApp()` 取，不再用静态方法。
 
@@ -179,7 +184,6 @@ bun run build:static-about          # 生成不加载 React/antd 的 /about
 bun run check:static-about --strict # CI 检查 /about 必须存在且完全静态
 FIRST_SCREEN_SKIP=1 bun run build   # 跳过快照（CI 没有 Chrome 时）
 FIRST_SCREEN_STRICT=1 bun run build # 快照失败时让构建失败
-FIRST_SCREEN_CSS_MODE=async bun run build # inline-css | async | blocking
 CHROME_PATH=/path/to/chrome bun run build
 ```
 
@@ -260,8 +264,12 @@ bun run deploy
 
 `.github/workflows/deploy.yml` 会在推送到 `main` 时依次跑
 `bun install --frozen-lockfile` → `fmt:check` → `check` → `build` →
-`check:first-screen` → `check:static-about --strict` → Vercel 部署 → `wrangler deploy`。`build` 内的
+`check:first-screen` → `check:static-about --strict` → `perf:check` → Vercel 部署 → `wrangler deploy`。`build` 内的
 `verify:vercel` 会检查所有静态文件已随站点上传；任一步失败都会停止后续发布。
+
+`perf:check` 先用 `size-limit` 检查入口、Todos 路由、antd 共享包和首屏 JS 的
+Brotli 体积，再用 Lighthouse CI 对 `/todos` 跑三次桌面审计。当前门槛为中位数
+Performance ≥ 0.85、FCP ≤ 1.8s、LCP ≤ 2.5s、TBT ≤ 400ms、CLS ≤ 0.05。
 
 `bun run build` 会生成 `dist/home.html` 和 `dist/about.html`；GitHub Actions 的 ubuntu runner 自带 Chrome。如果换到没有 Chrome 的环境，快照会自动跳过并回退到 SPA shell；CI 的严格结构检查会阻止这种回退进入生产部署。
 
@@ -280,7 +288,7 @@ bun run perf:api --runs 30
 ```
 
 脚本会输出 `/api/health`、`/api/todos`、`/api/stats` 的 min / p50 / p75 / p90 /
-max，并解析 `Server-Timing` 的 `worker` 与 `db`。跨域响应同时发送
+max，并解析 Hono 生成的 `total`（描述为 `worker`）与 `db`。跨域响应同时发送
 `Timing-Allow-Origin: *`，因此浏览器 PerformanceResourceTiming 也能读取分项。
 
 Speed Insights 的下一轮判断门槛：`/todos` 至少累计 100 个真实事件，或继续观察

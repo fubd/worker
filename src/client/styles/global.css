@@ -183,26 +183,19 @@ body {
 }
 
 .swan-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   height: 40px;
-  line-height: 40px;
+  padding: 0 16px 0 24px;
   margin: 4px;
   border-radius: 8px;
   font-size: 14px;
   color: var(--swan-text, #0f172a);
+  text-decoration: none;
   transition:
     background-color 0.2s,
     color 0.2s;
-}
-
-.swan-menu-item a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 100%;
-  padding: 0 16px 0 24px;
-  color: inherit;
-  text-decoration: none;
-  border-radius: inherit;
 }
 
 .swan-menu-item:hover {
@@ -328,25 +321,6 @@ body {
   color: #94a3b8;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
-}
-
-.swan-route-skeleton {
-  padding: 24px;
-}
-
-.swan-skeleton-line {
-  height: 24px;
-  width: 180px;
-  border-radius: 8px;
-  background: var(--swan-skeleton, #e9eef5);
-  margin-bottom: 20px;
-}
-
-.swan-skeleton-block {
-  height: 96px;
-  border-radius: 12px;
-  background: var(--swan-skeleton, #e9eef5);
-  margin-bottom: 16px;
 }
 
 /* ---------- 通用块 ---------- */

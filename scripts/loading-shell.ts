@@ -102,9 +102,9 @@ function shellRoot(snapshot: TodoListSnapshot | null): string {
     <aside class="swan-sider swan-boot-sider" style="width: 228px">
       <div class="swan-logo"><span class="swan-logo-mark">S</span><span class="swan-logo-text">Swan Worker<small>edge runtime</small></span></div>
       <nav class="swan-menu" aria-label="站点导航">
-        <div class="swan-menu-item"><a href="/"><span class="swan-menu-icon">${icon('dashboard')}</span><span class="swan-menu-label">概览</span></a></div>
-        <div class="swan-menu-item is-selected" aria-current="page"><a href="/todos"><span class="swan-menu-icon">${icon('todos')}</span><span class="swan-menu-label">待办 Demo</span></a></div>
-        <div class="swan-menu-item"><a href="/about"><span class="swan-menu-icon">${icon('info')}</span><span class="swan-menu-label">技术栈</span></a></div>
+        <a class="swan-menu-item" href="/"><span class="swan-menu-icon">${icon('dashboard')}</span><span class="swan-menu-label">概览</span></a>
+        <a class="swan-menu-item is-selected" aria-current="page" href="/todos"><span class="swan-menu-icon">${icon('todos')}</span><span class="swan-menu-label">待办 Demo</span></a>
+        <a class="swan-menu-item" href="/about"><span class="swan-menu-icon">${icon('info')}</span><span class="swan-menu-label">技术栈</span></a>
       </nav>
     </aside>
     <div class="swan-main">

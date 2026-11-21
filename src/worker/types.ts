@@ -10,10 +10,6 @@ export interface Env {
 
 export type AppEnv = {
   Bindings: Env;
-  Variables: {
-    /** Accumulated D1 time for the current request, in milliseconds. */
-    dbMs: number;
-  };
 };
 
 /** 数据库原始行（completed 用 0/1 存储） */

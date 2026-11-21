@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ApiOutlined,
   CheckSquareOutlined,
@@ -10,33 +10,16 @@ import {
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Outlet, useLocation, useNavigate } from 'react-router';
-
-import { api } from '../api/client';
-
-/** 只接管普通左键点击，保留 Ctrl/Cmd/Shift/中键在新标签页打开的行为。 */
-function isPlainLeftClick(event: {
-  button: number;
-  metaKey: boolean;
-  ctrlKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-}) {
-  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
-}
+import { NavLink, Outlet, useLocation, useMatches } from 'react-router';
 
 // 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
-  { key: '/', icon: <DashboardOutlined />, label: '概览' },
-  { key: '/todos', icon: <CheckSquareOutlined />, label: '待办 Demo' },
-  { key: '/about', icon: <InfoCircleOutlined />, label: '技术栈' },
+  { to: '/', icon: <DashboardOutlined />, label: '概览' },
+  { to: '/todos', icon: <CheckSquareOutlined />, label: '待办 Demo' },
+  { to: '/about', icon: <InfoCircleOutlined />, label: '技术栈' },
 ];
 
-const PAGE_TITLES: Record<string, string> = {
-  '/': '概览',
-  '/todos': '待办 Demo',
-  '/about': '技术栈',
-};
+type RouteHandle = { title?: string };
 
 /** lg 断点（992px）以下视为移动端。与 Sider 的断点对齐 */
 const MOBILE_QUERY = '(max-width: 991.98px)';
@@ -74,88 +57,33 @@ function Logo({ showText }: { showText: boolean }) {
   );
 }
 
-/**
- * /todos 的静态 HTML 已经带有数据快照，路由 chunk 加载期间继续显示这份快照。
- * 页面刷新时不会再从完整列表闪成灰色骨架。
- */
-function TodosRouteFallback() {
-  const snapshot = api.initialTodos();
-  if (!snapshot) return null;
-
-  const completed = snapshot.items.filter((todo) => todo.completed).length;
-
-  return (
-    <section className="swan-card swan-todos-preview" aria-label="待办快照">
-      <div className="swan-todos-preview-head">
-        <span>任务列表</span>
-        <span className="swan-todos-preview-count">
-          {completed}/{snapshot.items.length}
-        </span>
-      </div>
-      <div className="swan-todos-preview-list">
-        {snapshot.items.map((todo) => (
-          <div className="swan-todos-preview-row" key={todo.id}>
-            <span
-              className={
-                todo.completed ? 'swan-todos-preview-check is-done' : 'swan-todos-preview-check'
-              }
-            />
-            <span
-              className={
-                todo.completed ? 'swan-todos-preview-title is-done' : 'swan-todos-preview-title'
-              }
-            >
-              {todo.title}
-            </span>
-            <span className="swan-todos-preview-id">#{todo.id}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export default function RootLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const matches = useMatches();
   const isMobile = useIsBelowLg();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const selectedKey = useMemo(() => {
-    const matched = MENU_ITEMS.map((item) => item.key)
-      .filter((key) => key !== '/' && location.pathname.startsWith(key))
-      .sort((a, b) => b.length - a.length)[0];
-    return matched ?? '/';
-  }, [location.pathname]);
-
-  const title = PAGE_TITLES[selectedKey] ?? 'Swan Worker';
+  const title =
+    [...matches]
+      .reverse()
+      .map((match) => (match.handle as RouteHandle | undefined)?.title)
+      .find((value): value is string => typeof value === 'string') ?? 'Swan Worker';
 
   const renderMenu = ({ closeDrawer = false } = {}) => (
     <nav className="swan-menu" aria-label="站点导航">
-      {MENU_ITEMS.map((item) => {
-        const selected = item.key === selectedKey;
-        return (
-          <div
-            key={item.key}
-            className={selected ? 'swan-menu-item is-selected' : 'swan-menu-item'}
-            aria-current={selected ? 'page' : undefined}
-          >
-            <a
-              href={item.key}
-              onClick={(event) => {
-                if (!isPlainLeftClick(event)) return;
-                event.preventDefault();
-                if (closeDrawer) setMobileOpen(false);
-                navigate(item.key);
-              }}
-            >
-              <span className="swan-menu-icon">{item.icon}</span>
-              <span className="swan-menu-label">{item.label}</span>
-            </a>
-          </div>
-        );
-      })}
+      {MENU_ITEMS.map((item) => (
+        <NavLink
+          key={item.to}
+          className={({ isActive }) => (isActive ? 'swan-menu-item is-selected' : 'swan-menu-item')}
+          end={item.to === '/'}
+          onClick={closeDrawer ? () => setMobileOpen(false) : undefined}
+          to={item.to}
+        >
+          <span className="swan-menu-icon">{item.icon}</span>
+          <span className="swan-menu-label">{item.label}</span>
+        </NavLink>
+      ))}
     </nav>
   );
 
@@ -223,22 +151,7 @@ export default function RootLayout() {
 
         <main className="swan-content">
           <div className="swan-content-inner">
-            {/* /todos 保持静态快照；其他懒加载路由短暂显示加载态 */}
-            <Suspense
-              fallback={
-                selectedKey === '/todos' ? (
-                  <TodosRouteFallback />
-                ) : (
-                  <div className="swan-card swan-route-skeleton">
-                    <div className="swan-skeleton-line" />
-                    <div className="swan-skeleton-block" />
-                    <div className="swan-skeleton-block" />
-                  </div>
-                )
-              }
-            >
-              <Outlet />
-            </Suspense>
+            <Outlet />
           </div>
         </main>
 

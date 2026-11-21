@@ -7,7 +7,6 @@
  * Env:
  *   FIRST_SCREEN_SKIP=1      skip entirely (CI without Chrome)
  *   FIRST_SCREEN_STRICT=1    fail the build if capture/verification fails
- *   FIRST_SCREEN_CSS_MODE=   auto (default) | inline-css | async | blocking
  *   CHROME_PATH=...          Chrome/Chromium executable
  *
  * Fail-open: on any error, dist/home.html is removed and the Worker falls
@@ -15,7 +14,7 @@
  */
 import { existsSync, unlinkSync } from 'node:fs';
 import { captureSnapshots, findChrome } from './capture';
-import { generateHomeHtml, type AppCssMode } from './generate';
+import { generateHomeHtml } from './generate';
 import { startCaptureServer } from './server';
 import { verifyHomeHtml } from './verify';
 
@@ -42,11 +41,8 @@ async function main() {
         `mobile: ${captures.mobile.html.length} html / ${captures.mobile.css.length} css`,
     );
 
-    const requestedMode = (process.env.FIRST_SCREEN_CSS_MODE ?? 'auto') as AppCssMode;
-    const result = generateHomeHtml(distDir, captures, requestedMode);
-    console.log(
-      `[first-screen] wrote dist/home.html (${result.bytes} bytes, css mode: ${result.mode}, app css: ${result.appCssBytes} bytes)`,
-    );
+    const result = generateHomeHtml(distDir, captures);
+    console.log(`[first-screen] wrote dist/home.html (${result.bytes} bytes)`);
 
     server.setServeHome(true);
     await verifyHomeHtml(server, executablePath);

@@ -16,6 +16,9 @@
     "build:vercel": "bun scripts/build-vercel.ts",
     "verify:vercel": "bun scripts/verify-vercel-assets.ts",
     "perf:api": "bun scripts/perf-probe.ts",
+    "perf:budget": "size-limit",
+    "perf:lighthouse": "node node_modules/@lhci/cli/src/cli.js autorun",
+    "perf:check": "bun run perf:budget && bun run perf:lighthouse",
     "check:first-screen": "bun scripts/first-screen/check.ts",
     "check:static-about": "bun scripts/check-static-about.ts",
     "preview": "bun run build && wrangler dev",
@@ -41,11 +44,14 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261028.1",
+    "@lhci/cli": "^0.16.1",
     "@rsbuild/core": "^2.3.2",
     "@rsbuild/plugin-react": "^2.1.1",
+    "@size-limit/file": "^14.3.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "playwright-core": "^1.65.0",
+    "size-limit": "^14.3.0",
     "wrangler": "^4.154.0"
   },
   "engines": {

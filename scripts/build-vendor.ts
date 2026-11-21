@@ -122,10 +122,17 @@ const routerFile = `router-${routerPkg.version}.mjs`;
 const ROUTER_EXPORTS = [
   'createBrowserRouter',
   'isRouteErrorResponse',
+  'NavLink',
   'Outlet',
+  'useFetcher',
+  'useLoaderData',
   'useLocation',
+  'useMatches',
   'useNavigate',
+  'useNavigation',
+  'useRevalidator',
   'useRouteError',
+  'useSearchParams',
 ] as const;
 const ROUTER_DOM_EXPORTS = ['RouterProvider'] as const;
 

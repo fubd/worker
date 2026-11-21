@@ -28,7 +28,7 @@ const checks: Array<[string, RegExp]> = [
   ['snapshot style', /id="swan-first-screen-style"/],
   ['readiness script', /swan:first-screen:complete/],
   ['app module script', /<script\b[^>]*type="module"/i],
-  ['app css', /data-swan-app-css|rel="preload" as="style"|rel="stylesheet"/],
+  ['inlined app css', /\.swan-hero/],
 ];
 
 let ok = true;
