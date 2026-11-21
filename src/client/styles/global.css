@@ -368,6 +368,14 @@ body {
   gap: 8px;
 }
 
+/* Ant Design replaces its runtime token styles during hydration. Keep this
+   frequently visible control stable while that style swap is in progress. */
+.swan-doc-list-head .swan-doc-create-button.ant-btn {
+  min-width: 66px;
+  gap: 8px;
+  padding-inline: 7px;
+}
+
 .swan-doc-count {
   display: inline-flex;
   align-items: center;

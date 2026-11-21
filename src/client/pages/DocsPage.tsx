@@ -63,8 +63,18 @@ export function HydrateFallback() {
     <div className="swan-docs">
       <aside className="swan-doc-list-panel swan-card">
         <div className="swan-doc-list-head">
-          <strong>文档</strong>
-          <span className="swan-doc-count">0</span>
+          <div className="swan-doc-list-heading">
+            <strong>文档</strong>
+            <span className="swan-doc-count">0</span>
+          </div>
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlusOutlined />}
+            className="swan-doc-create-button"
+          >
+            新建
+          </Button>
         </div>
         <div className="swan-doc-list-empty">正在载入文档…</div>
       </aside>
@@ -380,6 +390,7 @@ function DocsPageContent() {
               size="small"
               icon={<PlusOutlined />}
               loading={creating}
+              className="swan-doc-create-button"
               onClick={() => void createDocument()}
             >
               新建
