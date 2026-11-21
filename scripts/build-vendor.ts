@@ -19,7 +19,8 @@
  *
  * 大陆和海外 HTML 的 importmap 都指向同源 /vendor/*。
  */
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
@@ -48,6 +49,17 @@ async function bundle(entry: string, outfile: string, external: string[] = []) {
     for (const log of result.logs) console.error(log);
     throw new Error(`bundle 失败: ${entry}`);
   }
+}
+
+async function fingerprint(file: string): Promise<string> {
+  const content = await readFile(join(OUT, file));
+  return createHash('sha256').update(content).digest('hex').slice(0, 8);
+}
+
+async function publish(tempFile: string, baseName: string): Promise<string> {
+  const finalFile = `${baseName}.${await fingerprint(tempFile)}.mjs`;
+  await rename(join(OUT, tempFile), join(OUT, finalFile));
+  return finalFile;
 }
 
 function namesOf(namespace: Record<string, unknown>) {
@@ -106,12 +118,12 @@ const routerPkg = JSON.parse(
   await readFile(join(ROOT, 'node_modules/react-router/package.json'), 'utf8'),
 ) as { version: string };
 
-// 文件名带版本号：静态资源按 immutable 一年缓存，同名覆盖会让老访客继续用旧缓存，
-// 旧文件的导出集与新 importmap 不匹配时直接白屏。换版本即换 URL 才能安全更新。
+// 文件名同时带包版本和内容 hash：静态资源按 immutable 一年缓存，只改导出的 API
+// 时版本号不会变，必须让 URL 随产物变化，否则老访客会继续拿到缺少新导出的旧模块。
 const version = String(reactNs.version ?? 'unknown');
-const reactFile = `react-${version}.mjs`;
-const domFile = `react-dom-${version}.mjs`;
-const routerFile = `router-${routerPkg.version}.mjs`;
+const reactBase = `react-${version}`;
+const domBase = `react-dom-${version}`;
+const routerBase = `router-${routerPkg.version}`;
 
 /**
  * 只导出业务实际用到的 router API。
@@ -179,15 +191,23 @@ await writeFile(
   ].join('\n'),
 );
 
-await bundle(join(TMP, 'react.js'), reactFile);
+await bundle(join(TMP, 'react.js'), 'react.tmp.mjs');
 // react 必须外部化：否则 react-dom / router 里会打进第二份 React 实例
-await bundle(join(TMP, 'react-dom.js'), domFile, ['react']);
-await bundle(join(TMP, 'router.js'), routerFile, [
+await bundle(join(TMP, 'react-dom.js'), 'react-dom.tmp.mjs', ['react']);
+await bundle(join(TMP, 'router.js'), 'router.tmp.mjs', [
   'react',
   'react/jsx-runtime',
   'react-dom',
   'react-dom/client',
 ]);
+
+const reactFile = await publish('react.tmp.mjs', reactBase);
+const domFile = await publish('react-dom.tmp.mjs', domBase);
+const routerFile = await publish('router.tmp.mjs', routerBase);
+await writeFile(
+  join(OUT, 'manifest.json'),
+  `${JSON.stringify({ react: reactFile, reactDom: domFile, router: routerFile }, null, 2)}\n`,
+);
 
 await rm(TMP, { recursive: true, force: true });
 
@@ -197,4 +217,4 @@ console.log(
     ` / ${routerFile}（${ROUTER_EXPORTS.length + ROUTER_DOM_EXPORTS.length} 导出）` +
     `｜同名跳过：${[...react.duplicates, ...dom.duplicates].join(', ') || '无'}`,
 );
-console.log(`index.html 的 preload 与 importmap 需指向：${reactFile} / ${domFile} / ${routerFile}`);
+console.log(`vendor manifest：${reactFile} / ${domFile} / ${routerFile}`);

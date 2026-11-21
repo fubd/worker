@@ -1,5 +1,21 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
+
+type VendorManifest = {
+  react: string;
+  reactDom: string;
+  router: string;
+};
+
+function readVendorManifest(): VendorManifest {
+  const file = 'public/vendor/manifest.json';
+  try {
+    return JSON.parse(readFileSync(file, 'utf8')) as VendorManifest;
+  } catch {
+    throw new Error(`${file} is missing; run "bun run vendor" before Rsbuild`);
+  }
+}
 
 export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
@@ -14,6 +30,9 @@ export default defineConfig(({ command }) => ({
 
   html: {
     template: './src/client/index.html',
+    templateParameters: {
+      vendor: readVendorManifest(),
+    },
     favicon: './public/favicon.svg',
     meta: {
       description: 'Bun + React 19 + Ant Design 6 + Hono + Cloudflare D1 on Workers',

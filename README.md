@@ -139,15 +139,15 @@ swan-worker/
 
 **react 系模块不打进产物，作为静态资源部署。** 生产构建用 `output.externals` 把 `react` / `react/jsx-runtime` / `react-dom` / `react-dom/client` / `react-router` / `react-router/dom` 外部化，`index.html` 的 **importmap** 指向同源的 `/vendor/*.mjs`：
 
-| 项       | 值                                                                                     |
-| -------- | -------------------------------------------------------------------------------------- |
-| 生成位置 | `public/vendor/`（`scripts/build-vendor.ts`，gitignore）                               |
-| 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                                      |
-| 线上路径 | `/vendor/react-19.3.1.mjs`、`/vendor/react-dom-19.3.1.mjs`、`/vendor/router-8.5.1.mjs` |
-| 缓存     | `vercel.json`（build-vercel 生成）的 `max-age=31536000, immutable`                     |
-| 托管     | Vercel 静态资源；`/static/*` 与 `/vendor/*` 都随部署上传并走 Vercel 边缘缓存           |
+| 项       | 值                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------ |
+| 生成位置 | `public/vendor/`（`scripts/build-vendor.ts`，gitignore）                                                     |
+| 部署位置 | `dist/vendor/`（rsbuild 构建时从 `public/` 拷入）                                                            |
+| 线上路径 | `/vendor/react-<版本>.<hash>.mjs`、`/vendor/react-dom-<版本>.<hash>.mjs`、`/vendor/router-<版本>.<hash>.mjs` |
+| 缓存     | `vercel.json`（build-vercel 生成）的 `max-age=31536000, immutable`                                           |
+| 托管     | Vercel 静态资源；`/static/*` 与 `/vendor/*` 都随部署上传并走 Vercel 边缘缓存                                 |
 
-这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 14 个 API，避免把整个 router 包拉进首屏）。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
+这些文件由 `scripts/build-vendor.ts` 生成（react 的 npm 包只有 CJS，脚本负责 bundle 成 ESM 并补齐具名导出与 default；router 只导出业务实际用到的 14 个 API，避免把整个 router 包拉进首屏）。文件名包含包版本和产物内容 hash，`manifest.json` 再由 Rsbuild 注入 importmap 和 modulepreload，因此只调整导出集合也不会命中旧的一年缓存。`bun run vendor` 会重建 `public/vendor/`，`bun run build` 会自动执行。
 
 `/vendor/*` 随 Vercel 部署，浏览器同源加载；Worker 已不再托管静态资源。大陆和海外访问 `/todos`、`/about` 时使用同一套同源静态资源。
 

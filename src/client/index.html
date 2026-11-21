@@ -10,21 +10,21 @@
     <script type="importmap">
       {
         "imports": {
-          "react": "/vendor/react-19.3.1.mjs",
-          "react/jsx-runtime": "/vendor/react-19.3.1.mjs",
-          "react-dom": "/vendor/react-dom-19.3.1.mjs",
-          "react-dom/client": "/vendor/react-dom-19.3.1.mjs",
-          "react-router": "/vendor/router-8.5.1.mjs",
-          "react-router/dom": "/vendor/router-8.5.1.mjs"
+          "react": "/vendor/<%= vendor.react %>",
+          "react/jsx-runtime": "/vendor/<%= vendor.react %>",
+          "react-dom": "/vendor/<%= vendor.reactDom %>",
+          "react-dom/client": "/vendor/<%= vendor.reactDom %>",
+          "react-router": "/vendor/<%= vendor.router %>",
+          "react-router/dom": "/vendor/<%= vendor.router %>"
         }
       }
     </script>
     <!-- 外部化后这些依赖不在打包器依赖图里，它不会自动注入 preload；
          不预加载就要等 index.mjs 下载并解析完才知道要请求它们，多一段串行等待。
          同源预取不要加 crossorigin，否则会按 CORS 模式再取一次。 -->
-    <link rel="modulepreload" href="/vendor/react-19.3.1.mjs" />
-    <link rel="modulepreload" href="/vendor/react-dom-19.3.1.mjs" />
-    <link rel="modulepreload" href="/vendor/router-8.5.1.mjs" />
+    <link rel="modulepreload" href="/vendor/<%= vendor.react %>" />
+    <link rel="modulepreload" href="/vendor/<%= vendor.reactDom %>" />
+    <link rel="modulepreload" href="/vendor/<%= vendor.router %>" />
   </head>
   <body>
     <div id="root"></div>
