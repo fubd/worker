@@ -3,7 +3,7 @@ import { createCache, extractStyle, StyleProvider } from '@ant-design/cssinjs';
 import { createStaticHandler, createStaticRouter, StaticRouterProvider } from 'react-router';
 
 import { AppProviders } from './app-providers';
-import { routes } from './routes';
+import { createRoutes } from './routes';
 import { setTodosSnapshotForStaticRender } from './pages/TodosPage';
 import type { TodoListSnapshot } from '@/shared/types';
 
@@ -15,6 +15,11 @@ type RenderOptions = {
 export async function renderStaticRoute({ path, todosSnapshot }: RenderOptions) {
   setTodosSnapshotForStaticRender(todosSnapshot ?? null);
 
+  const routes = createRoutes({
+    docs: await import('./pages/DocsPage'),
+    todos: await import('./pages/TodosPage'),
+    about: await import('./pages/AboutPage'),
+  });
   const cache = createCache();
   const { query, dataRoutes } = createStaticHandler(routes);
   const request = new Request(new URL(path, 'https://deephos.com'));
@@ -35,6 +40,10 @@ export async function renderStaticRoute({ path, todosSnapshot }: RenderOptions) 
 
   return {
     html: rendered,
-    styles: extractStyle(cache, { types: ['style', 'token'] }),
+    styles: extractStyle(cache, { types: ['style', 'token', 'cssVar'] }),
+    hydrationData: {
+      loaderData: context.loaderData,
+      actionData: context.actionData,
+    },
   };
 }

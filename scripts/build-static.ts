@@ -14,6 +14,10 @@ import type { TodoListSnapshot } from '../src/shared/types';
 type StaticRender = {
   html: string;
   styles: string;
+  hydrationData: {
+    loaderData: Record<string, unknown>;
+    actionData: Record<string, unknown> | null;
+  };
 };
 
 type ServerEntry = {
@@ -30,7 +34,14 @@ function injectRender(template: string, render: StaticRender): string {
   if (!template.includes('<div id="root"></div>')) {
     throw new Error('browser template is missing <div id="root"></div>');
   }
-  const withStyles = template.replace('</head>', `${render.styles}\n  </head>`);
+  const hydrationJson = JSON.stringify(render.hydrationData)
+    .replaceAll('<', '\\u003c')
+    .replaceAll('\u2028', '\\u2028')
+    .replaceAll('\u2029', '\\u2029');
+  const withStyles = template.replace(
+    '</head>',
+    `${render.styles}\n  <script>window.__staticRouterHydrationData = ${hydrationJson};</script>\n  </head>`,
+  );
   return withStyles.replace('<div id="root"></div>', `<div id="root">${render.html}</div>`);
 }
 

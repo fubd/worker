@@ -7,9 +7,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <ConfigProvider
       locale={zhCN}
       theme={{
-        // Static rendering and the client's separate React root generate
-        // different useId values. Pin the CSS-variable theme key so both
-        // trees use the same Ant Design token class from the first frame.
+        // Keep Ant Design's generated CSS-variable class stable between the
+        // static render and hydration.
         cssVar: { key: 'yuyan' },
         token: {
           colorPrimary: '#2f6fe8',
