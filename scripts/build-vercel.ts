@@ -5,12 +5,24 @@
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
+import { BRAND } from '../src/shared/brand';
+
 const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
 const API_ORIGIN = 'https://api.deephos.com';
 const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 
-const required = ['home.html', 'home-cn.html', 'todos.html', 'about.html', 'favicon.svg'];
+const required = [
+  'home.html',
+  'home-cn.html',
+  'todos.html',
+  'about.html',
+  'favicon.svg',
+  'favicon.ico',
+  'apple-touch-icon.png',
+  'app-icon-512.png',
+  'brand/logo-mark.svg',
+];
 for (const file of required) {
   if (!existsSync(`${DIST}/${file}`)) {
     throw new Error(`Vercel bundle is missing dist/${file}; run the static build first`);
@@ -20,9 +32,19 @@ for (const file of required) {
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
-for (const file of ['home.html', 'home-cn.html', 'todos.html', 'about.html', 'favicon.svg']) {
+for (const file of [
+  'home.html',
+  'home-cn.html',
+  'todos.html',
+  'about.html',
+  'favicon.svg',
+  'favicon.ico',
+  'apple-touch-icon.png',
+  'app-icon-512.png',
+]) {
   cpSync(`${DIST}/${file}`, `${OUT}/${file}`);
 }
+cpSync(`${DIST}/brand`, `${OUT}/brand`, { recursive: true });
 cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 
 if (readFileSync(`${OUT}/about.html`, 'utf8').includes('<script type="module"')) {
@@ -81,7 +103,7 @@ writeFileSync(
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
-<title>页面不存在 · Swan Worker</title>
+<title>页面不存在 · ${BRAND.name}</title>
 <body style="font:14px/1.6 system-ui,sans-serif;padding:48px;color:#0f172a">
   <p>页面不存在。</p>
   <p><a href="/">返回首页</a></p>

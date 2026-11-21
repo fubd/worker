@@ -61,7 +61,9 @@ for (const file of files) {
   }
 
   if (extname(file) !== '.html') continue;
-  for (const match of content.matchAll(/\b(?:src|href)=["'](\/(?:static|favicon)[^"'?#]*)/g)) {
+  for (const match of content.matchAll(
+    /\b(?:src|href)=["'](\/(?:static|favicon|brand|apple-touch-icon|app-icon)[^"'?#]*)/g,
+  )) {
     const asset = match[1];
     if (!existsSync(join(OUT, asset.slice(1)))) {
       throw new Error(`${name} references missing Vercel asset ${asset}`);

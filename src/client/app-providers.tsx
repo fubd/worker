@@ -8,7 +8,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#1677ff',
+          colorPrimary: '#2f6fe8',
           borderRadius: 10,
           fontFamily:
             "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",

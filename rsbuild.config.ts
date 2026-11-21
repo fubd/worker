@@ -1,6 +1,8 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 
+import { BRAND } from './src/shared/brand';
+
 export default defineConfig(({ command }) => ({
   plugins: [pluginReact()],
 
@@ -17,9 +19,9 @@ export default defineConfig(({ command }) => ({
         template: './src/client/index.html',
         favicon: './public/favicon.svg',
         meta: {
-          description: 'Bun + React 19 + Ant Design 6 + Hono + Cloudflare D1 on Workers',
+          description: BRAND.description,
           viewport: 'width=device-width, initial-scale=1',
-          'theme-color': '#ffffff',
+          'theme-color': BRAND.themeColor,
         },
       },
 

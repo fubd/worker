@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router';
 
 import { api } from '../api/client';
+import { BRAND } from '@/shared/brand';
 import { PLACEHOLDER_STATS } from '@/shared/placeholder-stats';
 import type { TodoStats } from '@/shared/types';
 
@@ -61,14 +62,11 @@ export default function HomePage() {
   return (
     <>
       <section className="swan-hero">
-        <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-          Cloudflare Workers · Edge Runtime
+        <Tag color="cyan" style={{ marginInlineEnd: 0 }}>
+          知识库 V0.1 · 工作品牌
         </Tag>
-        <h1>全栈跑在边缘节点上的 Swan Worker</h1>
-        <p>
-          一个可直接上手的最小全栈模板：Rsbuild 打包 React 19 + Ant Design 6 前端，Hono 提供 API，D1
-          作为边缘数据库。站点静态资源由 Vercel 托管，API 由 Cloudflare Worker 处理。
-        </p>
+        <h1>{BRAND.description}</h1>
+        <p>当前版本先验证内容编辑、知识组织与快速访问，再逐步补齐团队协作和检索能力。</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20 }}>
           {/* href 让首屏快照（不 hydrate）也能导航；hydrate 后 onClick 接管为 SPA 跳转 */}
           <Button
@@ -81,7 +79,7 @@ export default function HomePage() {
               navigate('/todos');
             }}
           >
-            试试待办 Demo
+            打开当前 Demo
           </Button>
           <Button
             icon={<ArrowRightOutlined />}

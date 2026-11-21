@@ -12,7 +12,9 @@ import {
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { NavLink, Outlet, useLocation, useMatches } from 'react-router';
 
+import { BRAND } from '@/shared/brand';
 import { loadTodosRoute } from '../route-loaders';
+import { BrandMark } from '../components/BrandMark';
 
 // 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
@@ -35,11 +37,13 @@ function prefetchTodosRoute() {
 function Logo({ showText }: { showText: boolean }) {
   return (
     <div className="swan-logo">
-      <span className="swan-logo-mark">S</span>
+      <span className="swan-logo-mark">
+        <BrandMark size={30} />
+      </span>
       {showText && (
         <span className="swan-logo-text">
-          Swan Worker
-          <small>edge runtime</small>
+          {BRAND.name}
+          <small>{BRAND.tagline}</small>
         </span>
       )}
     </div>
@@ -55,7 +59,7 @@ export default function RootLayout() {
     [...matches]
       .reverse()
       .map((match) => (match.handle as RouteHandle | undefined)?.title)
-      .find((value): value is string => typeof value === 'string') ?? 'Swan Worker';
+      .find((value): value is string => typeof value === 'string') ?? BRAND.name;
 
   const renderMenu = ({ closeDetails = false } = {}) => (
     <nav className="swan-menu" aria-label="站点导航">
@@ -111,6 +115,9 @@ export default function RootLayout() {
                 {renderMenu({ closeDetails: true })}
               </aside>
             </details>
+            <span className="swan-mobile-brand" aria-hidden="true">
+              <BrandMark size={24} />
+            </span>
             <span className="swan-title">{title}</span>
           </div>
 
@@ -133,7 +140,7 @@ export default function RootLayout() {
         </main>
 
         <footer className="swan-footer">
-          Swan Worker · Bun + React 19 + Ant Design 6 + Rsbuild + Hono + Cloudflare D1
+          {BRAND.name} · {BRAND.tagline}
         </footer>
       </div>
       {enableSpeedInsights && <SpeedInsights route={location.pathname} />}
