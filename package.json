@@ -15,7 +15,7 @@
     "verify:vercel": "bun scripts/verify-vercel-assets.ts",
     "perf:api": "bun scripts/perf-probe.ts",
     "perf:budget": "size-limit",
-    "perf:lighthouse": "node node_modules/@lhci/cli/src/cli.js autorun",
+    "perf:lighthouse": "bun node_modules/@lhci/cli/src/cli.js autorun",
     "perf:check": "bun run perf:budget && bun run perf:lighthouse",
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
