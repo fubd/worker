@@ -101,27 +101,4 @@ export default defineConfig(({ command }) => ({
       },
     },
   },
-
-  tools: {
-    rspack: {
-      plugins: process.env.ANALYZE
-        ? [
-            {
-              apply(compiler: {
-                hooks: { done: { tap: (name: string, cb: (stats: any) => void) => void } };
-              }) {
-                compiler.hooks.done.tap('swan-analyze', (stats) => {
-                  console.log(
-                    'SWAN_STATS:' +
-                      JSON.stringify(
-                        stats.toJson({ all: false, chunks: true, chunkModules: true }),
-                      ),
-                  );
-                });
-              },
-            },
-          ]
-        : [],
-    },
-  },
 }));

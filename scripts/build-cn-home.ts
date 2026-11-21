@@ -1,7 +1,7 @@
 /**
  * Turn the statically rendered home page into a no-hydration variant for
- * mainland China. The markup is already complete; only live dashboard values
- * are refreshed with a small inline fetch.
+ * mainland China. The markup is complete at build time, so this variant does
+ * not load React or make a client-side stats request.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { injectStaticSpeedInsights } from './static-speed-insights';
@@ -14,7 +14,6 @@ function toStaticHome(html: string): string {
   let out = html.replace(/\s*<script type="module" src="\/static\/js\/[^"]+"><\/script>/g, '');
   out = out.replace(/\s*<link rel="modulepreload" href="[^"]+"\s*\/?>/gi, '');
   out = out.replace(/\s*<script[^>]*>window\.__staticRouterHydrationData[\s\S]*?<\/script>/g, '');
-  out = out.replace('</body>', `${STATIC_HOME_SCRIPT}\n  </body>`);
 
   if (
     !out.includes('<div id="root">') ||
@@ -28,32 +27,6 @@ function toStaticHome(html: string): string {
   }
   return out;
 }
-
-const STATIC_HOME_SCRIPT = `<script id="swan-static-home-stats">
-(function () {
-  if (!window.fetch) return;
-  function set(name, value) {
-    var nodes = document.querySelectorAll('[data-swan-field="' + name + '"]');
-    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = String(value);
-  }
-  window
-    .fetch('/api/stats', { headers: { accept: 'application/json' }, cache: 'no-store' })
-    .then(function (res) { return res.ok ? res.json() : null; })
-    .then(function (stats) {
-      if (!stats || typeof stats.total !== 'number') return;
-      set('total', stats.total);
-      if (stats.active != null) set('active', stats.active);
-      if (stats.completed != null) set('completed', stats.completed);
-      if (typeof stats.completionRate === 'number') {
-        set('completionRate', stats.completionRate + '%');
-      }
-      if (stats.runtime) set('runtime', stats.runtime);
-      if (stats.database) set('database', stats.database);
-      if (stats.region) set('region', stats.region);
-    })
-    .catch(function () {});
-})();
-</script>`;
 
 if (!existsSync(SOURCE)) {
   throw new Error('dist/home.html is missing; run build:static first');
