@@ -52,16 +52,22 @@ export const api = {
 
   getSession: () => request<AuthSessionResponse>('/auth/me', { cache: 'no-store' }),
 
-  loginWithPassword: (email: string, password: string) =>
-    request<AuthSessionResponse>('/auth/password/login', {
+  register: (input: { username: string; displayName?: string; password: string }) =>
+    request<AuthSessionResponse>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(input),
     }),
 
-  setPassword: (password: string) =>
+  loginWithPassword: (identifier: string, password: string) =>
+    request<AuthSessionResponse>('/auth/password/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
+    }),
+
+  setPassword: (input: { currentPassword?: string; password: string }) =>
     request<AuthSessionResponse>('/auth/password', {
       method: 'PUT',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(input),
     }),
 
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),

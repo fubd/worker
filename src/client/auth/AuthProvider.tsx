@@ -11,8 +11,10 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   signIn: (provider: LoginProvider) => void;
-  signInWithPassword: (email: string, password: string) => Promise<void>;
-  setPassword: (password: string) => Promise<void>;
+  bindProvider: (provider: LoginProvider) => void;
+  register: (input: { username: string; displayName?: string; password: string }) => Promise<void>;
+  signInWithPassword: (identifier: string, password: string) => Promise<void>;
+  setPassword: (input: { currentPassword?: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   markUnauthenticated: () => void;
@@ -47,14 +49,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.assign(`/api/auth/${provider}`);
   }, []);
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
-    const session = await api.loginWithPassword(email, password);
+  const bindProvider = useCallback((provider: LoginProvider) => {
+    window.location.assign(`/api/auth/${provider}?bind=1`);
+  }, []);
+
+  const register = useCallback(
+    async (input: { username: string; displayName?: string; password: string }) => {
+      const session = await api.register(input);
+      setUser(session.user);
+      setStatus('authenticated');
+    },
+    [],
+  );
+
+  const signInWithPassword = useCallback(async (identifier: string, password: string) => {
+    const session = await api.loginWithPassword(identifier, password);
     setUser(session.user);
     setStatus('authenticated');
   }, []);
 
-  const setPassword = useCallback(async (password: string) => {
-    const session = await api.setPassword(password);
+  const setPassword = useCallback(async (input: { currentPassword?: string; password: string }) => {
+    const session = await api.setPassword(input);
     setUser(session.user);
     setStatus('authenticated');
   }, []);
@@ -78,13 +93,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       signIn,
+      bindProvider,
+      register,
       signInWithPassword,
       setPassword,
       signOut,
       refresh,
       markUnauthenticated,
     }),
-    [markUnauthenticated, refresh, setPassword, signIn, signInWithPassword, signOut, status, user],
+    [
+      bindProvider,
+      markUnauthenticated,
+      refresh,
+      register,
+      setPassword,
+      signIn,
+      signInWithPassword,
+      signOut,
+      status,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

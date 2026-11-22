@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 
-import { deleteSession, getUserBySession } from '../db/auth';
+import { deleteOtherSessions, deleteSession, getUserBySession } from '../db/auth';
 import type { AppEnv } from '../types';
 
 export const SESSION_COOKIE = 'yuyan_session';
@@ -63,6 +63,13 @@ export async function invalidateCurrentSession(c: Context<AppEnv>): Promise<void
   const token = readSessionToken(c);
   if (token) await deleteSession(c.env.DB, await hashSessionToken(token));
   clearSessionCookie(c);
+}
+
+export async function invalidateOtherSessions(c: Context<AppEnv>, userId: number): Promise<void> {
+  const token = readSessionToken(c);
+  if (token) {
+    await deleteOtherSessions(c.env.DB, userId, await hashSessionToken(token));
+  }
 }
 
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {

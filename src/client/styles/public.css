@@ -504,6 +504,34 @@
   margin-bottom: 18px;
 }
 
+.swan-login-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 20px;
+  padding: 4px;
+  border: 1px solid rgba(9, 36, 69, 0.08);
+  border-radius: 12px;
+  background: rgba(235, 241, 249, 0.78);
+}
+
+.swan-login-mode-switch button {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #65707e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.swan-login-mode-switch button.is-active {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(23, 52, 92, 0.08);
+  color: var(--public-blue);
+}
+
 .swan-login-form .ant-form-item {
   margin-bottom: 16px;
 }

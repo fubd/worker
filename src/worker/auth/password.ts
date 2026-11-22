@@ -1,6 +1,21 @@
 const PASSWORD_ITERATIONS = 600_000;
 const PASSWORD_KEY_BITS = 256;
 const PASSWORD_SALT_BYTES = 16;
+const USERNAME_PATTERN = /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,30})[\p{L}\p{N}]$/u;
+const RESERVED_USERNAMES = new Set([
+  'admin',
+  'api',
+  'docs',
+  'help',
+  'login',
+  'logout',
+  'register',
+  'root',
+  'support',
+  'system',
+  'user',
+  'yuyan',
+]);
 
 export interface PasswordCredential {
   algorithm: string;
@@ -13,8 +28,18 @@ export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function normalizeUsername(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export function isValidEmail(email: string): boolean {
   return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function validateUsername(value: string): string | null {
+  if (!USERNAME_PATTERN.test(value)) return '账号名需要 3–32 个字符，并以文字或数字开头和结尾';
+  if (RESERVED_USERNAMES.has(value)) return '这个账号名不可用';
+  return null;
 }
 
 export function validateNewPassword(password: string): string | null {

@@ -3,6 +3,7 @@ import { Avatar, Dropdown } from 'antd';
 import {
   ChevronDown,
   FileText,
+  Link2,
   LockKeyhole,
   LogOut,
   Menu,
@@ -66,9 +67,10 @@ export default function RootLayout() {
   const location = useLocation();
   const matches = useMatches();
   const navigate = useNavigate();
-  const { status, user, signOut } = useAuth();
+  const { status, user, bindProvider, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const linkedProviders = user?.linkedProviders ?? [];
 
   const currentView = new URLSearchParams(location.search).get('view');
   const routeTitle =
@@ -162,6 +164,24 @@ export default function RootLayout() {
                       icon: <LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />,
                       label: user.hasPassword ? '修改登录密码' : '设置登录密码',
                     },
+                    ...(!linkedProviders.includes('google')
+                      ? [
+                          {
+                            key: 'bind-google',
+                            icon: <Link2 aria-hidden="true" size={16} strokeWidth={1.8} />,
+                            label: '绑定 Google',
+                          },
+                        ]
+                      : []),
+                    ...(!linkedProviders.includes('github')
+                      ? [
+                          {
+                            key: 'bind-github',
+                            icon: <Link2 aria-hidden="true" size={16} strokeWidth={1.8} />,
+                            label: '绑定 GitHub',
+                          },
+                        ]
+                      : []),
                     {
                       type: 'divider',
                     },
@@ -173,6 +193,8 @@ export default function RootLayout() {
                   ],
                   onClick: ({ key }) => {
                     if (key === 'password') setPasswordModalOpen(true);
+                    if (key === 'bind-google') bindProvider('google');
+                    if (key === 'bind-github') bindProvider('github');
                     if (key === 'logout') void handleLogout();
                   },
                 }}
@@ -183,7 +205,7 @@ export default function RootLayout() {
                   </Avatar>
                   <span className="swan-user-copy">
                     <strong>{user.name}</strong>
-                    <small>{user.email}</small>
+                    <small>{user.email ?? `@${user.username ?? '未绑定'}`}</small>
                   </span>
                   <ChevronDown
                     aria-hidden="true"

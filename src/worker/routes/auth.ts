@@ -3,13 +3,17 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import * as oauth from 'oauth4webapi';
 
 import {
+  bindExternalIdentity,
   clearPasswordRateLimit,
   claimOwnerlessDocuments,
+  createLocalUser,
   createSession,
   findUserByEmail,
+  findUserByUsername,
   getPasswordCredential,
   getPasswordRateLimit,
   recordPasswordFailure,
+  recordRegistrationAttempt,
   setPasswordCredential,
   upsertExternalUser,
   type ExternalIdentity,
@@ -19,6 +23,7 @@ import {
   createSessionToken,
   hashSessionToken,
   invalidateCurrentSession,
+  invalidateOtherSessions,
   readSessionUser,
   requireAuth,
   sessionExpiresAt,
@@ -29,7 +34,9 @@ import {
   hashRateLimitKey,
   isValidEmail,
   normalizeEmail,
+  normalizeUsername,
   validateNewPassword,
+  validateUsername,
   verifyPassword,
 } from '../auth/password';
 import type { AppEnv } from '../types';
@@ -44,6 +51,16 @@ const PASSWORD_RATE_LIMIT = {
 };
 const PASSWORD_ACCOUNT_RATE_LIMIT = {
   maxAttempts: 50,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000,
+};
+const REGISTER_RATE_LIMIT = {
+  maxAttempts: 20,
+  windowMs: 60 * 60 * 1000,
+  blockMs: 60 * 60 * 1000,
+};
+const PASSWORD_CHANGE_RATE_LIMIT = {
+  maxAttempts: 5,
   windowMs: 15 * 60 * 1000,
   blockMs: 15 * 60 * 1000,
 };
@@ -76,6 +93,14 @@ function publicOrigin(c: Context<AppEnv>): string {
   return (c.env.PUBLIC_ORIGIN ?? new URL(c.req.url).origin).replace(/\/$/, '');
 }
 
+function clientIp(c: Context<AppEnv>): string {
+  return (
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown'
+  );
+}
+
 function oauthCookieOptions(c: Context<AppEnv>) {
   return {
     httpOnly: true,
@@ -90,6 +115,7 @@ function oauthCookies(provider: LoginProvider) {
   return {
     state: `yuyan_oauth_${provider}_state`,
     verifier: `yuyan_oauth_${provider}_verifier`,
+    bind: `yuyan_oauth_${provider}_bind`,
   };
 }
 
@@ -98,6 +124,7 @@ function clearOAuthCookies(c: Context<AppEnv>, provider: LoginProvider): void {
   const cookies = oauthCookies(provider);
   deleteCookie(c, cookies.state, { path, secure });
   deleteCookie(c, cookies.verifier, { path, secure });
+  deleteCookie(c, cookies.bind, { path, secure });
 }
 
 function redirectToDocs(c: Context<AppEnv>): Response {
@@ -126,6 +153,7 @@ async function beginOAuth(
   authorizationServer: oauth.AuthorizationServer,
   scope: string,
   extraParameters: Record<string, string> = {},
+  bindUserId: number | null = null,
 ): Promise<Response> {
   const client: oauth.Client = { client_id: clientId };
   const state = oauth.generateRandomState();
@@ -147,6 +175,11 @@ async function beginOAuth(
   const cookieOptions = oauthCookieOptions(c);
   setCookie(c, cookies.state, state, cookieOptions);
   setCookie(c, cookies.verifier, codeVerifier, cookieOptions);
+  if (bindUserId !== null) {
+    setCookie(c, cookies.bind, String(bindUserId), cookieOptions);
+  } else {
+    deleteCookie(c, cookies.bind, { path: cookieOptions.path, secure: cookieOptions.secure });
+  }
   return c.redirect(authorizationUrl.toString());
 }
 
@@ -204,6 +237,21 @@ async function completeLogin(c: Context<AppEnv>, identity: ExternalIdentity): Pr
   }
 
   await issueSession(c, user.id);
+  return redirectToDocs(c);
+}
+
+async function completeIdentityBinding(
+  c: Context<AppEnv>,
+  identity: ExternalIdentity,
+  expectedUserId: number,
+): Promise<Response> {
+  const currentUser = await readSessionUser(c);
+  if (!currentUser || currentUser.id !== expectedUserId) {
+    return redirectToLogin(c, 'bind_required');
+  }
+
+  const result = await bindExternalIdentity(c.env.DB, currentUser.id, identity);
+  if (result.status !== 'bound') return redirectToLogin(c, 'identity_in_use');
   return redirectToDocs(c);
 }
 
@@ -279,6 +327,12 @@ authRoutes.get('/google', async (c) => {
 
   const callbackUrl = new URL(c.req.url);
   if (!callbackUrl.searchParams.has('code')) {
+    let bindUserId: number | null = null;
+    if (callbackUrl.searchParams.get('bind') === '1') {
+      const currentUser = await readSessionUser(c);
+      if (!currentUser) return redirectToLogin(c, 'bind_required');
+      bindUserId = currentUser.id;
+    }
     return beginOAuth(
       c,
       'google',
@@ -286,10 +340,12 @@ authRoutes.get('/google', async (c) => {
       googleAuthorizationServer,
       'openid email profile',
       { prompt: 'select_account' },
+      bindUserId,
     );
   }
 
   try {
+    const bindUserId = Number(getCookie(c, oauthCookies('google').bind));
     const tokens = await exchangeOAuthCode(
       c,
       'google',
@@ -321,13 +377,16 @@ authRoutes.get('/google', async (c) => {
       return redirectToLogin(c, 'denied');
     }
 
-    return completeLogin(c, {
+    const identity: ExternalIdentity = {
       provider: 'google',
       providerSub: googleUser.sub,
       email,
       name: googleUser.name?.trim() || email,
       avatarUrl: googleUser.picture ?? '',
-    });
+    };
+    return Number.isInteger(bindUserId) && bindUserId > 0
+      ? completeIdentityBinding(c, identity, bindUserId)
+      : completeLogin(c, identity);
   } catch (error) {
     console.error('[auth] Google OAuth callback failed:', error);
     return redirectToLogin(c, 'unavailable');
@@ -345,6 +404,12 @@ authRoutes.get('/github', async (c) => {
 
   const callbackUrl = new URL(c.req.url);
   if (!callbackUrl.searchParams.has('code')) {
+    let bindUserId: number | null = null;
+    if (callbackUrl.searchParams.get('bind') === '1') {
+      const currentUser = await readSessionUser(c);
+      if (!currentUser) return redirectToLogin(c, 'bind_required');
+      bindUserId = currentUser.id;
+    }
     return beginOAuth(
       c,
       'github',
@@ -352,10 +417,12 @@ authRoutes.get('/github', async (c) => {
       githubAuthorizationServer,
       'read:user user:email',
       { allow_signup: 'false' },
+      bindUserId,
     );
   }
 
   try {
+    const bindUserId = Number(getCookie(c, oauthCookies('github').bind));
     const tokens = await exchangeOAuthCode(
       c,
       'github',
@@ -367,7 +434,9 @@ authRoutes.get('/github', async (c) => {
 
     const identity = await loadGithubIdentity(tokens.access_token);
     if (!identity) return redirectToLogin(c, 'denied');
-    return completeLogin(c, identity);
+    return Number.isInteger(bindUserId) && bindUserId > 0
+      ? completeIdentityBinding(c, identity, bindUserId)
+      : completeLogin(c, identity);
   } catch (error) {
     console.error('[auth] GitHub OAuth callback failed:', error);
     return redirectToLogin(c, 'unavailable');
@@ -383,21 +452,65 @@ authRoutes.get('/me', async (c) => {
   return c.json({ user });
 });
 
-authRoutes.post('/password/login', async (c) => {
+authRoutes.post('/register', async (c) => {
   const body = await readJsonObject(c);
-  const email = normalizeEmail(typeof body?.email === 'string' ? body.email : '');
+  const username = normalizeUsername(typeof body?.username === 'string' ? body.username : '');
+  const displayName =
+    typeof body?.displayName === 'string' ? body.displayName.trim().slice(0, 60) : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!isValidEmail(email)) return c.json({ error: '请输入有效的邮箱地址' }, 400);
-  if (!password || password.length > 128) return c.json({ error: '邮箱或密码错误' }, 401);
+  const usernameError = validateUsername(username);
+  if (usernameError) return c.json({ error: usernameError }, 400);
+  const passwordError = validateNewPassword(password);
+  if (passwordError) return c.json({ error: passwordError }, 400);
 
-  const clientIp =
-    c.req.header('cf-connecting-ip') ??
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-    'unknown';
+  const now = Date.now();
+  const registerRateLimitKey = await hashRateLimitKey(`register:ip:${clientIp(c)}`);
+  const registerLimit = await recordRegistrationAttempt(
+    c.env.DB,
+    registerRateLimitKey,
+    now,
+    REGISTER_RATE_LIMIT,
+  );
+  if (registerLimit.blockedUntil > now) {
+    const retryAfter = Math.max(1, Math.ceil((registerLimit.blockedUntil - now) / 1000));
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: '注册尝试次数过多，请稍后再试' }, 429);
+  }
+
+  if (await findUserByUsername(c.env.DB, username)) {
+    return c.json({ error: '这个账号名已经被使用' }, 409);
+  }
+
+  const credential = await createPasswordCredential(password);
+  const user = await createLocalUser(c.env.DB, {
+    username,
+    displayName: displayName || username,
+    credential,
+  });
+  if (!user) return c.json({ error: '这个账号名已经被使用' }, 409);
+
+  await issueSession(c, user.id);
+  return c.json({ user });
+});
+
+authRoutes.post('/password/login', async (c) => {
+  const body = await readJsonObject(c);
+  const identifier = normalizeUsername(typeof body?.identifier === 'string' ? body.identifier : '');
+  const password = typeof body?.password === 'string' ? body.password : '';
+
+  const isEmail = identifier.includes('@');
+  const identifierError = isEmail
+    ? isValidEmail(identifier)
+      ? null
+      : '邮箱格式不正确'
+    : validateUsername(identifier);
+  if (identifierError) return c.json({ error: identifierError }, 400);
+  if (!password || password.length > 128) return c.json({ error: '账号名、邮箱或密码错误' }, 401);
+
   const [ipRateLimitKey, accountRateLimitKey] = await Promise.all([
-    hashRateLimitKey(`ip:${clientIp}`),
-    hashRateLimitKey(`account:${email}`),
+    hashRateLimitKey(`ip:${clientIp(c)}`),
+    hashRateLimitKey(`account:${identifier}`),
   ]);
   const now = Date.now();
   const [ipLimit, accountLimit] = await Promise.all([
@@ -411,7 +524,9 @@ authRoutes.post('/password/login', async (c) => {
     return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
   }
 
-  const user = await findUserByEmail(c.env.DB, email);
+  const user = isEmail
+    ? await findUserByEmail(c.env.DB, identifier)
+    : await findUserByUsername(c.env.DB, identifier);
   const credential = user ? await getPasswordCredential(c.env.DB, user.id) : null;
   const passwordMatches = await verifyPassword(password, credential ?? DUMMY_PASSWORD_CREDENTIAL);
 
@@ -429,7 +544,7 @@ authRoutes.post('/password/login', async (c) => {
       c.header('Retry-After', String(retryAfter));
       return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
     }
-    return c.json({ error: '邮箱或密码错误' }, 401);
+    return c.json({ error: '账号名、邮箱或密码错误' }, 401);
   }
 
   await Promise.all([
@@ -443,13 +558,49 @@ authRoutes.post('/password/login', async (c) => {
 authRoutes.put('/password', requireAuth, async (c) => {
   const user = c.get('user');
   const body = await readJsonObject(c);
+  const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
   const password = typeof body?.password === 'string' ? body.password : '';
   const validationError = validateNewPassword(password);
   if (validationError) return c.json({ error: validationError }, 400);
 
+  const existingCredential = await getPasswordCredential(c.env.DB, user.id);
+  if (existingCredential) {
+    const rateLimitKey = await hashRateLimitKey(`password-change:user:${user.id}`);
+    const now = Date.now();
+    const currentLimit = await getPasswordRateLimit(c.env.DB, rateLimitKey);
+    if (currentLimit && currentLimit.blockedUntil > now) {
+      const retryAfter = Math.max(1, Math.ceil((currentLimit.blockedUntil - now) / 1000));
+      c.header('Retry-After', String(retryAfter));
+      return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
+    }
+
+    if (!currentPassword || !(await verifyPassword(currentPassword, existingCredential))) {
+      const nextLimit = await recordPasswordFailure(
+        c.env.DB,
+        rateLimitKey,
+        now,
+        PASSWORD_CHANGE_RATE_LIMIT,
+      );
+      if (nextLimit.blockedUntil > now) {
+        const retryAfter = Math.max(1, Math.ceil((nextLimit.blockedUntil - now) / 1000));
+        c.header('Retry-After', String(retryAfter));
+        return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
+      }
+      return c.json({ error: '当前密码不正确' }, 400);
+    }
+
+    await clearPasswordRateLimit(c.env.DB, rateLimitKey);
+  }
+
   const credential = await createPasswordCredential(password);
   await setPasswordCredential(c.env.DB, user.id, credential);
-  return c.json({ user: { ...user, hasPassword: true } });
+  await invalidateOtherSessions(c, user.id);
+  return c.json({
+    user: {
+      ...user,
+      hasPassword: true,
+    },
+  });
 });
 
 authRoutes.post('/logout', async (c) => {

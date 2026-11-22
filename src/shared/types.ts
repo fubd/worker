@@ -22,10 +22,12 @@ export interface DocumentListResponse {
 
 export interface AuthUser {
   id: number;
-  email: string;
+  username: string | null;
+  email: string | null;
   name: string;
   avatarUrl: string;
   hasPassword: boolean;
+  linkedProviders: Array<'google' | 'github'>;
 }
 
 export interface AuthSessionResponse {

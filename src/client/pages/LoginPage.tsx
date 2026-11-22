@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Button, Form, Input } from 'antd';
-import { ArrowLeft, ArrowRight, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AtSign, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
@@ -8,10 +8,19 @@ import { BRAND } from '@/shared/brand';
 import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 
-interface PasswordLoginValues {
-  email: string;
+interface LoginValues {
+  identifier: string;
   password: string;
 }
+
+interface RegisterValues {
+  username: string;
+  displayName?: string;
+  password: string;
+  confirmation: string;
+}
+
+type AuthMode = 'login' | 'register';
 
 const enableSpeedInsights = import.meta.env.PROD;
 
@@ -67,6 +76,8 @@ function authErrorMessage(value: string | null): string | null {
   if (value === 'denied') return '未能确认这个账号的已验证邮箱，请换一种登录方式。';
   if (value === 'cancelled') return '登录已取消，你可以重新尝试。';
   if (value === 'unavailable') return '登录服务还没有配置完成，请稍后重试。';
+  if (value === 'identity_in_use') return '这个登录方式已经绑定了其他雨燕账号。';
+  if (value === 'bind_required') return '请先登录，再绑定新的登录方式。';
   return null;
 }
 
@@ -99,23 +110,46 @@ function LoginIllustration() {
 }
 
 export default function LoginPage() {
-  const { status, signIn, signInWithPassword } = useAuth();
+  const { status, signIn, register, signInWithPassword } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<AuthMode>('login');
   const [submitting, setSubmitting] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const authNotice = authErrorMessage(searchParams.get('auth'));
 
   if (status === 'authenticated') return <Navigate to="/docs" replace />;
 
-  const submitPassword = async (values: PasswordLoginValues) => {
+  const changeMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setFormError(null);
+  };
+
+  const submitLogin = async (values: LoginValues) => {
     setSubmitting(true);
-    setLoginError(null);
+    setFormError(null);
     try {
-      await signInWithPassword(values.email, values.password);
+      await signInWithPassword(values.identifier, values.password);
       navigate('/docs', { replace: true });
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : '登录失败，请稍后重试');
+      setFormError(error instanceof Error ? error.message : '登录失败，请稍后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitRegister = async (values: RegisterValues) => {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await register({
+        username: values.username,
+        displayName: values.displayName,
+        password: values.password,
+      });
+      navigate('/docs', { replace: true });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : '注册失败，请稍后重试');
     } finally {
       setSubmitting(false);
     }
@@ -141,59 +175,160 @@ export default function LoginPage() {
         <section className="swan-login-story">
           <span className="swan-public-eyebrow">私人入口</span>
           <h1>回到你的文字</h1>
-          <p>登录后继续上次停下的地方。Google、GitHub 和账号密码都会进入同一个雨燕账号。</p>
+          <p>登录后继续上次停下的地方。Google、GitHub 和账号密码可以关联到同一个雨燕账号。</p>
           <LoginIllustration />
         </section>
 
         <section className="swan-login-panel">
           <div className="swan-login-card">
-            <span className="swan-public-eyebrow">登录雨燕</span>
-            <h2>继续写作</h2>
+            <span className="swan-public-eyebrow">
+              {mode === 'login' ? '登录雨燕' : '创建雨燕账号'}
+            </span>
+            <h2>{mode === 'login' ? '继续写作' : '从名字开始'}</h2>
             <p className="swan-login-intro">
-              首次使用可直接通过 Google 或 GitHub 创建账号，之后也能设置密码登录。
+              {mode === 'login'
+                ? '使用账号名或已验证邮箱登录，回到你的文字。'
+                : '先设置账号名和密码开始写作，之后可以绑定 Google 或 GitHub。'}
             </p>
             {authNotice && <Alert type="warning" showIcon title={authNotice} />}
-            {loginError && <Alert type="error" showIcon title={loginError} />}
-            <Form<PasswordLoginValues>
-              className="swan-login-form"
-              layout="vertical"
-              requiredMark={false}
-              onFinish={(values) => void submitPassword(values)}
-            >
-              <Form.Item
-                name="email"
-                label="邮箱"
-                rules={[
-                  { required: true, message: '请输入邮箱' },
-                  { type: 'email', message: '请输入有效的邮箱地址' },
-                ]}
+            {formError && <Alert type="error" showIcon title={formError} />}
+            <div className="swan-login-mode-switch" role="tablist" aria-label="登录或注册">
+              <button
+                type="button"
+                className={mode === 'login' ? 'is-active' : undefined}
+                role="tab"
+                aria-selected={mode === 'login'}
+                onClick={() => changeMode('login')}
               >
-                <Input
-                  size="large"
-                  prefix={<Mail aria-hidden="true" size={16} strokeWidth={1.8} />}
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                />
-              </Form.Item>
-              <Form.Item
-                name="password"
-                label="密码"
-                rules={[{ required: true, message: '请输入密码' }]}
+                登录
+              </button>
+              <button
+                type="button"
+                className={mode === 'register' ? 'is-active' : undefined}
+                role="tab"
+                aria-selected={mode === 'register'}
+                onClick={() => changeMode('register')}
               >
-                <Input.Password
-                  size="large"
-                  prefix={<LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />}
-                  autoComplete="current-password"
-                  placeholder="输入登录密码"
-                />
-              </Form.Item>
-              <Button type="primary" size="large" htmlType="submit" loading={submitting} block>
-                进入雨燕
-                <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
-              </Button>
-            </Form>
+                创建账号
+              </button>
+            </div>
+            {mode === 'login' ? (
+              <Form<LoginValues>
+                className="swan-login-form"
+                layout="vertical"
+                requiredMark={false}
+                onFinish={(values) => void submitLogin(values)}
+              >
+                <Form.Item
+                  name="identifier"
+                  label="账号名或邮箱"
+                  rules={[{ required: true, message: '请输入账号名或邮箱' }]}
+                >
+                  <Input
+                    size="large"
+                    prefix={<UserRound aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="username"
+                    placeholder="账号名或 you@example.com"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="password"
+                  label="密码"
+                  rules={[{ required: true, message: '请输入密码' }]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="current-password"
+                    placeholder="输入登录密码"
+                  />
+                </Form.Item>
+                <Button type="primary" size="large" htmlType="submit" loading={submitting} block>
+                  进入雨燕
+                  <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
+                </Button>
+              </Form>
+            ) : (
+              <Form<RegisterValues>
+                className="swan-login-form"
+                layout="vertical"
+                requiredMark={false}
+                onFinish={(values) => void submitRegister(values)}
+              >
+                <Form.Item
+                  name="username"
+                  label="账号名"
+                  normalize={(value: string) => value.trim().toLowerCase()}
+                  rules={[
+                    { required: true, message: '请输入账号名' },
+                    {
+                      pattern: /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,30})[\p{L}\p{N}]$/u,
+                      message: '需要 3–32 个字符，以文字或数字开头和结尾',
+                    },
+                  ]}
+                >
+                  <Input
+                    size="large"
+                    prefix={<AtSign aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="username"
+                    placeholder="例如 yuyan_writer"
+                  />
+                </Form.Item>
+                <Form.Item name="displayName" label="显示名称（可选）">
+                  <Input
+                    size="large"
+                    prefix={<UserRound aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="nickname"
+                    maxLength={60}
+                    placeholder="显示在文档和账号菜单中"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="password"
+                  label="密码"
+                  rules={[
+                    { required: true, message: '请输入密码' },
+                    { min: 10, message: '密码至少需要 10 个字符' },
+                    { max: 128, message: '密码不能超过 128 个字符' },
+                  ]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="new-password"
+                    placeholder="至少 10 个字符"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="confirmation"
+                  label="确认密码"
+                  dependencies={['password']}
+                  rules={[
+                    { required: true, message: '请再次输入密码' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        return !value || getFieldValue('password') === value
+                          ? Promise.resolve()
+                          : Promise.reject(new Error('两次输入的密码不一致'));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    autoComplete="new-password"
+                    placeholder="再次输入密码"
+                  />
+                </Form.Item>
+                <Button type="primary" size="large" htmlType="submit" loading={submitting} block>
+                  创建账号
+                  <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
+                </Button>
+              </Form>
+            )}
             <div className="swan-login-divider">
-              <span>也可以从这里回来</span>
+              <span>或使用已验证邮箱</span>
             </div>
             <div className="swan-login-social">
               <Button size="large" icon={<GoogleIcon />} onClick={() => signIn('google')}>
@@ -205,7 +340,7 @@ export default function LoginPage() {
             </div>
             <p className="swan-login-hint">
               <ShieldCheck aria-hidden="true" size={14} strokeWidth={1.8} />
-              首次设置密码，请先用 Google 或 GitHub 登录，再从账号菜单完成。
+              账号名和密码可以先开始使用；绑定 Google 或 GitHub 后可找回账号并跨设备恢复。
             </p>
           </div>
         </section>
