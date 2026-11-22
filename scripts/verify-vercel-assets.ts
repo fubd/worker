@@ -1,7 +1,6 @@
 /**
  * Fail the build if the Vercel bundle still depends on an external static
- * origin or references a local static file that was not copied into the
- * deployment.
+ * origin or references a local static file that was not copied.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
@@ -24,31 +23,18 @@ if (!existsSync(`${OUT}/static`)) {
   throw new Error('Vercel bundle is missing static/');
 }
 
-const aboutHtml = readFileSync(`${OUT}/about.html`, 'utf8');
-if (/<script\b[^>]*type=["']module["']/i.test(aboutHtml)) {
-  throw new Error('/about must not load the React runtime');
-}
-if (!aboutHtml.includes('运行时 / 包管理') || !aboutHtml.includes('class="ant-table')) {
-  throw new Error('/about is missing its static content');
-}
-
-const todosHtml = readFileSync(`${OUT}/todos.html`, 'utf8');
-if (
-  !todosHtml.includes('placeholder="要做什么？回车即可添加"') ||
-  !todosHtml.includes('任务列表') ||
-  !todosHtml.includes('id="swan-todos-snapshot"')
-) {
-  throw new Error('/todos is missing its React Router static content');
-}
-
 const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
-if (!docsHtml.includes('swan-doc-list-panel') || !docsHtml.includes('>新建<')) {
-  throw new Error('/docs is missing its React Router document shell');
+if (!docsHtml.includes('swan-doc-list-panel') || !docsHtml.includes('全部文档')) {
+  throw new Error('/docs is missing its React Router product shell');
 }
 
-const homeHtml = readFileSync(`${OUT}/home.html`, 'utf8');
-if (!homeHtml.includes('class="swan-hero"') || homeHtml.includes('swan-first-screen')) {
-  throw new Error('/ does not contain the React Router static home page');
+const config = JSON.parse(readFileSync(`${OUT}/vercel.json`, 'utf8')) as {
+  redirects?: Array<{ source?: string }>;
+};
+for (const legacyPath of ['/', '/todos', '/about']) {
+  if (!config.redirects?.some((redirect) => redirect.source === legacyPath)) {
+    throw new Error(`legacy path ${legacyPath} is missing its /docs redirect`);
+  }
 }
 
 const files = walk(OUT);

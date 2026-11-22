@@ -4,21 +4,14 @@ import { createStaticHandler, createStaticRouter, StaticRouterProvider } from 'r
 
 import { AppProviders } from './app-providers';
 import { createRoutes } from './routes';
-import { setTodosSnapshotForStaticRender } from './pages/TodosPage';
-import type { TodoListSnapshot } from '@/shared/types';
 
 type RenderOptions = {
   path: string;
-  todosSnapshot?: TodoListSnapshot | null;
 };
 
-export async function renderStaticRoute({ path, todosSnapshot }: RenderOptions) {
-  setTodosSnapshotForStaticRender(todosSnapshot ?? null);
-
+export async function renderStaticRoute({ path }: RenderOptions) {
   const routes = createRoutes({
     docs: await import('./pages/DocsPage'),
-    todos: await import('./pages/TodosPage'),
-    about: await import('./pages/AboutPage'),
   });
   const cache = createCache();
   const { query, dataRoutes } = createStaticHandler(routes);

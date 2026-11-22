@@ -1,0 +1,4 @@
+PUBLIC_ORIGIN=http://localhost:3000
+GOOGLE_ID=replace-with-google-oauth-client-id
+GOOGLE_SECRET=replace-with-google-oauth-client-secret
+OWNER_EMAIL=you@example.com

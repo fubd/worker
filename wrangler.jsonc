@@ -8,6 +8,10 @@
     "enabled": true,
     "head_sampling_rate": 1,
   },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "PUBLIC_ORIGIN": "https://deephos.com",
+  },
 
   // Worker 只保留 API（api.deephos.com）；站点 HTML/静态资源由 Vercel 托管。
   // Cloudflare D1 数据库绑定

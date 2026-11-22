@@ -1,19 +1,15 @@
 import type { RouteObject } from 'react-router';
+import { Navigate } from 'react-router';
 
 import RootLayout from './layouts/RootLayout';
-import HomePage from './pages/HomePage';
 import ErrorPage from './pages/ErrorPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { loadDocsRoute, loadTodosRoute } from './route-loaders';
+import { loadDocsRoute } from './route-loaders';
 
 type DocsModule = typeof import('./pages/DocsPage');
-type TodosModule = typeof import('./pages/TodosPage');
-type AboutModule = typeof import('./pages/AboutPage');
 
 export interface InitialRouteModules {
   docs?: DocsModule;
-  todos?: TodosModule;
-  about?: AboutModule;
 }
 
 function RouteFallback() {
@@ -24,7 +20,7 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
   const docsRoute: RouteObject = {
     id: 'docs',
     path: 'docs',
-    handle: { title: '文档' },
+    handle: { title: '全部文档' },
     ...(initial.docs
       ? {
           Component: initial.docs.default,
@@ -41,44 +37,6 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
         }),
   };
 
-  const todosRoute: RouteObject = {
-    id: 'todos',
-    path: 'todos',
-    handle: { title: '待办 Demo' },
-    ...(initial.todos
-      ? {
-          Component: initial.todos.default,
-          HydrateFallback: initial.todos.HydrateFallback,
-          action: initial.todos.action,
-          loader: initial.todos.loader,
-        }
-      : {
-          lazy: async () => {
-            const route = await loadTodosRoute();
-            return {
-              Component: route.default,
-              HydrateFallback: route.HydrateFallback,
-              action: route.action,
-              loader: route.loader,
-            };
-          },
-        }),
-  };
-
-  const aboutRoute: RouteObject = {
-    id: 'about',
-    path: 'about',
-    handle: { title: '技术栈' },
-    ...(initial.about
-      ? { Component: initial.about.default }
-      : {
-          lazy: async () => {
-            const route = await import('./pages/AboutPage');
-            return { Component: route.default };
-          },
-        }),
-  };
-
   return [
     {
       id: 'root',
@@ -87,10 +45,8 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
       errorElement: <ErrorPage />,
       HydrateFallback: RouteFallback,
       children: [
-        { id: 'home', index: true, element: <HomePage />, handle: { title: '概览' } },
+        { id: 'home', index: true, element: <Navigate to="/docs" replace /> },
         docsRoute,
-        todosRoute,
-        aboutRoute,
         {
           id: 'not-found',
           path: '*',
@@ -104,7 +60,5 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
 
 export async function loadInitialRouteModules(pathname: string): Promise<InitialRouteModules> {
   if (pathname === '/docs') return { docs: await loadDocsRoute() };
-  if (pathname === '/todos') return { todos: await loadTodosRoute() };
-  if (pathname === '/about') return { about: await import('./pages/AboutPage') };
   return {};
 }

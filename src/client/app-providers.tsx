@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 
+import { AuthProvider } from './auth/AuthProvider';
+
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ConfigProvider
@@ -28,7 +30,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       }}
     >
-      {children}
+      <AuthProvider>{children}</AuthProvider>
     </ConfigProvider>
   );
 }

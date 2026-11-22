@@ -47,12 +47,19 @@ jobs:
       - name: Bundle budgets
         run: bun run perf:budget
 
-      # 先发 Vercel 再发 Worker：API 反代目标不能指向还没发布的 Worker。
-      - name: Deploy full site to Vercel
-        run: bunx vercel@66.6.0 deploy dist/vercel --prod --yes
+      # M1 会改变文档 API 的鉴权规则。先完成兼容迁移并发布 Worker，
+      # 再切换页面，避免新页面调用旧 API 或旧页面调用新 API 的窗口。
+      - name: Apply remote D1 migrations
+        run: bunx wrangler d1 migrations apply DB --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy Worker
         run: bunx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy full site to Vercel
+        run: bunx vercel@66.6.0 deploy dist/vercel --prod --yes

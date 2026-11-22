@@ -1,204 +1,97 @@
-# API 文档
+# 雨燕 API
 
-Swan Worker 的 HTTP 接口，全部挂在 `/api` 下，由 Worker 里的 Hono 应用处理。
+M1 的 API 由 Cloudflare Worker + Hono 提供，数据存放在 D1。除健康检查和登录流程外，所有接口都要求有效的 `yuyan_session` Cookie。
 
 ## 环境
 
-| 环境                        | Base URL                                 |
-| --------------------------- | ---------------------------------------- |
-| 本地 Worker（wrangler dev） | `http://127.0.0.1:8787`                  |
-| 本地前端代理（rsbuild dev） | `http://localhost:3000`                  |
-| 线上                        | `https://swan-worker.312bdf.workers.dev` |
+| 环境         | Base URL                |
+| ------------ | ----------------------- |
+| 本地 Worker  | `http://127.0.0.1:8787` |
+| 本地前端代理 | `http://localhost:3000` |
+| 线上         | `https://deephos.com`   |
 
-## 约定
+浏览器请求统一使用同源 `/api/*`；Vercel 将其代理到 `api.deephos.com`。
 
-- 请求与响应均为 `application/json`
-- 时间字段是 **ISO 8601 UTC**，例如 `2026-10-28T14:06:05Z`
-- 成功返回 2xx，失败返回 4xx/5xx，错误体统一为 `{ "error": string }`
-- 5xx 不返回内部细节，只给 `{ "error": "Internal Server Error", "traceId": "<cf-ray>" }`，排查时用 `traceId` 查 Worker 日志
-- 无鉴权、无速率限制（模板定位，上线前需自行补）
+## 鉴权
 
-## 数据结构
+| 方法 | 路径               | 说明                                  |
+| ---- | ------------------ | ------------------------------------- |
+| GET  | `/api/auth/google` | 发起 Google OAuth，也接收 Google 回调 |
+| GET  | `/api/auth/me`     | 返回当前用户；未登录返回 `401`        |
+| POST | `/api/auth/logout` | 删除当前服务端会话并清除 Cookie       |
 
-```ts
-interface Todo {
-  id: number;
-  title: string;
-  completed: boolean;
-  createdAt: string; // ISO 8601 UTC
-  updatedAt: string; // ISO 8601 UTC，毫秒精度
-}
-```
+服务端只保存会话令牌的 SHA-256 摘要。Cookie 设置为 `HttpOnly`、`SameSite=Lax`，线上使用 `Secure`。
+Google 登录流程使用 state、PKCE S256、ID Token 和 UserInfo subject 校验。
 
-## 接口一览
+M1 只允许 `OWNER_EMAIL` 指定的 Google 邮箱登录。该账号第一次登录时，会接管迁移前 `owner_id IS NULL` 的现有文档。
 
-| 方法   | 路径                                                                       | 说明                                    |
-| ------ | -------------------------------------------------------------------------- | --------------------------------------- |
-| GET    | `/api/health`                                                              | 健康检查                                |
-| GET    | `/api/stats`                                                               | 任务统计（总数 / 已完成 / 完成率）      |
-| GET    | `/api/todos?status=all\|active\|completed&q=&limit=&offset=&includeTotal=` | 列表                                    |
-| POST   | `/api/todos`                                                               | 新建，body `{ "title": "..." }`         |
-| PATCH  | `/api/todos/:id`                                                           | 更新，body `{ "title"?, "completed"? }` |
-| DELETE | `/api/todos/:id`                                                           | 删除单条                                |
-| DELETE | `/api/todos/completed`                                                     | 清空已完成                              |
+## 文档
 
----
+| 方法   | 路径                         | 说明                               |
+| ------ | ---------------------------- | ---------------------------------- |
+| GET    | `/api/documents`             | 当前用户的全部文档                 |
+| GET    | `/api/documents/trash`       | 当前用户的回收站                   |
+| GET    | `/api/documents/:id`         | 获取单篇文档                       |
+| POST   | `/api/documents`             | 新建文档                           |
+| PATCH  | `/api/documents/:id`         | 保存标题和正文，必须携带 `version` |
+| DELETE | `/api/documents/:id`         | 移入回收站                         |
+| POST   | `/api/documents/:id/restore` | 从回收站恢复                       |
 
-## GET /api/health
+所有查询都按服务端会话中的 `owner_id` 过滤。其他用户的文档统一返回 `404`，不会暴露文档是否存在。
 
-健康检查，同时暴露当前运行环境。
-
-```bash
-curl http://127.0.0.1:8787/api/health
-```
+### 保存冲突
 
 ```json
 {
-  "ok": true,
-  "runtime": "cloudflare-workers",
-  "environment": "local",
-  "time": "2026-10-28T14:06:04.493Z"
+  "version": 4,
+  "title": "标题",
+  "content": { "type": "doc", "content": [] },
+  "contentHtml": "<p>正文</p>",
+  "contentText": "正文"
 }
 ```
 
-`environment` 取值 `local` / `production`，依据请求头 `cf-ray` 是否存在判断（本地 wrangler dev 没有该头）。
-
-## GET /api/stats
-
-首页看板用的聚合数据。
-
-```bash
-curl http://127.0.0.1:8787/api/stats
-```
+`version` 是乐观并发控制的版本号。若数据库中的版本已经变化，接口返回：
 
 ```json
 {
-  "total": 5,
-  "completed": 2,
-  "active": 3,
-  "completionRate": 40,
-  "database": "Cloudflare D1",
-  "region": "a51a7fc0be772ae3",
-  "runtime": "Cloudflare Workers"
+  "error": "文档已在其他页面更新，请重新加载后再保存",
+  "currentVersion": 5
 }
 ```
 
-`region` 取自 `cf-ray`，本地开发时是 `local`。
+HTTP 状态为 `409 Conflict`。
 
-## GET /api/todos
+## 错误码
 
-列表查询，按「未完成在前、id 倒序」排序。
+| 状态码 | 含义                             |
+| ------ | -------------------------------- |
+| `400`  | 参数或请求体非法                 |
+| `401`  | 未登录或会话已过期               |
+| `404`  | 文档不存在，或不属于当前用户     |
+| `409`  | 文档版本冲突                     |
+| `500`  | 未处理异常，响应只包含 `traceId` |
 
-| 参数           | 类型                             | 默认  | 说明                                    |
-| -------------- | -------------------------------- | ----- | --------------------------------------- |
-| `status`       | `all` \| `active` \| `completed` | `all` | 过滤状态，非法值按 `all` 处理           |
-| `q`            | string                           | 空    | 标题模糊匹配（`LIKE %q%`）              |
-| `limit`        | number                           | 100   | 每页条数，最大 500                      |
-| `offset`       | number                           | 0     | 偏移量                                  |
-| `includeTotal` | `0` \| `1`                       | `0`   | 为 `1` 时额外返回满足条件的总数 `total` |
-
-```bash
-curl "http://127.0.0.1:8787/api/todos?status=active&limit=10&includeTotal=1"
-```
-
-```json
-{
-  "items": [
-    {
-      "id": 5,
-      "title": "wrangler deploy 上线",
-      "completed": false,
-      "createdAt": "2026-10-28T13:38:16Z",
-      "updatedAt": "2026-10-28T13:38:16Z"
-    }
-  ],
-  "total": 3
-}
-```
-
-默认不执行 `COUNT(*)`，响应只有 `items`。传入 `includeTotal=1` 时，
-`total` 表示**满足过滤条件的总数**，不受 `limit` 影响，可用于分页。
-
-## POST /api/todos
-
-新建任务。
-
-| 字段    | 类型   | 必填 | 约束                     |
-| ------- | ------ | ---- | ------------------------ |
-| `title` | string | 是   | 去除首尾空格后长度 1~200 |
+## 本地开发
 
 ```bash
-curl -X POST http://127.0.0.1:8787/api/todos \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"写点东西"}'
+cp .dev.vars.example .dev.vars
+bun run db:migrate:local
+bun run dev
 ```
 
-`201 Created`：
+`.dev.vars` 至少需要：
 
-```json
-{
-  "id": 6,
-  "title": "写点东西",
-  "completed": false,
-  "createdAt": "2026-10-28T14:06:05Z",
-  "updatedAt": "2026-10-28T14:06:05Z"
-}
+```dotenv
+PUBLIC_ORIGIN=http://localhost:3000
+GOOGLE_ID=...
+GOOGLE_SECRET=...
+OWNER_EMAIL=...
 ```
 
-`400 Bad Request`（title 为空或超长）：
+Google OAuth 的授权回调地址是：
 
-```json
-{ "error": "title 必填，且长度需在 1~200 之间" }
+```text
+http://localhost:3000/api/auth/google
+https://deephos.com/api/auth/google
 ```
-
-## PATCH /api/todos/:id
-
-部分更新，`title` 与 `completed` 至少传一个。
-
-```bash
-curl -X PATCH http://127.0.0.1:8787/api/todos/6 \
-  -H 'Content-Type: application/json' \
-  -d '{"completed":true}'
-```
-
-返回更新后的完整 `Todo`。`updatedAt` 用毫秒精度，同一秒内多次更新也能看出变化。
-
-错误：
-
-| 状态码 | 场景                                                                  |
-| ------ | --------------------------------------------------------------------- |
-| `400`  | `id` 非法 / 请求体不是合法 JSON / `title` 非法 / `completed` 不是布尔 |
-| `404`  | `{ "error": "Todo 不存在" }`                                          |
-
-## DELETE /api/todos/:id
-
-删除单条。
-
-```bash
-curl -X DELETE http://127.0.0.1:8787/api/todos/6
-```
-
-```json
-{ "ok": true, "id": 6 }
-```
-
-不存在时返回 `404 { "error": "Todo 不存在" }`。
-
-## DELETE /api/todos/completed
-
-一次性清空所有已完成任务。
-
-```bash
-curl -X DELETE http://127.0.0.1:8787/api/todos/completed
-```
-
-```json
-{ "removed": 3 }
-```
-
-> 该接口会直接删数据且不可恢复，前端调用前有二次确认。
-
-## 未匹配路径
-
-- `/api` 或 `/api/*` 未命中任何路由 → `404 { "error": "Not Found", "path": "/api/xxx" }`
-- 其他路径 → 交给静态资源，未命中时回退 `index.html`（SPA 路由）

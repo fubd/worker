@@ -7,10 +7,8 @@
     "dev": "bun run --parallel dev:api dev:web",
     "dev:api": "wrangler dev",
     "dev:web": "rsbuild dev --environment web",
-    "build": "rsbuild build && bun run build:todos-snapshot && bun run build:static && bun run build:cn-home && bun run build:vercel && bun run verify:vercel",
-    "build:todos-snapshot": "bun scripts/todos-snapshot.ts",
+    "build": "rsbuild build && bun run build:static && bun run build:vercel && bun run verify:vercel",
     "build:static": "NODE_ENV=production bun scripts/build-static.ts",
-    "build:cn-home": "bun scripts/build-cn-home.ts",
     "build:vercel": "bun scripts/build-vercel.ts",
     "verify:vercel": "bun scripts/verify-vercel-assets.ts",
     "perf:api": "bun scripts/perf-probe.ts",
@@ -25,9 +23,7 @@
     "db:create": "wrangler d1 create swan-worker-db",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "db:seed:local": "wrangler d1 execute DB --local --file=./seed/seed.sql",
-    "db:seed:remote": "wrangler d1 execute DB --remote --file=./seed/seed.sql",
-    "db:studio": "wrangler d1 execute DB --local --command=\"select * from todos\""
+    "db:studio": "wrangler d1 execute DB --local --command=\"select id,title,owner_id,version,deleted_at from documents order by updated_at desc\""
   },
   "dependencies": {
     "@ant-design/cssinjs": "^2.1.2",
@@ -38,6 +34,7 @@
     "@vercel/speed-insights": "^2.1.0",
     "antd": "^6.6.8",
     "hono": "^4.13.14",
+    "oauth4webapi": "3.8.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^8.5.1"

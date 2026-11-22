@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { hydrateRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 
 import 'antd/dist/reset.css';
@@ -24,6 +24,10 @@ const app = (
   </StrictMode>
 );
 
-// Reuse the build-time DOM and the server-generated Ant Design styles. Rendering
-// a separate client root makes CSS-in-JS replace those styles after first paint.
-hydrateRoot(rootElement, app);
+if (rootElement.childElementCount > 0) {
+  // Reuse the build-time DOM and the server-generated Ant Design styles.
+  hydrateRoot(rootElement, app);
+} else {
+  // Rsbuild's development HTML has an empty root and must be mounted normally.
+  createRoot(rootElement).render(app);
+}

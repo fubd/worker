@@ -134,6 +134,73 @@ body {
   gap: 8px;
 }
 
+.swan-header-right {
+  min-width: 0;
+}
+
+.swan-user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--swan-text);
+  cursor: pointer;
+}
+
+.swan-user-button:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.swan-user-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.swan-user-copy strong,
+.swan-user-copy small {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-user-copy strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.swan-user-copy small {
+  margin-top: 2px;
+  color: var(--swan-text-muted);
+  font-size: 10px;
+}
+
+.swan-user-chevron {
+  color: var(--swan-text-muted);
+  font-size: 10px;
+}
+
+.swan-user-loading {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.06);
+  animation: swan-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes swan-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .swan-title {
   font-size: 15px;
   font-weight: 600;
@@ -260,80 +327,40 @@ body {
   display: none;
 }
 
-.swan-todos-preview {
-  overflow: hidden;
-}
-
-.swan-todos-preview-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--swan-border);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.swan-todos-preview-count {
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--swan-brand-fill);
-  color: var(--swan-brand);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.swan-todos-preview-list {
-  padding: 8px 20px 16px;
-}
-
-.swan-todos-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  border-bottom: 1px solid var(--swan-border);
-  color: var(--swan-text);
-}
-
-.swan-todos-preview-row:last-child {
-  border-bottom: 0;
-}
-
-.swan-todos-preview-check {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-  background: #ffffff;
-}
-
-.swan-todos-preview-check.is-done {
-  border-color: var(--swan-brand);
-  background: var(--swan-brand);
-}
-
-.swan-todos-preview-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.swan-todos-preview-title.is-done {
-  color: #94a3b8;
-  text-decoration: line-through;
-}
-
-.swan-todos-preview-id {
-  margin-left: auto;
-  color: #94a3b8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-}
-
 /* ---------- 文档 ---------- */
+.swan-auth-card {
+  display: flex;
+  max-width: 560px;
+  min-height: 480px;
+  margin: 24px auto;
+  padding: 48px 36px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.swan-auth-card .ant-typography {
+  margin-bottom: 10px;
+}
+
+.swan-auth-card .ant-alert {
+  width: 100%;
+  margin: 8px 0 20px;
+  text-align: left;
+}
+
+.swan-auth-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 18px;
+  border-radius: 24px;
+  background: var(--swan-brand-fill);
+}
+
 .swan-docs {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -414,6 +441,15 @@ body {
   opacity: 0.7;
 }
 
+.swan-doc-trash-item {
+  cursor: default;
+}
+
+.swan-doc-trash-item .ant-btn {
+  width: fit-content;
+  margin-top: 3px;
+}
+
 .swan-doc-list-title {
   display: flex;
   align-items: center;
@@ -426,7 +462,7 @@ body {
 }
 
 .swan-doc-list-item.is-selected .swan-doc-list-title {
-  color: var(--swan-brand);
+  color: #245fce;
 }
 
 .swan-doc-list-excerpt {
@@ -440,8 +476,12 @@ body {
 }
 
 .swan-doc-list-time {
-  color: #94a3b8;
+  color: #596b82;
   font-size: 11px;
+}
+
+.swan-doc-list-item.is-selected .swan-doc-list-excerpt {
+  color: #53647a;
 }
 
 .swan-doc-list-empty {
@@ -660,42 +700,6 @@ body {
   letter-spacing: -0.02em;
 }
 
-.swan-todo-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 4px;
-}
-
-.swan-todo-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.swan-todo-title.is-done {
-  color: var(--swan-text-muted);
-  text-decoration: line-through;
-}
-
-.swan-todo-actions {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.swan-todo-row:hover .swan-todo-actions {
-  opacity: 1;
-}
-
-/* 触屏设备没有 hover，操作按钮必须常驻，否则无法删除 */
-@media (hover: none) {
-  .swan-todo-actions {
-    opacity: 1;
-  }
-}
-
 .swan-mono {
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12.5px;
@@ -715,7 +719,7 @@ body {
 
 .swan-footer {
   padding: 20px 28px 28px;
-  color: var(--swan-text-muted);
+  color: #596b82;
   font-size: 12px;
   text-align: center;
 }
@@ -723,6 +727,15 @@ body {
 @media (max-width: 768px) {
   .swan-header {
     padding: 0 16px !important;
+  }
+
+  .swan-user-copy,
+  .swan-user-chevron {
+    display: none;
+  }
+
+  .swan-user-button {
+    padding-right: 4px;
   }
 
   .swan-content {
@@ -740,6 +753,12 @@ body {
   .swan-docs {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
+  }
+
+  .swan-auth-card {
+    min-height: 420px;
+    margin: 0;
+    padding: 36px 22px;
   }
 
   .swan-doc-list-panel {

@@ -1,12 +1,15 @@
 import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 import * as repo from '../db/documents';
+import { requireAuth } from '../auth/session';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 1_000_000;
+
+documentRoutes.use('*', requireAuth);
 
 function normalizeTitle(value: unknown, fallback = ''): string | null {
   if (value === undefined && fallback) return fallback;
@@ -34,7 +37,20 @@ function normalizeText(value: unknown, field: string): string | null {
 documentRoutes.get('/', async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
-  const result = await wrapTime(c, 'db', repo.listDocuments(c.env.DB, { limit, offset }));
+  const ownerId = c.get('user').id;
+  const result = await wrapTime(c, 'db', repo.listDocuments(c.env.DB, ownerId, { limit, offset }));
+  return c.json(result);
+});
+
+documentRoutes.get('/trash', async (c) => {
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
+  const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
+  const ownerId = c.get('user').id;
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.listDeletedDocuments(c.env.DB, ownerId, { limit, offset }),
+  );
   return c.json(result);
 });
 
@@ -42,7 +58,7 @@ documentRoutes.get('/:id', async (c) => {
   const id = parseId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, id));
+  const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, id));
   if (!document) return c.json({ error: '文档不存在' }, 404);
   return c.json(document);
 });
@@ -52,7 +68,7 @@ documentRoutes.post('/', async (c) => {
   const title = normalizeTitle(body.title, '无标题文档');
   if (!title) return c.json({ error: 'title 长度需在 1~200 之间' }, 400);
 
-  const document = await wrapTime(c, 'db', repo.createDocument(c.env.DB, title));
+  const document = await wrapTime(c, 'db', repo.createDocument(c.env.DB, c.get('user').id, title));
   return c.json(document, 201);
 });
 
@@ -65,8 +81,14 @@ documentRoutes.patch('/:id', async (c) => {
     content?: unknown;
     contentHtml?: unknown;
     contentText?: unknown;
+    version?: unknown;
   } | null;
   if (!body) return c.json({ error: '请求体必须是合法 JSON' }, 400);
+
+  const version = Number(body.version);
+  if (!Number.isInteger(version) || version < 1) {
+    return c.json({ error: 'version 必须是正整数' }, 400);
+  }
 
   const input: repo.UpdateDocumentInput = {};
 
@@ -94,16 +116,38 @@ documentRoutes.patch('/:id', async (c) => {
     input.contentText = contentText;
   }
 
-  const document = await wrapTime(c, 'db', repo.updateDocument(c.env.DB, id, input));
-  if (!document) return c.json({ error: '文档不存在' }, 404);
-  return c.json(document);
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.updateDocument(c.env.DB, c.get('user').id, id, version, input),
+  );
+  if (result.kind === 'not_found') return c.json({ error: '文档不存在' }, 404);
+  if (result.kind === 'conflict') {
+    return c.json(
+      {
+        error: '文档已在其他页面更新，请重新加载后再保存',
+        currentVersion: result.currentVersion,
+      },
+      409,
+    );
+  }
+  return c.json(result.document);
 });
 
 documentRoutes.delete('/:id', async (c) => {
   const id = parseId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, id));
+  const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, c.get('user').id, id));
   if (!ok) return c.json({ error: '文档不存在' }, 404);
   return c.json({ ok: true, id });
+});
+
+documentRoutes.post('/:id/restore', async (c) => {
+  const id = parseId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const document = await wrapTime(c, 'db', repo.restoreDocument(c.env.DB, c.get('user').id, id));
+  if (!document) return c.json({ error: '回收站中没有这篇文档' }, 404);
+  return c.json(document);
 });

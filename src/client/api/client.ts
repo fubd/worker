@@ -1,12 +1,4 @@
-import type {
-  DocumentListResponse,
-  DocumentRecord,
-  Todo,
-  TodoListResponse,
-  TodoListSnapshot,
-  TodoStats,
-  TodoStatusFilter,
-} from '@/shared/types';
+import type { AuthSessionResponse, DocumentListResponse, DocumentRecord } from '@/shared/types';
 import { apiPath } from '@/shared/api-config';
 
 export class ApiError extends Error {
@@ -19,20 +11,6 @@ export class ApiError extends Error {
   }
 }
 
-function readInitialTodos(): TodoListSnapshot | null {
-  if (typeof document === 'undefined') return null;
-  const node = document.getElementById('swan-todos-snapshot');
-  if (!node?.textContent) return null;
-  try {
-    const parsed = JSON.parse(node.textContent) as TodoListSnapshot;
-    return Array.isArray(parsed.items) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-const initialTodos = readInitialTodos();
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   // Do not add Content-Type to GET requests: that turns a cross-origin read
@@ -43,6 +21,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(apiPath(path), {
     ...init,
+    credentials: 'same-origin',
     headers,
   });
 
@@ -68,50 +47,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  initialTodos: () => initialTodos,
-
   health: () =>
     request<{ ok: boolean; runtime: string; environment: string; time: string }>('/health'),
 
-  stats: () => request<TodoStats>('/stats'),
+  getSession: () => request<AuthSessionResponse>('/auth/me', { cache: 'no-store' }),
 
-  listTodos: (
-    params: { status?: TodoStatusFilter; keyword?: string } = {},
-    options: { fresh?: boolean; signal?: AbortSignal } = {},
-  ) => {
-    const status = params.status ?? 'all';
-    const keyword = params.keyword?.trim() ?? '';
-    const search = new URLSearchParams();
-    if (status !== 'all') search.set('status', status);
-    if (keyword) search.set('q', keyword);
-    const query = search.toString();
-    return request<TodoListResponse>(`/todos${query ? `?${query}` : ''}`, {
-      cache: options.fresh ? 'reload' : 'no-store',
-      signal: options.signal,
-    });
-  },
-
-  createTodo: (title: string) =>
-    request<Todo>('/todos', {
-      method: 'POST',
-      body: JSON.stringify({ title }),
-    }),
-
-  updateTodo: (id: number, input: { title?: string; completed?: boolean }) =>
-    request<Todo>(`/todos/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(input),
-    }),
-
-  deleteTodo: (id: number) =>
-    request<{ ok: boolean; id: number }>(`/todos/${id}`, {
-      method: 'DELETE',
-    }),
-
-  clearCompleted: () => request<{ removed: number }>('/todos/completed', { method: 'DELETE' }),
+  logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   listDocuments: (options: { signal?: AbortSignal } = {}) =>
     request<DocumentListResponse>('/documents', {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  listTrashDocuments: (options: { signal?: AbortSignal } = {}) =>
+    request<DocumentListResponse>('/documents/trash', {
       cache: 'no-store',
       signal: options.signal,
     }),
@@ -135,6 +85,7 @@ export const api = {
       content?: Record<string, unknown>;
       contentHtml?: string;
       contentText?: string;
+      version: number;
     },
   ) =>
     request<DocumentRecord>(`/documents/${id}`, {
@@ -145,5 +96,10 @@ export const api = {
   deleteDocument: (id: number) =>
     request<{ ok: boolean; id: number }>(`/documents/${id}`, {
       method: 'DELETE',
+    }),
+
+  restoreDocument: (id: number) =>
+    request<DocumentRecord>(`/documents/${id}/restore`, {
+      method: 'POST',
     }),
 };

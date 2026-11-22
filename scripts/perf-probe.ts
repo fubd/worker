@@ -11,7 +11,7 @@ const baseUrl = (process.env.API_BASE_URL ?? 'https://api.deephos.com').replace(
 const runsFlag = process.argv.indexOf('--runs');
 const requestedRuns = runsFlag >= 0 ? Number(process.argv[runsFlag + 1]) : DEFAULT_RUNS;
 const runs = Number.isInteger(requestedRuns) && requestedRuns > 0 ? requestedRuns : DEFAULT_RUNS;
-const paths = ['/api/health', '/api/todos', '/api/stats'];
+const paths = ['/api/health'];
 
 interface Sample {
   totalMs: number;

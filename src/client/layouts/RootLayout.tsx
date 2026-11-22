@@ -1,40 +1,30 @@
 import { useState } from 'react';
+import { Avatar, Button, Dropdown } from 'antd';
 import {
-  ApiOutlined,
-  CheckSquareOutlined,
-  CloudServerOutlined,
-  DashboardOutlined,
+  DeleteOutlined,
+  DownOutlined,
   FileTextOutlined,
-  InfoCircleOutlined,
+  LoginOutlined,
+  LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { NavLink, Outlet, useLocation, useMatches } from 'react-router';
+import { Link, Outlet, useLocation, useMatches, useNavigate } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
-import { loadTodosRoute } from '../route-loaders';
 import { BrandMark } from '../components/BrandMark';
+import { useAuth } from '../auth/AuthProvider';
 
-// 菜单项用真实 <a>，这样首屏快照即使不 hydrate 也能导航。
 const MENU_ITEMS = [
-  { to: '/', icon: <DashboardOutlined />, label: '概览' },
-  { to: '/docs', icon: <FileTextOutlined />, label: '文档' },
-  { to: '/todos', icon: <CheckSquareOutlined />, label: '待办 Demo' },
-  { to: '/about', icon: <InfoCircleOutlined />, label: '技术栈' },
-];
+  { to: '/docs', icon: <FileTextOutlined />, label: '全部文档', view: 'documents' },
+  { to: '/docs?view=trash', icon: <DeleteOutlined />, label: '回收站', view: 'trash' },
+] as const;
 
 type RouteHandle = { title?: string };
 
-const enableSpeedInsights =
-  typeof window === 'undefined' || !['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-function prefetchTodosRoute() {
-  void loadTodosRoute().catch(() => {
-    // A failed prefetch is harmless; navigation will retry and surface any real error.
-  });
-}
+const enableSpeedInsights = import.meta.env.PROD;
 
 function Logo({ showText }: { showText: boolean }) {
   return (
@@ -55,37 +45,47 @@ function Logo({ showText }: { showText: boolean }) {
 export default function RootLayout() {
   const location = useLocation();
   const matches = useMatches();
+  const navigate = useNavigate();
+  const { status, user, signIn, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
-  const title =
+  const currentView = new URLSearchParams(location.search).get('view');
+  const routeTitle =
     [...matches]
       .reverse()
       .map((match) => (match.handle as RouteHandle | undefined)?.title)
       .find((value): value is string => typeof value === 'string') ?? BRAND.name;
+  const title = location.pathname === '/docs' && currentView === 'trash' ? '回收站' : routeTitle;
 
   const renderMenu = ({ closeDetails = false } = {}) => (
     <nav className="swan-menu" aria-label="站点导航">
-      {MENU_ITEMS.map((item) => (
-        <NavLink
-          key={item.to}
-          className={({ isActive }) => (isActive ? 'swan-menu-item is-selected' : 'swan-menu-item')}
-          end={item.to === '/'}
-          onFocus={item.to === '/todos' ? prefetchTodosRoute : undefined}
-          onClick={
-            closeDetails
-              ? (event) => event.currentTarget.closest('details')?.removeAttribute('open')
-              : undefined
-          }
-          onPointerEnter={item.to === '/todos' ? prefetchTodosRoute : undefined}
-          onTouchStart={item.to === '/todos' ? prefetchTodosRoute : undefined}
-          to={item.to}
-        >
-          <span className="swan-menu-icon">{item.icon}</span>
-          <span className="swan-menu-label">{item.label}</span>
-        </NavLink>
-      ))}
+      {MENU_ITEMS.map((item) => {
+        const isSelected =
+          location.pathname === '/docs' &&
+          (item.view === 'trash' ? currentView === 'trash' : currentView !== 'trash');
+        return (
+          <Link
+            key={item.to}
+            className={isSelected ? 'swan-menu-item is-selected' : 'swan-menu-item'}
+            onClick={
+              closeDetails
+                ? (event) => event.currentTarget.closest('details')?.removeAttribute('open')
+                : undefined
+            }
+            to={item.to}
+          >
+            <span className="swan-menu-icon">{item.icon}</span>
+            <span className="swan-menu-label">{item.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/docs');
+  };
 
   return (
     <div className="swan-shell">
@@ -124,14 +124,40 @@ export default function RootLayout() {
           </div>
 
           <div className="swan-header-right">
-            <span className="swan-chip" title="运行在 Cloudflare 边缘网络">
-              <CloudServerOutlined />
-              Workers
-            </span>
-            <span className="swan-chip swan-chip-plain" title="Hono 提供的 API 层">
-              <ApiOutlined />
-              Hono
-            </span>
+            {status === 'loading' ? (
+              <span className="swan-user-loading" aria-label="正在读取登录状态" />
+            ) : status === 'authenticated' && user ? (
+              <Dropdown
+                trigger={['click']}
+                menu={{
+                  items: [
+                    {
+                      key: 'logout',
+                      icon: <LogoutOutlined />,
+                      label: '退出登录',
+                    },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === 'logout') void handleLogout();
+                  },
+                }}
+              >
+                <button type="button" className="swan-user-button">
+                  <Avatar size={28} src={user.avatarUrl || undefined}>
+                    {user.name.slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <span className="swan-user-copy">
+                    <strong>{user.name}</strong>
+                    <small>{user.email}</small>
+                  </span>
+                  <DownOutlined className="swan-user-chevron" />
+                </button>
+              </Dropdown>
+            ) : (
+              <Button icon={<LoginOutlined />} onClick={signIn}>
+                登录
+              </Button>
+            )}
           </div>
         </header>
 

@@ -4,25 +4,27 @@
 export interface Env {
   /** D1 数据库 */
   DB: D1Database;
+  /** 站点公开地址，用于 OAuth 回调和登录后跳转 */
+  PUBLIC_ORIGIN?: string;
+  /** Google OAuth 客户端 */
+  GOOGLE_ID?: string;
+  GOOGLE_SECRET?: string;
+  /** M1 只允许这一个 Google 邮箱登录 */
+  OWNER_EMAIL?: string;
   /** 环境标识，可在 wrangler.jsonc 的 vars 里覆盖 */
   ENVIRONMENT?: string;
 }
 
 export type AppEnv = {
   Bindings: Env;
+  Variables: {
+    user: import('../shared/types').AuthUser;
+  };
 };
-
-/** 数据库原始行（completed 用 0/1 存储） */
-export interface TodoRow {
-  id: number;
-  title: string;
-  completed: number;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface DocumentRow {
   id: number;
+  owner_id: number | null;
   title: string;
   content_json: string;
   content_html: string;
@@ -30,13 +32,13 @@ export interface DocumentRow {
   version: number;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export type {
+  AuthSessionResponse,
+  AuthUser,
   DocumentListResponse,
   DocumentRecord,
   DocumentSummary,
-  Todo,
-  TodoStats,
-  TodoStatusFilter,
 } from '../shared/types';

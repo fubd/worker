@@ -2,9 +2,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { timing } from 'hono/timing';
+import { authRoutes } from './routes/auth';
 import { documentRoutes } from './routes/documents';
-import { statsRoutes } from './routes/stats';
-import { todoRoutes } from './routes/todos';
 import type { AppEnv } from './types';
 
 /**
@@ -36,9 +35,8 @@ app.get('/api/health', (c) =>
   }),
 );
 
-app.route('/api/todos', todoRoutes);
+app.route('/api/auth', authRoutes);
 app.route('/api/documents', documentRoutes);
-app.route('/api/stats', statsRoutes);
 
 /** 直接访问 API 域名根路径时回到主站 */
 app.get('/', (c) => c.redirect('https://deephos.com/', 301));

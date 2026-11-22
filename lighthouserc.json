@@ -1,7 +1,7 @@
 {
   "ci": {
     "collect": {
-      "url": ["http://127.0.0.1:4173/todos"],
+      "url": ["http://127.0.0.1:4173/docs"],
       "startServerCommand": "bun scripts/perf-server.ts",
       "startServerReadyPattern": "perf server ready",
       "startServerReadyTimeout": 15000,

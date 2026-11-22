@@ -5,14 +5,14 @@
     "limit": "14 kB"
   },
   {
-    "name": "todos route",
-    "path": "dist/vercel/static/js/async/a.*.mjs",
-    "limit": "4 kB"
+    "name": "docs route",
+    "path": "dist/vercel/static/js/async/m.*.mjs",
+    "limit": "190 kB"
   },
   {
     "name": "shared antd",
     "path": "dist/vercel/static/js/lib-antd.*.mjs",
-    "limit": "105 kB"
+    "limit": "106 kB"
   },
   {
     "name": "initial JS",

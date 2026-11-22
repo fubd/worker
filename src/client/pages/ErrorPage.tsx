@@ -24,8 +24,8 @@ export default function ErrorPage() {
             <Button key="reload" type="primary" onClick={() => window.location.reload()}>
               刷新
             </Button>,
-            <Button key="home" onClick={() => navigate('/')}>
-              回到概览
+            <Button key="home" onClick={() => navigate('/docs')}>
+              返回文档
             </Button>,
           ]}
         />

@@ -1,7 +1,6 @@
 /**
- * Assemble the Vercel deployment from the static pages produced by the React
- * Router renderer. Vercel keeps the API same-origin and proxies it to the
- * Cloudflare Worker.
+ * Assemble the Vercel deployment. The product entry is /docs; legacy demo
+ * routes redirect there, and browser API calls stay same-origin.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -13,11 +12,7 @@ const API_ORIGIN = 'https://api.deephos.com';
 const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 
 const required = [
-  'home.html',
-  'home-cn.html',
   'docs.html',
-  'todos.html',
-  'about.html',
   'favicon.svg',
   'favicon.ico',
   'apple-touch-icon.png',
@@ -34,11 +29,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 for (const file of [
-  'home.html',
-  'home-cn.html',
   'docs.html',
-  'todos.html',
-  'about.html',
   'favicon.svg',
   'favicon.ico',
   'apple-touch-icon.png',
@@ -49,19 +40,19 @@ for (const file of [
 cpSync(`${DIST}/brand`, `${OUT}/brand`, { recursive: true });
 cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 
-if (readFileSync(`${OUT}/about.html`, 'utf8').includes('<script type="module"')) {
-  throw new Error('/about must not reference the React runtime');
+if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-doc-list-panel')) {
+  throw new Error('/docs is missing its product shell');
 }
 
-const CN = [{ type: 'header', key: 'x-vercel-ip-country', value: 'CN' }];
 const config = {
+  redirects: [
+    { source: '/', destination: '/docs', permanent: false },
+    { source: '/todos', destination: '/docs', permanent: false },
+    { source: '/about', destination: '/docs', permanent: false },
+  ],
   rewrites: [
     { source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` },
-    { source: '/', has: CN, destination: '/home-cn.html' },
-    { source: '/', destination: '/home.html' },
     { source: '/docs', destination: '/docs.html' },
-    { source: '/todos', destination: '/todos.html' },
-    { source: '/about', destination: '/about.html' },
   ],
   headers: [
     {
@@ -77,20 +68,6 @@ const config = {
     },
     {
       source: '/docs',
-      headers: [
-        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
-        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
-      ],
-    },
-    {
-      source: '/todos',
-      headers: [
-        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
-        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
-      ],
-    },
-    {
-      source: '/about',
       headers: [
         { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
         { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
@@ -116,9 +93,9 @@ writeFileSync(
 <title>页面不存在 · ${BRAND.name}</title>
 <body style="font:14px/1.6 system-ui,sans-serif;padding:48px;color:#0f172a">
   <p>页面不存在。</p>
-  <p><a href="/">返回首页</a></p>
+  <p><a href="/docs">返回雨燕</a></p>
 </body>
 `,
 );
 
-console.log('[vercel] wrote dist/vercel from React Router static routes');
+console.log('[vercel] wrote dist/vercel for the /docs product shell');
