@@ -1,6 +1,5 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Link } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
 import { useAuth } from '../auth/AuthProvider';
@@ -51,18 +50,18 @@ export default function HomePage() {
   return (
     <div className="swan-home">
       <header className="swan-public-header">
-        <Link className="swan-public-brand" to="/" aria-label="雨燕首页">
+        <a className="swan-public-brand" href="/" aria-label="雨燕首页">
           <BrandMark size={36} />
           <span>
             <strong>{BRAND.name}</strong>
             <small>{BRAND.tagline}</small>
           </span>
-        </Link>
+        </a>
         <nav className="swan-public-nav" aria-label="首页导航">
           <a href="#about-yuyan">为什么是雨燕</a>
-          <Link className="swan-public-login" to={primaryPath}>
+          <a className="swan-public-login" href={primaryPath}>
             {status === 'authenticated' ? '进入文档' : '登录'}
-          </Link>
+          </a>
         </nav>
       </header>
 
@@ -77,10 +76,10 @@ export default function HomePage() {
             </h1>
             <p>给还没写完的念头留一处安静的地方。打开就能写，离开也会保存，下一次回来继续往前。</p>
             <div className="swan-home-actions">
-              <Link className="swan-public-button is-primary" to={primaryPath}>
+              <a className="swan-public-button is-primary" href={primaryPath}>
                 {primaryLabel}
                 <ArrowRightOutlined />
-              </Link>
+              </a>
               <a className="swan-public-button is-secondary" href="#about-yuyan">
                 看看雨燕
               </a>
@@ -120,7 +119,7 @@ export default function HomePage() {
         <span>
           {BRAND.name} · {BRAND.tagline}
         </span>
-        <Link to={primaryPath}>{status === 'authenticated' ? '打开文档' : '登录雨燕'}</Link>
+        <a href={primaryPath}>{status === 'authenticated' ? '打开文档' : '登录雨燕'}</a>
       </footer>
       {enableSpeedInsights && <SpeedInsights route="/" />}
     </div>

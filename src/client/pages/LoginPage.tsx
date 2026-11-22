@@ -10,7 +10,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
 import { useAuth } from '../auth/AuthProvider';
@@ -84,17 +84,17 @@ export default function LoginPage() {
   return (
     <div className="swan-login">
       <header className="swan-public-header">
-        <Link className="swan-public-brand" to="/" aria-label="返回雨燕首页">
+        <a className="swan-public-brand" href="/" aria-label="返回雨燕首页">
           <BrandMark size={36} />
           <span>
             <strong>{BRAND.name}</strong>
             <small>{BRAND.tagline}</small>
           </span>
-        </Link>
-        <Link className="swan-login-back" to="/">
+        </a>
+        <a className="swan-login-back" href="/">
           <ArrowLeftOutlined />
           返回首页
-        </Link>
+        </a>
       </header>
 
       <main className="swan-login-main">
