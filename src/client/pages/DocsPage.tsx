@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Empty, Form, Input, Popconfirm, Spin, Tag, Typography } from 'antd';
 import {
+  ArrowRightOutlined,
   BoldOutlined,
   CodeOutlined,
   DeleteOutlined,
@@ -14,6 +15,7 @@ import {
   PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   UndoOutlined,
   UnorderedListOutlined,
   UndoOutlined as RestoreOutlined,
@@ -25,7 +27,6 @@ import { useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
-import { BrandMark } from '../components/BrandMark';
 import type { DocumentRecord, DocumentSummary } from '@/shared/types';
 
 const EMPTY_CONTENT: JSONContent = {
@@ -507,12 +508,10 @@ function DocsPageContent() {
   if (status === 'unauthenticated') {
     return (
       <section className="swan-auth-card swan-card">
-        <span className="swan-auth-mark">
-          <BrandMark size={56} />
-        </span>
-        <Typography.Title level={2}>登录雨燕</Typography.Title>
-        <Typography.Paragraph type="secondary">
-          Google、GitHub 和账号密码会进入同一个雨燕所有者账号。
+        <span className="swan-auth-kicker">私人入口</span>
+        <Typography.Title level={2}>回到你的文字</Typography.Title>
+        <Typography.Paragraph>
+          登录后继续上次停下的地方。三种方式都会进入同一个雨燕账号。
         </Typography.Paragraph>
         {authNotice && <Alert type="warning" showIcon title={authNotice} />}
         {passwordLoginError && <Alert type="error" showIcon title={passwordLoginError} />}
@@ -557,23 +556,25 @@ function DocsPageContent() {
             loading={passwordLoginLoading}
             block
           >
-            账号密码登录
+            进入雨燕
+            <ArrowRightOutlined />
           </Button>
         </Form>
         <div className="swan-auth-divider">
-          <span>或使用第三方账号</span>
+          <span>也可以从这里回来</span>
         </div>
-        <div className="swan-auth-actions">
+        <div className="swan-auth-actions is-social">
           <Button size="large" icon={<GoogleOutlined />} onClick={() => signIn('google')}>
-            使用 Google 登录
+            Google
           </Button>
           <Button size="large" icon={<GithubOutlined />} onClick={() => signIn('github')}>
-            使用 GitHub 登录
+            GitHub
           </Button>
         </div>
-        <Typography.Text type="secondary" className="swan-auth-hint">
-          首次设置密码，请先用 Google 或 GitHub 登录，再从右上角账号菜单完成。
-        </Typography.Text>
+        <div className="swan-auth-hint">
+          <SafetyCertificateOutlined />
+          <span>首次设置密码，请先用 Google 或 GitHub 登录，再从账号菜单完成。</span>
+        </div>
       </section>
     );
   }

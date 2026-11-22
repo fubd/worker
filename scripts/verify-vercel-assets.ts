@@ -24,8 +24,8 @@ if (!existsSync(`${OUT}/static`)) {
 }
 
 const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
-if (!docsHtml.includes('swan-doc-list-panel') || !docsHtml.includes('全部文档')) {
-  throw new Error('/docs is missing its React Router product shell');
+if (!docsHtml.includes('swan-guest-story') || !docsHtml.includes('让文字')) {
+  throw new Error('/docs is missing its public product shell');
 }
 
 const config = JSON.parse(readFileSync(`${OUT}/vercel.json`, 'utf8')) as {
