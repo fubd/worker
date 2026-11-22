@@ -116,7 +116,9 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [identifierDraft, setIdentifierDraft] = useState('');
   const authNotice = authErrorMessage(searchParams.get('auth'));
+  const registrationUsername = identifierDraft.includes('@') ? '' : identifierDraft;
 
   if (status === 'authenticated') return <Navigate to="/docs" replace />;
 
@@ -192,31 +194,18 @@ export default function LoginPage() {
             </p>
             {authNotice && <Alert type="warning" showIcon title={authNotice} />}
             {formError && <Alert type="error" showIcon title={formError} />}
-            <div className="swan-login-mode-switch" role="tablist" aria-label="登录或注册">
-              <button
-                type="button"
-                className={mode === 'login' ? 'is-active' : undefined}
-                role="tab"
-                aria-selected={mode === 'login'}
-                onClick={() => changeMode('login')}
-              >
-                登录
-              </button>
-              <button
-                type="button"
-                className={mode === 'register' ? 'is-active' : undefined}
-                role="tab"
-                aria-selected={mode === 'register'}
-                onClick={() => changeMode('register')}
-              >
-                创建账号
-              </button>
-            </div>
             {mode === 'login' ? (
               <Form<LoginValues>
+                key="login"
                 className="swan-login-form"
+                initialValues={{ identifier: identifierDraft }}
                 layout="vertical"
                 requiredMark={false}
+                onValuesChange={(changed) => {
+                  if (typeof changed.identifier === 'string') {
+                    setIdentifierDraft(changed.identifier);
+                  }
+                }}
                 onFinish={(values) => void submitLogin(values)}
               >
                 <Form.Item
@@ -247,12 +236,25 @@ export default function LoginPage() {
                   进入雨燕
                   <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
                 </Button>
+                <p className="swan-login-switch">
+                  还没有账号？
+                  <button type="button" onClick={() => changeMode('register')}>
+                    创建账号
+                  </button>
+                </p>
               </Form>
             ) : (
               <Form<RegisterValues>
+                key="register"
                 className="swan-login-form"
+                initialValues={{ username: registrationUsername }}
                 layout="vertical"
                 requiredMark={false}
+                onValuesChange={(changed) => {
+                  if (typeof changed.username === 'string') {
+                    setIdentifierDraft(changed.username);
+                  }
+                }}
                 onFinish={(values) => void submitRegister(values)}
               >
                 <Form.Item
@@ -322,9 +324,15 @@ export default function LoginPage() {
                   />
                 </Form.Item>
                 <Button type="primary" size="large" htmlType="submit" loading={submitting} block>
-                  创建账号
+                  创建并进入
                   <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
                 </Button>
+                <p className="swan-login-switch">
+                  已经有账号？
+                  <button type="button" onClick={() => changeMode('login')}>
+                    返回登录
+                  </button>
+                </p>
               </Form>
             )}
             <div className="swan-login-divider">
