@@ -3,16 +3,14 @@ import { createCache, extractStyle, StyleProvider } from '@ant-design/cssinjs';
 import { createStaticHandler, createStaticRouter, StaticRouterProvider } from 'react-router';
 
 import { AppProviders } from './app-providers';
-import { createRoutes } from './routes';
+import { createRoutes, loadInitialRouteModules } from './routes';
 
 type RenderOptions = {
   path: string;
 };
 
 export async function renderStaticRoute({ path }: RenderOptions) {
-  const routes = createRoutes({
-    docs: await import('./pages/DocsPage'),
-  });
+  const routes = createRoutes(await loadInitialRouteModules(path));
   const cache = createCache();
   const { query, dataRoutes } = createStaticHandler(routes);
   const request = new Request(new URL(path, 'https://deephos.com'));

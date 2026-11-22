@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router/dom';
 
 import 'antd/dist/reset.css';
 import './styles/global.css';
+import './styles/public.css';
 
 import { AppProviders } from './app-providers';
 import { createAppRouter } from './router';

@@ -1,6 +1,6 @@
 /**
- * Assemble the Vercel deployment. The product entry is /docs; legacy demo
- * routes redirect there, and browser API calls stay same-origin.
+ * Assemble the Vercel deployment. The public site lives at /, authentication
+ * at /login, and the private workspace at /docs.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -12,6 +12,8 @@ const API_ORIGIN = 'https://api.deephos.com';
 const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 
 const required = [
+  'index.html',
+  'login.html',
   'docs.html',
   'favicon.svg',
   'favicon.ico',
@@ -29,6 +31,8 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 for (const file of [
+  'index.html',
+  'login.html',
   'docs.html',
   'favicon.svg',
   'favicon.ico',
@@ -40,18 +44,24 @@ for (const file of [
 cpSync(`${DIST}/brand`, `${OUT}/brand`, { recursive: true });
 cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 
-if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-doc-list-panel')) {
-  throw new Error('/docs is missing its product shell');
+if (!readFileSync(`${OUT}/index.html`, 'utf8').includes('swan-home-hero')) {
+  throw new Error('/ is missing its public homepage');
+}
+if (!readFileSync(`${OUT}/login.html`, 'utf8').includes('swan-login-card')) {
+  throw new Error('/login is missing its login form');
+}
+if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-workspace-loading')) {
+  throw new Error('/docs is missing its authentication shell');
 }
 
 const config = {
   redirects: [
-    { source: '/', destination: '/docs', permanent: false },
     { source: '/todos', destination: '/docs', permanent: false },
-    { source: '/about', destination: '/docs', permanent: false },
+    { source: '/about', destination: '/', permanent: false },
   ],
   rewrites: [
     { source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` },
+    { source: '/login', destination: '/login.html' },
     { source: '/docs', destination: '/docs.html' },
   ],
   headers: [
@@ -65,6 +75,20 @@ const config = {
     {
       source: '/static/:path*',
       headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+    },
+    {
+      source: '/',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
+    },
+    {
+      source: '/login',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
     },
     {
       source: '/docs',
@@ -93,9 +117,9 @@ writeFileSync(
 <title>页面不存在 · ${BRAND.name}</title>
 <body style="font:14px/1.6 system-ui,sans-serif;padding:48px;color:#0f172a">
   <p>页面不存在。</p>
-  <p><a href="/docs">返回雨燕</a></p>
+  <p><a href="/">返回雨燕首页</a></p>
 </body>
 `,
 );
 
-console.log('[vercel] wrote dist/vercel for the /docs product shell');
+console.log('[vercel] wrote public, login, and docs entry pages');

@@ -23,17 +23,43 @@ if (!existsSync(`${OUT}/static`)) {
   throw new Error('Vercel bundle is missing static/');
 }
 
+const homeHtml = readFileSync(`${OUT}/index.html`, 'utf8');
+if (!homeHtml.includes('swan-home-hero') || !homeHtml.includes('让文字')) {
+  throw new Error('/ is missing its public homepage');
+}
+
+const loginHtml = readFileSync(`${OUT}/login.html`, 'utf8');
+if (!loginHtml.includes('swan-login-card') || !loginHtml.includes('继续写作')) {
+  throw new Error('/login is missing its login form');
+}
+
 const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
-if (!docsHtml.includes('swan-guest-story') || !docsHtml.includes('让文字')) {
-  throw new Error('/docs is missing its public product shell');
+if (!docsHtml.includes('swan-workspace-loading')) {
+  throw new Error('/docs is missing its authentication shell');
 }
 
 const config = JSON.parse(readFileSync(`${OUT}/vercel.json`, 'utf8')) as {
-  redirects?: Array<{ source?: string }>;
+  redirects?: Array<{ source?: string; destination?: string }>;
+  rewrites?: Array<{ source?: string; destination?: string }>;
 };
-for (const legacyPath of ['/', '/todos', '/about']) {
-  if (!config.redirects?.some((redirect) => redirect.source === legacyPath)) {
-    throw new Error(`legacy path ${legacyPath} is missing its /docs redirect`);
+
+if (config.redirects?.some((redirect) => redirect.source === '/')) {
+  throw new Error('the homepage must not redirect away from /');
+}
+if (!config.redirects?.some((item) => item.source === '/todos' && item.destination === '/docs')) {
+  throw new Error('/todos is missing its /docs redirect');
+}
+if (!config.redirects?.some((item) => item.source === '/about' && item.destination === '/')) {
+  throw new Error('/about is missing its homepage redirect');
+}
+for (const [source, destination] of [
+  ['/login', '/login.html'],
+  ['/docs', '/docs.html'],
+]) {
+  if (
+    !config.rewrites?.some((item) => item.source === source && item.destination === destination)
+  ) {
+    throw new Error(`${source} is missing its ${destination} rewrite`);
   }
 }
 

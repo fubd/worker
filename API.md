@@ -12,6 +12,8 @@ M1 的 API 由 Cloudflare Worker + Hono 提供，数据存放在 D1。除健康�
 
 浏览器请求统一使用同源 `/api/*`；Vercel 将其代理到 `api.deephos.com`。
 
+站点入口分为公开首页 `/`、登录页 `/login` 和私有工作区 `/docs`。OAuth 成功后返回 `/docs`；取消、白名单拒绝或服务不可用时返回 `/login?auth=...` 显示对应提示。
+
 ## 鉴权
 
 | 方法 | 路径                       | 说明                                  |

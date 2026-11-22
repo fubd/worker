@@ -100,9 +100,13 @@ function clearOAuthCookies(c: Context<AppEnv>, provider: LoginProvider): void {
   deleteCookie(c, cookies.verifier, { path, secure });
 }
 
-function redirectToDocs(c: Context<AppEnv>, authError?: string): Response {
-  const url = new URL('/docs', publicOrigin(c));
-  if (authError) url.searchParams.set('auth', authError);
+function redirectToDocs(c: Context<AppEnv>): Response {
+  return c.redirect(new URL('/docs', publicOrigin(c)).toString());
+}
+
+function redirectToLogin(c: Context<AppEnv>, authError: string): Response {
+  const url = new URL('/login', publicOrigin(c));
+  url.searchParams.set('auth', authError);
   return c.redirect(url.toString());
 }
 
@@ -112,7 +116,7 @@ function readOAuthError(c: Context<AppEnv>, provider: LoginProvider): Response |
   if (!oauthError) return null;
 
   clearOAuthCookies(c, provider);
-  return redirectToDocs(c, oauthError === 'access_denied' ? 'cancelled' : 'unavailable');
+  return redirectToLogin(c, oauthError === 'access_denied' ? 'cancelled' : 'unavailable');
 }
 
 async function beginOAuth(
@@ -265,7 +269,7 @@ async function loadGithubIdentity(
 authRoutes.get('/google', async (c) => {
   if (!c.env.GOOGLE_ID || !c.env.GOOGLE_SECRET || !c.env.OWNER_EMAIL) {
     clearOAuthCookies(c, 'google');
-    return redirectToDocs(c, 'unavailable');
+    return redirectToLogin(c, 'unavailable');
   }
 
   const oauthError = readOAuthError(c, 'google');
@@ -292,7 +296,7 @@ authRoutes.get('/google', async (c) => {
       googleAuthorizationServer,
       true,
     );
-    if (!tokens) return redirectToDocs(c, 'denied');
+    if (!tokens) return redirectToLogin(c, 'denied');
 
     const idTokenClaims = oauth.getValidatedIdTokenClaims(tokens);
     if (!idTokenClaims?.sub) throw new Error('Google response is missing the ID token subject');
@@ -313,7 +317,7 @@ authRoutes.get('/google', async (c) => {
     const email = googleUser.email?.trim().toLowerCase();
 
     if (!googleUser.sub || !email || !googleUser.email_verified || email !== ownerEmail) {
-      return redirectToDocs(c, 'denied');
+      return redirectToLogin(c, 'denied');
     }
 
     return completeLogin(c, {
@@ -325,14 +329,14 @@ authRoutes.get('/google', async (c) => {
     });
   } catch (error) {
     console.error('[auth] Google OAuth callback failed:', error);
-    return redirectToDocs(c, 'unavailable');
+    return redirectToLogin(c, 'unavailable');
   }
 });
 
 authRoutes.get('/github', async (c) => {
   if (!c.env.GITHUB_ID || !c.env.GITHUB_SECRET || !c.env.OWNER_EMAIL) {
     clearOAuthCookies(c, 'github');
-    return redirectToDocs(c, 'unavailable');
+    return redirectToLogin(c, 'unavailable');
   }
 
   const oauthError = readOAuthError(c, 'github');
@@ -358,15 +362,15 @@ authRoutes.get('/github', async (c) => {
       c.env.GITHUB_SECRET,
       githubAuthorizationServer,
     );
-    if (!tokens) return redirectToDocs(c, 'denied');
+    if (!tokens) return redirectToLogin(c, 'denied');
 
     const ownerEmail = c.env.OWNER_EMAIL.trim().toLowerCase();
     const identity = await loadGithubIdentity(tokens.access_token, ownerEmail);
-    if (!identity) return redirectToDocs(c, 'denied');
+    if (!identity) return redirectToLogin(c, 'denied');
     return completeLogin(c, identity);
   } catch (error) {
     console.error('[auth] GitHub OAuth callback failed:', error);
-    return redirectToDocs(c, 'unavailable');
+    return redirectToLogin(c, 'unavailable');
   }
 });
 

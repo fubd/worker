@@ -1,7 +1,6 @@
 /**
- * Render the product shell for /docs through the same React Router table used
- * by the browser. Authentication and document data are loaded after hydration;
- * the static shell only prevents a blank first paint.
+ * Render public and private entry shells through the same React Router table
+ * used by the browser. Authentication and document data load after hydration.
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -47,8 +46,15 @@ if (!existsSync(SERVER_ENTRY)) {
 
 const template = readFileSync(`${DIST}/index.html`, 'utf8');
 const server = (await import(pathToFileURL(SERVER_ENTRY).href)) as ServerEntry;
-const render = await server.renderStaticRoute({ path: '/docs' });
-const html = injectRender(template, render);
+const pages = [
+  { path: '/', output: 'index.html' },
+  { path: '/login', output: 'login.html' },
+  { path: '/docs', output: 'docs.html' },
+] as const;
 
-writeFileSync(`${DIST}/docs.html`, html);
-console.log(`[static] wrote dist/docs.html (${statSync(`${DIST}/docs.html`).size} bytes)`);
+for (const page of pages) {
+  const render = await server.renderStaticRoute({ path: page.path });
+  const output = `${DIST}/${page.output}`;
+  writeFileSync(output, injectRender(template, render));
+  console.log(`[static] wrote dist/${page.output} (${statSync(output).size} bytes)`);
+}

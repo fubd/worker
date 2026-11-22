@@ -1,21 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Empty, Form, Input, Popconfirm, Spin, Tag, Typography } from 'antd';
+import { App, Alert, Button, Empty, Input, Popconfirm, Spin, Tag, Typography } from 'antd';
 import {
-  ArrowRightOutlined,
   BoldOutlined,
   CodeOutlined,
   DeleteOutlined,
   FileTextOutlined,
-  GithubOutlined,
-  GoogleOutlined,
   ItalicOutlined,
-  LockOutlined,
-  MailOutlined,
   OrderedListOutlined,
   PlusOutlined,
   RedoOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
   UndoOutlined,
   UnorderedListOutlined,
   UndoOutlined as RestoreOutlined,
@@ -23,7 +17,7 @@ import {
 import Placeholder from '@tiptap/extension-placeholder';
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useSearchParams } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
@@ -36,10 +30,6 @@ const EMPTY_CONTENT: JSONContent = {
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 type DocumentView = 'documents' | 'trash';
-interface PasswordLoginValues {
-  email: string;
-  password: string;
-}
 
 function parseDocumentId(value: string | null): number | null {
   const id = Number(value);
@@ -77,13 +67,6 @@ function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
 }
 
-function authErrorMessage(value: string | null): string | null {
-  if (value === 'denied') return '这个账号不在雨燕的允许名单中。';
-  if (value === 'cancelled') return '登录已取消，你可以重新尝试。';
-  if (value === 'unavailable') return '登录服务还没有配置完成，请稍后重试。';
-  return null;
-}
-
 export function HydrateFallback() {
   return (
     <div className="swan-docs">
@@ -115,7 +98,7 @@ export default function DocsPage() {
 
 function DocsPageContent() {
   const { message } = App.useApp();
-  const { status, signIn, signInWithPassword, markUnauthenticated } = useAuth();
+  const { status, markUnauthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const view: DocumentView = searchParams.get('view') === 'trash' ? 'trash' : 'documents';
   const activeId = view === 'documents' ? parseDocumentId(searchParams.get('id')) : null;
@@ -131,8 +114,6 @@ function DocsPageContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [editRevision, setEditRevision] = useState(0);
-  const [passwordLoginLoading, setPasswordLoginLoading] = useState(false);
-  const [passwordLoginError, setPasswordLoginError] = useState<string | null>(null);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -489,95 +470,8 @@ function DocsPageContent() {
     markDirty();
   };
 
-  const handlePasswordLogin = async (values: PasswordLoginValues) => {
-    setPasswordLoginLoading(true);
-    setPasswordLoginError(null);
-    try {
-      await signInWithPassword(values.email, values.password);
-    } catch (error) {
-      setPasswordLoginError(errorMessage(error, '登录失败，请稍后重试'));
-    } finally {
-      setPasswordLoginLoading(false);
-    }
-  };
-
   if (status === 'loading') return <HydrateFallback />;
-
-  const authNotice = authErrorMessage(searchParams.get('auth'));
-
-  if (status === 'unauthenticated') {
-    return (
-      <section className="swan-auth-card swan-card">
-        <span className="swan-auth-kicker">私人入口</span>
-        <Typography.Title level={2}>回到你的文字</Typography.Title>
-        <Typography.Paragraph>
-          登录后继续上次停下的地方。三种方式都会进入同一个雨燕账号。
-        </Typography.Paragraph>
-        {authNotice && <Alert type="warning" showIcon title={authNotice} />}
-        {passwordLoginError && <Alert type="error" showIcon title={passwordLoginError} />}
-        <Form<PasswordLoginValues>
-          className="swan-password-login"
-          layout="vertical"
-          requiredMark={false}
-          onFinish={(values) => void handlePasswordLogin(values)}
-        >
-          <Form.Item
-            name="email"
-            label="邮箱"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效的邮箱地址' },
-            ]}
-          >
-            <Input
-              size="large"
-              prefix={<MailOutlined />}
-              autoComplete="email"
-              placeholder="you@example.com"
-            />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="密码"
-            rules={[{ required: true, message: '请输入密码' }]}
-          >
-            <Input.Password
-              size="large"
-              prefix={<LockOutlined />}
-              autoComplete="current-password"
-              placeholder="输入登录密码"
-            />
-          </Form.Item>
-          <Button
-            type="primary"
-            size="large"
-            htmlType="submit"
-            icon={<LockOutlined />}
-            loading={passwordLoginLoading}
-            block
-          >
-            进入雨燕
-            <ArrowRightOutlined />
-          </Button>
-        </Form>
-        <div className="swan-auth-divider">
-          <span>也可以从这里回来</span>
-        </div>
-        <div className="swan-auth-actions is-social">
-          <Button size="large" icon={<GoogleOutlined />} onClick={() => signIn('google')}>
-            Google
-          </Button>
-          <Button size="large" icon={<GithubOutlined />} onClick={() => signIn('github')}>
-            GitHub
-          </Button>
-        </div>
-        <div className="swan-auth-hint">
-          <SafetyCertificateOutlined />
-          <span>首次设置密码，请先用 Google 或 GitHub 登录，再从账号菜单完成。</span>
-        </div>
-      </section>
-    );
-  }
+  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
 
   return (
     <>

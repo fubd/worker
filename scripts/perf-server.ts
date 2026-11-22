@@ -43,6 +43,9 @@ const server = Bun.serve({
     const url = new URL(request.url);
 
     if (url.pathname === '/api/auth/me') {
+      if (request.headers.get('referer')?.includes('/login')) {
+        return Response.json({ error: '请先登录' }, { status: 401 });
+      }
       return Response.json(
         {
           user: {
@@ -84,7 +87,14 @@ const server = Bun.serve({
       return new Response('', { headers: { 'Content-Type': MIME['.js'] } });
     }
 
-    const pathname = url.pathname === '/' || url.pathname === '/docs' ? '/docs.html' : url.pathname;
+    const pathname =
+      url.pathname === '/'
+        ? '/index.html'
+        : url.pathname === '/login'
+          ? '/login.html'
+          : url.pathname === '/docs'
+            ? '/docs.html'
+            : url.pathname;
     const file = safeFile(pathname);
     if (!file || !existsSync(file)) return new Response('not found', { status: 404 });
 

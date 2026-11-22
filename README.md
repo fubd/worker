@@ -12,7 +12,7 @@
 - 软删除、回收站与恢复
 - 未登录、会话过期和保存失败的明确状态
 
-`deephos.com/docs` 是唯一产品入口；旧 `/`、`/todos`、`/about` 会跳转到 `/docs`。
+`deephos.com` 是公开首页，`/login` 是独立登录页，`/docs` 是登录后的私人文档工作区。未登录访问 `/docs` 会跳转到 `/login`；旧 `/todos` 会跳转到 `/docs`，`/about` 会跳转到首页。
 
 ## 技术栈
 
@@ -37,6 +37,8 @@ bun run dev
 打开：
 
 ```text
+http://localhost:3000/
+http://localhost:3000/login
 http://localhost:3000/docs
 ```
 
@@ -90,7 +92,9 @@ bun run deploy               # 构建并部署 Worker
 
 ```text
 Browser
-  ├─ /docs              → Vercel 静态产品壳
+  ├─ /                   → Vercel 公开首页
+  ├─ /login              → Vercel 登录页
+  ├─ /docs               → Vercel 私有工作区壳（登录后）
   └─ /api/*             → Vercel rewrite → api.deephos.com
                               └─ Cloudflare Worker → D1
 ```
@@ -99,6 +103,8 @@ Browser
 
 ```text
 src/client/auth/AuthProvider.tsx    前端登录状态
+src/client/pages/HomePage.tsx       公开首页
+src/client/pages/LoginPage.tsx      独立登录页
 src/client/pages/DocsPage.tsx       文档列表、编辑器、冲突和回收站
 src/worker/auth/session.ts          服务端会话 Cookie
 src/worker/routes/auth.ts           三种登录方式与 OAuth
@@ -131,7 +137,7 @@ migrations/0006_password_auth.sql
 `bun run build` 会：
 
 1. 构建浏览器和 Node 静态渲染产物。
-2. 用 React Router 生成 `/docs` 静态产品壳。
+2. 用 React Router 生成 `/`、`/login`、`/docs` 静态入口壳。
 3. 组装 `dist/vercel/`，包含同源 API rewrite 和旧路径跳转。
 4. 校验本地静态引用和禁止使用外部静态源。
 

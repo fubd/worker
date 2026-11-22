@@ -1,14 +1,17 @@
 import type { RouteObject } from 'react-router';
-import { Navigate } from 'react-router';
 
 import RootLayout from './layouts/RootLayout';
 import ErrorPage from './pages/ErrorPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { loadDocsRoute } from './route-loaders';
+import { loadDocsRoute, loadHomeRoute, loadLoginRoute } from './route-loaders';
 
+type HomeModule = typeof import('./pages/HomePage');
+type LoginModule = typeof import('./pages/LoginPage');
 type DocsModule = typeof import('./pages/DocsPage');
 
 export interface InitialRouteModules {
+  home?: HomeModule;
+  login?: LoginModule;
   docs?: DocsModule;
 }
 
@@ -17,6 +20,28 @@ function RouteFallback() {
 }
 
 export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
+  const homeRoute: RouteObject = {
+    id: 'home',
+    index: true,
+    handle: { title: '雨燕 · 让文字飞起来' },
+    ...(initial.home
+      ? { Component: initial.home.default }
+      : {
+          lazy: async () => ({ Component: (await loadHomeRoute()).default }),
+        }),
+  };
+
+  const loginRoute: RouteObject = {
+    id: 'login',
+    path: 'login',
+    handle: { title: '登录 · 雨燕' },
+    ...(initial.login
+      ? { Component: initial.login.default }
+      : {
+          lazy: async () => ({ Component: (await loadLoginRoute()).default }),
+        }),
+  };
+
   const docsRoute: RouteObject = {
     id: 'docs',
     path: 'docs',
@@ -40,13 +65,16 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
   return [
     {
       id: 'root',
-      path: '/',
-      element: <RootLayout />,
       errorElement: <ErrorPage />,
       HydrateFallback: RouteFallback,
       children: [
-        { id: 'home', index: true, element: <Navigate to="/docs" replace /> },
-        docsRoute,
+        homeRoute,
+        loginRoute,
+        {
+          id: 'app',
+          element: <RootLayout />,
+          children: [docsRoute],
+        },
         {
           id: 'not-found',
           path: '*',
@@ -59,6 +87,9 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
 }
 
 export async function loadInitialRouteModules(pathname: string): Promise<InitialRouteModules> {
-  if (pathname === '/docs') return { docs: await loadDocsRoute() };
+  const path = pathname.replace(/\/+$/, '') || '/';
+  if (path === '/') return { home: await loadHomeRoute() };
+  if (path === '/login') return { login: await loadLoginRoute() };
+  if (path === '/docs') return { docs: await loadDocsRoute() };
   return {};
 }

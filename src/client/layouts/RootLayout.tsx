@@ -1,7 +1,6 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Avatar, Dropdown } from 'antd';
 import {
-  CloudSyncOutlined,
   DeleteOutlined,
   DownOutlined,
   FileTextOutlined,
@@ -10,10 +9,9 @@ import {
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
-  ReadOutlined,
 } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Link, Outlet, useLocation, useMatches, useNavigate } from 'react-router';
+import { Link, Navigate, Outlet, useLocation, useMatches, useNavigate } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
 import { BrandMark } from '../components/BrandMark';
@@ -45,93 +43,11 @@ function Logo({ showText }: { showText: boolean }) {
   );
 }
 
-function FlightIllustration() {
+function WorkspaceLoading() {
   return (
-    <svg
-      className="swan-flight-art"
-      viewBox="0 0 680 360"
-      fill="none"
-      role="img"
-      aria-label="纸张沿着风的轨迹飞行，雨燕从旁边掠过"
-    >
-      <path
-        className="swan-flight-trail"
-        d="M4 312C105 260 155 148 265 164C358 178 365 290 470 226C544 181 577 103 672 58"
-      />
-      <path
-        className="swan-flight-trail is-secondary"
-        d="M75 336C152 292 191 222 275 234C342 244 367 315 438 271C503 231 550 161 627 132"
-      />
-      <g className="swan-paper-float is-back">
-        <g transform="translate(355 54) rotate(11)">
-          <path d="M0 0H122L151 29V184H0Z" fill="#9FC8FF" fillOpacity=".22" />
-          <path d="M122 0V29H151" stroke="#D9E9FF" strokeOpacity=".55" />
-          <path d="M25 55H118M25 78H102M25 101H113" stroke="#D9E9FF" strokeOpacity=".35" />
-        </g>
-      </g>
-      <g className="swan-paper-float is-front">
-        <g transform="translate(214 95) rotate(-8)">
-          <path d="M0 0H164L196 32V218H0Z" fill="#FBFCF8" stroke="rgba(255,255,255,.34)" />
-          <path d="M164 0V32H196" stroke="#BFD7F8" />
-          <path d="M31 64H150M31 91H127M31 118H157" stroke="#9CB6D6" strokeWidth="3" />
-          <path d="M31 151H88" stroke="#2F6FE8" strokeWidth="5" strokeLinecap="round" />
-          <path d="M31 178H132" stroke="#B7C8DB" strokeWidth="3" />
-        </g>
-      </g>
-      <g className="swan-flight-birds" fill="#D9E9FF">
-        <path
-          transform="translate(425 177) scale(.9)"
-          d="M0 24C15 8 30 6 42 15C50 11 61 11 71 16C61 20 54 26 51 34C43 30 37 31 32 37L24 50L22 36C14 30 7 27 0 24Z"
-        />
-        <path
-          transform="translate(528 107) scale(.62)"
-          d="M0 24C15 8 30 6 42 15C50 11 61 11 71 16C61 20 54 26 51 34C43 30 37 31 32 37L24 50L22 36C14 30 7 27 0 24Z"
-        />
-        <path
-          transform="translate(100 128) scale(.45)"
-          d="M0 24C15 8 30 6 42 15C50 11 61 11 71 16C61 20 54 26 51 34C43 30 37 31 32 37L24 50L22 36C14 30 7 27 0 24Z"
-        />
-      </g>
-    </svg>
-  );
-}
-
-function GuestFrame({ children }: { children: ReactNode }) {
-  return (
-    <div className="swan-guest">
-      <header className="swan-guest-header">
-        <Logo showText />
-        <span className="swan-guest-edition">私人写作空间</span>
-      </header>
-      <main className="swan-guest-main">
-        <section className="swan-guest-story">
-          <div className="swan-guest-story-copy">
-            <span className="swan-guest-kicker">Yuyan / 雨燕</span>
-            <h1>
-              <span>让文字</span>
-              <span className="is-accent">飞起来。</span>
-            </h1>
-            <p>给还没写完的念头留一处安静的地方。打开就能写，离开也会保存，下一次回来继续往前。</p>
-            <ul className="swan-guest-features" aria-label="产品特点">
-              <li>
-                <LockOutlined />
-                私人
-              </li>
-              <li>
-                <CloudSyncOutlined />
-                自动保存
-              </li>
-              <li>
-                <ReadOutlined />
-                随时续写
-              </li>
-            </ul>
-          </div>
-          <FlightIllustration />
-          <p className="swan-guest-quote">没有信息流，没有打扰，只有你的文字。</p>
-        </section>
-        <section className="swan-guest-entry">{children}</section>
-      </main>
+    <div className="swan-workspace-loading" role="status" aria-label="正在读取登录状态">
+      <BrandMark size={42} />
+      <span>正在打开雨燕…</span>
     </div>
   );
 }
@@ -179,34 +95,11 @@ export default function RootLayout() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/docs');
+    navigate('/login', { replace: true });
   };
 
-  if (location.pathname === '/docs' && status === 'loading') {
-    return (
-      <>
-        <GuestFrame>
-          <div className="swan-guest-login-placeholder" aria-label="正在读取登录状态">
-            <span />
-            <span />
-            <span />
-          </div>
-        </GuestFrame>
-        {enableSpeedInsights && <SpeedInsights route={location.pathname} />}
-      </>
-    );
-  }
-
-  if (location.pathname === '/docs' && status === 'unauthenticated') {
-    return (
-      <>
-        <GuestFrame>
-          <Outlet />
-        </GuestFrame>
-        {enableSpeedInsights && <SpeedInsights route={location.pathname} />}
-      </>
-    );
-  }
+  if (status === 'loading') return <WorkspaceLoading />;
+  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
 
   return (
     <div className="swan-shell">

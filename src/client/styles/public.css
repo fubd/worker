@@ -1,0 +1,821 @@
+.swan-home,
+.swan-login {
+  --public-ink: #14243a;
+  --public-muted: #607084;
+  --public-blue: #2f6fe8;
+  --public-blue-deep: #2457b6;
+  --public-sky: #eaf3ff;
+  min-height: 100vh;
+  color: var(--public-ink);
+  background:
+    radial-gradient(circle at 84% 14%, rgba(104, 163, 255, 0.16), transparent 28%), #f7fbff;
+}
+
+.swan-public-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  height: 78px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 4vw, 58px);
+  background: rgba(255, 255, 255, 0.84);
+  border-bottom: 1px solid rgba(26, 52, 86, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.swan-public-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--public-ink);
+  text-decoration: none;
+}
+
+.swan-public-brand > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.08;
+}
+
+.swan-public-brand strong {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.swan-public-brand small {
+  margin-top: 4px;
+  color: #7b899b;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.swan-public-nav {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  color: #5d6c7f;
+  font-size: 13px;
+}
+
+.swan-public-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.swan-public-nav a:hover {
+  color: var(--public-blue);
+}
+
+.swan-public-login {
+  color: #17345c !important;
+  font-weight: 650;
+}
+
+.swan-public-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--public-blue-deep);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.swan-public-eyebrow::before {
+  width: 26px;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.swan-public-button {
+  display: inline-flex;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--public-ink);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.swan-public-button:hover {
+  transform: translateY(-1px);
+  color: var(--public-ink);
+}
+
+.swan-public-button.is-primary {
+  background: var(--public-blue);
+  box-shadow: 0 10px 24px rgba(47, 111, 232, 0.2);
+  color: #ffffff;
+}
+
+.swan-public-button.is-primary:hover {
+  box-shadow: 0 14px 30px rgba(47, 111, 232, 0.26);
+  color: #ffffff;
+}
+
+.swan-public-button.is-secondary {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(23, 52, 92, 0.14);
+}
+
+.swan-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(460px, 0.98fr);
+  min-height: 740px;
+  padding: 70px clamp(30px, 4vw, 58px) 48px;
+  gap: 54px;
+}
+
+.swan-home-copy {
+  display: flex;
+  max-width: 650px;
+  padding: 50px 0 0 12px;
+  flex-direction: column;
+}
+
+.swan-home-copy h1 {
+  margin: 28px 0 26px;
+  font-family: 'Songti SC', STSong, 'Noto Serif SC', serif;
+  font-size: clamp(62px, 5.5vw, 78px);
+  font-weight: 600;
+  line-height: 1.03;
+  letter-spacing: -0.07em;
+}
+
+.swan-home-copy h1 em {
+  color: var(--public-blue);
+  font-style: normal;
+}
+
+.swan-home-copy > p {
+  max-width: 500px;
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 16px;
+  line-height: 1.9;
+}
+
+.swan-home-actions {
+  display: flex;
+  margin-top: 34px;
+  gap: 12px;
+}
+
+.swan-home-proof {
+  display: flex;
+  margin: 54px 0 0;
+  padding: 0;
+  color: #526277;
+  font-size: 12px;
+  list-style: none;
+}
+
+.swan-home-proof li {
+  padding: 0 18px;
+  border-left: 1px solid rgba(23, 52, 92, 0.12);
+}
+
+.swan-home-proof li:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.swan-home-scene {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+  border: 1px solid rgba(63, 118, 199, 0.13);
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 70% 24%, rgba(47, 111, 232, 0.13), transparent 33%),
+    linear-gradient(145deg, #edf5ff, #fbfdff 60%, #e8f2ff);
+  box-shadow: 0 30px 80px rgba(35, 86, 159, 0.12);
+}
+
+.swan-home-paper {
+  position: absolute;
+  top: 96px;
+  left: 78px;
+  width: 392px;
+  min-height: 450px;
+  padding: 44px 42px;
+  border: 1px solid rgba(56, 105, 171, 0.12);
+  border-radius: 6px 24px 8px 8px;
+  background: #fffefa;
+  box-shadow: 0 26px 54px rgba(31, 77, 140, 0.14);
+  transform: rotate(-3deg);
+}
+
+.swan-home-paper::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(225deg, #dceaff 49%, #ffffff 50%);
+  content: '';
+}
+
+.swan-home-paper.is-back {
+  top: auto;
+  right: 54px;
+  bottom: 78px;
+  left: auto;
+  width: 176px;
+  min-height: 225px;
+  padding: 0;
+  border-radius: 8px 20px 8px 8px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: none;
+  transform: rotate(9deg);
+}
+
+.swan-home-paper.is-back::before {
+  display: none;
+}
+
+.swan-home-paper-meta {
+  color: #91a0b3;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.swan-home-paper h2 {
+  margin: 28px 0 18px;
+  font-family: 'Songti SC', STSong, serif;
+  font-size: 34px;
+  font-weight: 600;
+}
+
+.swan-home-paper-lines i {
+  display: block;
+  height: 8px;
+  margin-top: 15px;
+  border-radius: 20px;
+  background: #dce6f2;
+}
+
+.swan-home-paper-lines i:nth-child(2) {
+  width: 84%;
+}
+
+.swan-home-paper-lines i:nth-child(3) {
+  width: 91%;
+}
+
+.swan-home-paper-lines i:nth-child(4) {
+  width: 64%;
+}
+
+.swan-home-paper-lines i:nth-child(5) {
+  width: 78%;
+  background: #8eb9f6;
+}
+
+.swan-home-flight {
+  position: absolute;
+  right: -42px;
+  bottom: 18px;
+  width: 530px;
+  height: 260px;
+  opacity: 0.7;
+}
+
+.swan-home-swift {
+  position: absolute;
+  top: 74px;
+  right: 66px;
+  width: 52px;
+  transform: rotate(-12deg);
+  animation: swan-public-float 5s ease-in-out infinite;
+}
+
+.swan-home-scene-caption {
+  position: absolute;
+  left: 84px;
+  bottom: 35px;
+  color: #6d7f95;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.swan-home-about {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  padding: 64px clamp(30px, 4vw, 58px) 76px;
+  gap: 72px;
+  border-top: 1px solid rgba(23, 52, 92, 0.08);
+}
+
+.swan-home-about h2 {
+  max-width: 430px;
+  margin: 20px 0 0;
+  font-family: 'Songti SC', STSong, serif;
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -0.04em;
+}
+
+.swan-home-about-points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 30px;
+}
+
+.swan-home-about-points p {
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.swan-home-about-points strong {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--public-ink);
+  font-size: 14px;
+}
+
+.swan-public-footer {
+  display: flex;
+  padding: 24px clamp(30px, 4vw, 58px) 30px;
+  justify-content: space-between;
+  border-top: 1px solid rgba(23, 52, 92, 0.08);
+  color: #718094;
+  font-size: 11px;
+}
+
+.swan-public-footer a {
+  color: var(--public-blue-deep);
+  text-decoration: none;
+}
+
+/* Login */
+.swan-login {
+  background:
+    radial-gradient(circle at 18% 28%, rgba(136, 183, 255, 0.18), transparent 28%), #f7fbff;
+}
+
+.swan-login-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #5d6c7f;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.swan-login-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(430px, 0.92fr);
+  min-height: calc(100vh - 78px);
+}
+
+.swan-login-story {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  padding: 92px clamp(42px, 7vw, 104px) 52px;
+  flex-direction: column;
+  border-right: 1px solid rgba(23, 52, 92, 0.08);
+  background:
+    radial-gradient(circle at 78% 26%, rgba(47, 111, 232, 0.12), transparent 30%),
+    linear-gradient(145deg, #edf5ff, #fbfdff 65%, #edf5ff);
+}
+
+.swan-login-story h1 {
+  max-width: 580px;
+  margin: 24px 0 18px;
+  font-family: 'Songti SC', STSong, 'Noto Serif SC', serif;
+  font-size: clamp(54px, 5.2vw, 76px);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.06em;
+}
+
+.swan-login-story > p {
+  max-width: 480px;
+  margin: 0;
+  color: var(--public-muted);
+  font-size: 15px;
+  line-height: 1.85;
+}
+
+.swan-login-art {
+  position: relative;
+  width: min(100%, 520px);
+  height: 270px;
+  margin-top: auto;
+}
+
+.swan-login-sheet {
+  position: absolute;
+  top: 32px;
+  left: 28px;
+  width: 292px;
+  height: 210px;
+  padding: 30px;
+  border: 1px solid rgba(56, 105, 171, 0.12);
+  border-radius: 6px 22px 8px 8px;
+  background: #fffefa;
+  box-shadow: 0 24px 50px rgba(31, 77, 140, 0.13);
+  transform: rotate(-4deg);
+}
+
+.swan-login-sheet span {
+  color: #5f6f82;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.swan-login-sheet strong {
+  display: block;
+  margin: 24px 0 20px;
+  font-family: 'Songti SC', STSong, serif;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.swan-login-sheet i {
+  display: block;
+  width: 88%;
+  height: 7px;
+  margin-top: 13px;
+  border-radius: 20px;
+  background: #dce6f2;
+}
+
+.swan-login-sheet i:nth-of-type(2) {
+  width: 70%;
+}
+
+.swan-login-sheet i:nth-of-type(3) {
+  width: 80%;
+  background: #8eb9f6;
+}
+
+.swan-login-art > svg {
+  position: absolute;
+  right: -50px;
+  bottom: -6px;
+  width: 430px;
+}
+
+.swan-login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px clamp(28px, 5vw, 72px);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.swan-login-card {
+  width: min(100%, 390px);
+}
+
+.swan-login-card h2 {
+  margin: 18px 0 8px;
+  color: var(--public-ink);
+  font-family: 'Songti SC', STSong, serif;
+  font-size: 42px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.swan-login-intro {
+  margin: 0 0 28px;
+  color: var(--public-muted);
+  font-size: 13px;
+}
+
+.swan-login-card .ant-alert {
+  margin-bottom: 18px;
+}
+
+.swan-login-form .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.swan-login-form .ant-form-item-label {
+  padding-bottom: 7px;
+}
+
+.swan-login-form .ant-form-item-label > label {
+  color: var(--public-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.swan-login-form .ant-input-affix-wrapper {
+  height: 50px;
+  padding: 0 14px;
+  border-color: rgba(9, 36, 69, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+}
+
+.swan-login-form .ant-input-affix-wrapper:hover,
+.swan-login-form .ant-input-affix-wrapper-focused {
+  border-color: rgba(47, 111, 232, 0.6);
+  box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.08);
+}
+
+.swan-login-form .ant-input-prefix {
+  margin-inline-end: 10px;
+  color: #7b8b9e;
+}
+
+.swan-login-form > .ant-btn {
+  display: flex;
+  height: 50px;
+  margin-top: 4px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  font-weight: 650;
+}
+
+.swan-login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 16px;
+  color: #65707e;
+  font-size: 12px;
+}
+
+.swan-login-divider::before,
+.swan-login-divider::after {
+  height: 1px;
+  flex: 1;
+  background: rgba(9, 36, 69, 0.1);
+  content: '';
+}
+
+.swan-login-social {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.swan-login-social .ant-btn {
+  height: 46px;
+  border-color: rgba(9, 36, 69, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--public-ink);
+  font-weight: 600;
+}
+
+.swan-login-social .ant-btn:hover {
+  border-color: rgba(47, 111, 232, 0.45) !important;
+  background: #ffffff !important;
+  color: var(--public-blue) !important;
+}
+
+.swan-login-hint {
+  display: flex;
+  margin: 20px 0 0;
+  align-items: flex-start;
+  gap: 9px;
+  color: #65707e;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.swan-login-hint .anticon {
+  margin-top: 2px;
+  color: var(--public-blue);
+}
+
+@keyframes swan-public-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-12deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-9deg);
+  }
+}
+
+@media (max-width: 1050px) {
+  .swan-home-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.9fr);
+    gap: 34px;
+  }
+
+  .swan-home-paper {
+    left: 42px;
+    width: 350px;
+  }
+
+  .swan-home-paper.is-back {
+    right: 30px;
+  }
+}
+
+@media (max-width: 860px) {
+  .swan-home-hero,
+  .swan-login-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .swan-home-hero {
+    padding-top: 52px;
+  }
+
+  .swan-home-copy {
+    padding: 10px 0 0;
+  }
+
+  .swan-home-scene {
+    min-height: 520px;
+  }
+
+  .swan-home-about {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+  }
+
+  .swan-login-story {
+    min-height: 520px;
+    padding: 58px 34px 30px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(23, 52, 92, 0.08);
+  }
+
+  .swan-login-panel {
+    min-height: 610px;
+    padding: 56px 28px 72px;
+  }
+}
+
+@media (max-width: 600px) {
+  .swan-public-header {
+    height: 64px;
+    padding: 0 20px;
+  }
+
+  .swan-public-brand small,
+  .swan-public-nav > a:first-child {
+    display: none;
+  }
+
+  .swan-home-hero {
+    padding: 38px 20px 32px;
+    gap: 32px;
+  }
+
+  .swan-home-copy h1 {
+    margin-top: 22px;
+    font-size: 54px;
+  }
+
+  .swan-home-copy > p {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .swan-home-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .swan-home-actions .swan-public-button {
+    width: 100%;
+  }
+
+  .swan-home-proof {
+    margin-top: 34px;
+  }
+
+  .swan-home-proof li {
+    padding: 0 10px;
+  }
+
+  .swan-home-scene {
+    min-height: 400px;
+    border-radius: 24px;
+  }
+
+  .swan-home-paper {
+    top: 52px;
+    left: 28px;
+    width: 260px;
+    min-height: 310px;
+    padding: 30px;
+  }
+
+  .swan-home-paper h2 {
+    margin-top: 20px;
+    font-size: 27px;
+  }
+
+  .swan-home-paper.is-back {
+    top: auto;
+    right: 14px;
+    bottom: 38px;
+    width: 120px;
+    min-height: 155px;
+  }
+
+  .swan-home-swift {
+    top: 35px;
+    right: 34px;
+  }
+
+  .swan-home-flight {
+    right: -120px;
+    width: 440px;
+  }
+
+  .swan-home-scene-caption {
+    left: 30px;
+    bottom: 20px;
+  }
+
+  .swan-home-about {
+    padding: 48px 20px 54px;
+  }
+
+  .swan-home-about h2 {
+    font-size: 34px;
+  }
+
+  .swan-home-about-points {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .swan-public-footer {
+    padding: 22px 20px 28px;
+  }
+
+  .swan-login-story {
+    min-height: 430px;
+    padding: 42px 22px 20px;
+  }
+
+  .swan-login-story h1 {
+    margin-top: 18px;
+    font-size: 48px;
+  }
+
+  .swan-login-story > p {
+    font-size: 13px;
+  }
+
+  .swan-login-art {
+    height: 190px;
+    margin-top: 20px;
+  }
+
+  .swan-login-sheet {
+    top: 12px;
+    left: 10px;
+    width: 240px;
+    height: 160px;
+    padding: 22px;
+  }
+
+  .swan-login-sheet strong {
+    margin: 16px 0;
+    font-size: 20px;
+  }
+
+  .swan-login-art > svg {
+    right: -150px;
+    bottom: -20px;
+    width: 390px;
+    opacity: 0.7;
+  }
+
+  .swan-login-panel {
+    min-height: 0;
+    padding: 38px 20px 52px;
+  }
+
+  .swan-login-card h2 {
+    font-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swan-home-swift {
+    animation: none;
+  }
+}
