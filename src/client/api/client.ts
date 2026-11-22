@@ -52,6 +52,18 @@ export const api = {
 
   getSession: () => request<AuthSessionResponse>('/auth/me', { cache: 'no-store' }),
 
+  loginWithPassword: (email: string, password: string) =>
+    request<AuthSessionResponse>('/auth/password/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  setPassword: (password: string) =>
+    request<AuthSessionResponse>('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ password }),
+    }),
+
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
   listDocuments: (options: { signal?: AbortSignal } = {}) =>

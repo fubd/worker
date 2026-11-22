@@ -25,6 +25,7 @@ export interface AuthUser {
   email: string;
   name: string;
   avatarUrl: string;
+  hasPassword: boolean;
 }
 
 export interface AuthSessionResponse {

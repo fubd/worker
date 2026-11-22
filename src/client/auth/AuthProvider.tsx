@@ -11,6 +11,8 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   signIn: (provider: LoginProvider) => void;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  setPassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   markUnauthenticated: () => void;
@@ -45,6 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.assign(`/api/auth/${provider}`);
   }, []);
 
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    const session = await api.loginWithPassword(email, password);
+    setUser(session.user);
+    setStatus('authenticated');
+  }, []);
+
+  const setPassword = useCallback(async (password: string) => {
+    const session = await api.setPassword(password);
+    setUser(session.user);
+    setStatus('authenticated');
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await api.logout();
@@ -60,8 +74,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ status, user, signIn, signOut, refresh, markUnauthenticated }),
-    [markUnauthenticated, refresh, signIn, signOut, status, user],
+    () => ({
+      status,
+      user,
+      signIn,
+      signInWithPassword,
+      setPassword,
+      signOut,
+      refresh,
+      markUnauthenticated,
+    }),
+    [markUnauthenticated, refresh, setPassword, signIn, signInWithPassword, signOut, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

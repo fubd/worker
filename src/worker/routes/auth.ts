@@ -3,8 +3,14 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import * as oauth from 'oauth4webapi';
 
 import {
+  clearPasswordRateLimit,
   claimOwnerlessDocuments,
   createSession,
+  findUserByEmail,
+  getPasswordCredential,
+  getPasswordRateLimit,
+  recordPasswordFailure,
+  setPasswordCredential,
   upsertExternalUser,
   type ExternalIdentity,
 } from '../db/auth';
@@ -14,14 +20,39 @@ import {
   hashSessionToken,
   invalidateCurrentSession,
   readSessionUser,
+  requireAuth,
   sessionExpiresAt,
   setSessionCookie,
 } from '../auth/session';
+import {
+  createPasswordCredential,
+  hashRateLimitKey,
+  isValidEmail,
+  normalizeEmail,
+  validateNewPassword,
+  verifyPassword,
+} from '../auth/password';
 import type { AppEnv } from '../types';
 
 export const authRoutes = new Hono<AppEnv>();
 
 const OAUTH_COOKIE_MAX_AGE = 10 * 60;
+const PASSWORD_RATE_LIMIT = {
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000,
+};
+const PASSWORD_ACCOUNT_RATE_LIMIT = {
+  maxAttempts: 50,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000,
+};
+const DUMMY_PASSWORD_CREDENTIAL = {
+  algorithm: 'PBKDF2-HMAC-SHA256',
+  iterations: 600_000,
+  salt: 'AAAAAAAAAAAAAAAAAAAAAA',
+  passwordHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+};
 
 const googleAuthorizationServer: oauth.AuthorizationServer = {
   issuer: 'https://accounts.google.com',
@@ -165,10 +196,21 @@ async function completeLogin(c: Context<AppEnv>, identity: ExternalIdentity): Pr
   const user = await upsertExternalUser(c.env.DB, identity);
   await claimOwnerlessDocuments(c.env.DB, user.id);
 
-  const token = createSessionToken();
-  await createSession(c.env.DB, await hashSessionToken(token), user.id, sessionExpiresAt());
-  setSessionCookie(c, token);
+  await issueSession(c, user.id);
   return redirectToDocs(c);
+}
+
+async function issueSession(c: Context<AppEnv>, userId: number): Promise<void> {
+  const token = createSessionToken();
+  await createSession(c.env.DB, await hashSessionToken(token), userId, sessionExpiresAt());
+  setSessionCookie(c, token);
+}
+
+async function readJsonObject(c: Context<AppEnv>): Promise<Record<string, unknown> | null> {
+  const body = (await c.req.json().catch(() => null)) as unknown;
+  return body && typeof body === 'object' && !Array.isArray(body)
+    ? (body as Record<string, unknown>)
+    : null;
 }
 
 async function loadGithubIdentity(
@@ -335,6 +377,83 @@ authRoutes.get('/me', async (c) => {
     return c.json({ error: '请先登录' }, 401);
   }
   return c.json({ user });
+});
+
+authRoutes.post('/password/login', async (c) => {
+  const body = await readJsonObject(c);
+  const email = normalizeEmail(typeof body?.email === 'string' ? body.email : '');
+  const password = typeof body?.password === 'string' ? body.password : '';
+
+  if (!isValidEmail(email)) return c.json({ error: '请输入有效的邮箱地址' }, 400);
+  if (!password || password.length > 128) return c.json({ error: '邮箱或密码错误' }, 401);
+
+  const ownerEmail = normalizeEmail(c.env.OWNER_EMAIL ?? '');
+  if (!ownerEmail) return c.json({ error: '密码登录尚未配置完成' }, 503);
+
+  const clientIp =
+    c.req.header('cf-connecting-ip') ??
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown';
+  const [ipRateLimitKey, accountRateLimitKey] = await Promise.all([
+    hashRateLimitKey(`ip:${clientIp}`),
+    hashRateLimitKey(`account:${ownerEmail}`),
+  ]);
+  const now = Date.now();
+  const [ipLimit, accountLimit] = await Promise.all([
+    getPasswordRateLimit(c.env.DB, ipRateLimitKey),
+    getPasswordRateLimit(c.env.DB, accountRateLimitKey),
+  ]);
+  const activeBlock = Math.max(ipLimit?.blockedUntil ?? 0, accountLimit?.blockedUntil ?? 0);
+  if (activeBlock > now) {
+    const retryAfter = Math.max(1, Math.ceil((activeBlock - now) / 1000));
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
+  }
+
+  const user = email === ownerEmail ? await findUserByEmail(c.env.DB, email) : null;
+  const credential = user ? await getPasswordCredential(c.env.DB, user.id) : null;
+  const passwordMatches = await verifyPassword(password, credential ?? DUMMY_PASSWORD_CREDENTIAL);
+
+  if (!user || !credential || !passwordMatches) {
+    const failures = [recordPasswordFailure(c.env.DB, ipRateLimitKey, now, PASSWORD_RATE_LIMIT)];
+    if (email === ownerEmail) {
+      failures.push(
+        recordPasswordFailure(c.env.DB, accountRateLimitKey, now, PASSWORD_ACCOUNT_RATE_LIMIT),
+      );
+    }
+    const nextLimits = await Promise.all(failures);
+    const nextBlock = Math.max(...nextLimits.map((limit) => limit.blockedUntil));
+    if (nextBlock > now) {
+      const retryAfter = Math.max(1, Math.ceil((nextBlock - now) / 1000));
+      c.header('Retry-After', String(retryAfter));
+      return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
+    }
+    return c.json({ error: '邮箱或密码错误' }, 401);
+  }
+
+  await Promise.all([
+    clearPasswordRateLimit(c.env.DB, ipRateLimitKey),
+    clearPasswordRateLimit(c.env.DB, accountRateLimitKey),
+  ]);
+  await issueSession(c, user.id);
+  return c.json({ user: { ...user, hasPassword: true } });
+});
+
+authRoutes.put('/password', requireAuth, async (c) => {
+  const user = c.get('user');
+  const ownerEmail = normalizeEmail(c.env.OWNER_EMAIL ?? '');
+  if (!ownerEmail || normalizeEmail(user.email) !== ownerEmail) {
+    return c.json({ error: '当前账号不能设置登录密码' }, 403);
+  }
+
+  const body = await readJsonObject(c);
+  const password = typeof body?.password === 'string' ? body.password : '';
+  const validationError = validateNewPassword(password);
+  if (validationError) return c.json({ error: validationError }, 400);
+
+  const credential = await createPasswordCredential(password);
+  await setPasswordCredential(c.env.DB, user.id, credential);
+  return c.json({ user: { ...user, hasPassword: true } });
 });
 
 authRoutes.post('/logout', async (c) => {

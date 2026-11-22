@@ -4,8 +4,9 @@
 
 雨燕是一个轻量的个人知识库。当前 M1 的目标是先把“私人、安全、可恢复”做完整：
 
-- Google、GitHub OAuth 登录
+- Google、GitHub、账号密码三种登录方式
 - 单账号邮箱白名单
+- 密码只能由已通过 Google/GitHub 验证的所有者设置
 - 文档按 owner 隔离
 - 自动保存版本冲突检测
 - 软删除、回收站与恢复
@@ -100,12 +101,14 @@ Browser
 src/client/auth/AuthProvider.tsx    前端登录状态
 src/client/pages/DocsPage.tsx       文档列表、编辑器、冲突和回收站
 src/worker/auth/session.ts          服务端会话 Cookie
-src/worker/routes/auth.ts           Google、GitHub OAuth
+src/worker/routes/auth.ts           三种登录方式与 OAuth
 src/worker/routes/documents.ts      文档 API 与 owner 校验
+src/worker/auth/password.ts         PBKDF2 密码哈希与限流键
 src/worker/db/auth.ts               用户与会话数据访问
 src/worker/db/documents.ts          文档数据访问
 migrations/0004_auth_and_document_safety.sql
 migrations/0005_multi_provider_auth.sql
+migrations/0006_password_auth.sql
 ```
 
 ## 数据安全
@@ -114,6 +117,10 @@ migrations/0005_multi_provider_auth.sql
 - Cookie 使用 `HttpOnly`、`SameSite=Lax`，线上启用 `Secure`。
 - Google OAuth 使用 state、PKCE、ID Token 和 UserInfo subject 校验。
 - GitHub OAuth 使用 state、PKCE、GitHub 用户 ID 和已验证邮箱校验。
+- 公开注册入口不会直接创建账号；所有者必须先通过 Google 或 GitHub 验证，再在账号菜单设置密码。
+- 密码使用 PBKDF2-HMAC-SHA256、60 万次迭代和每个密码独立的 16 字节随机盐。
+- 密码凭证按 `user_id` 绑定到现有账号，三种登录方式签发相同结构的服务端会话。
+- 密码登录失败按客户端 IP 和所有者账号双重限流，错误响应不会暴露账号是否存在。
 - 文档的读取、更新、删除和恢复都同时匹配 `id`、`owner_id` 和软删除状态。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。
 - 其他用户的文档统一返回 `404`。

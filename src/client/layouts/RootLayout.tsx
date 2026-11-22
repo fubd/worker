@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Avatar, Button, Dropdown } from 'antd';
 import {
   DeleteOutlined,
@@ -7,6 +7,7 @@ import {
   GithubOutlined,
   GoogleOutlined,
   LoginOutlined,
+  LockOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -27,6 +28,7 @@ const MENU_ITEMS = [
 type RouteHandle = { title?: string };
 
 const enableSpeedInsights = import.meta.env.PROD;
+const PasswordSettingsModal = lazy(() => import('../components/PasswordSettingsModal'));
 
 function Logo({ showText }: { showText: boolean }) {
   return (
@@ -50,6 +52,7 @@ export default function RootLayout() {
   const navigate = useNavigate();
   const { status, user, signIn, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   const currentView = new URLSearchParams(location.search).get('view');
   const routeTitle =
@@ -134,12 +137,21 @@ export default function RootLayout() {
                 menu={{
                   items: [
                     {
+                      key: 'password',
+                      icon: <LockOutlined />,
+                      label: user.hasPassword ? '修改登录密码' : '设置登录密码',
+                    },
+                    {
+                      type: 'divider',
+                    },
+                    {
                       key: 'logout',
                       icon: <LogoutOutlined />,
                       label: '退出登录',
                     },
                   ],
                   onClick: ({ key }) => {
+                    if (key === 'password') setPasswordModalOpen(true);
                     if (key === 'logout') void handleLogout();
                   },
                 }}
@@ -161,6 +173,14 @@ export default function RootLayout() {
                 menu={{
                   items: [
                     {
+                      key: 'password',
+                      icon: <LockOutlined />,
+                      label: '使用账号密码登录',
+                    },
+                    {
+                      type: 'divider',
+                    },
+                    {
                       key: 'google',
                       icon: <GoogleOutlined />,
                       label: '使用 Google 登录',
@@ -171,7 +191,10 @@ export default function RootLayout() {
                       label: '使用 GitHub 登录',
                     },
                   ],
-                  onClick: ({ key }) => signIn(key as 'google' | 'github'),
+                  onClick: ({ key }) => {
+                    if (key === 'password') navigate('/docs');
+                    else signIn(key as 'google' | 'github');
+                  },
                 }}
               >
                 <Button icon={<LoginOutlined />}>登录</Button>
@@ -190,6 +213,14 @@ export default function RootLayout() {
           {BRAND.name} · {BRAND.tagline}
         </footer>
       </div>
+      {passwordModalOpen && (
+        <Suspense fallback={null}>
+          <PasswordSettingsModal
+            hasPassword={Boolean(user?.hasPassword)}
+            onClose={() => setPasswordModalOpen(false)}
+          />
+        </Suspense>
+      )}
       {enableSpeedInsights && <SpeedInsights route={location.pathname} />}
     </div>
   );
