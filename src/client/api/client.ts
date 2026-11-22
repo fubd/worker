@@ -52,7 +52,7 @@ export const api = {
 
   getSession: () => request<AuthSessionResponse>('/auth/me', { cache: 'no-store' }),
 
-  register: (input: { username: string; displayName?: string; password: string }) =>
+  register: (input: { username: string; password: string }) =>
     request<AuthSessionResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),

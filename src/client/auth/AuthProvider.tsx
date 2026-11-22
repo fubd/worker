@@ -12,7 +12,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   signIn: (provider: LoginProvider) => void;
   bindProvider: (provider: LoginProvider) => void;
-  register: (input: { username: string; displayName?: string; password: string }) => Promise<void>;
+  register: (input: { username: string; password: string }) => Promise<void>;
   signInWithPassword: (identifier: string, password: string) => Promise<void>;
   setPassword: (input: { currentPassword?: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -53,14 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.assign(`/api/auth/${provider}?bind=1`);
   }, []);
 
-  const register = useCallback(
-    async (input: { username: string; displayName?: string; password: string }) => {
-      const session = await api.register(input);
-      setUser(session.user);
-      setStatus('authenticated');
-    },
-    [],
-  );
+  const register = useCallback(async (input: { username: string; password: string }) => {
+    const session = await api.register(input);
+    setUser(session.user);
+    setStatus('authenticated');
+  }, []);
 
   const signInWithPassword = useCallback(async (identifier: string, password: string) => {
     const session = await api.loginWithPassword(identifier, password);

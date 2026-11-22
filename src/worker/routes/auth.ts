@@ -455,8 +455,6 @@ authRoutes.get('/me', async (c) => {
 authRoutes.post('/register', async (c) => {
   const body = await readJsonObject(c);
   const username = normalizeUsername(typeof body?.username === 'string' ? body.username : '');
-  const displayName =
-    typeof body?.displayName === 'string' ? body.displayName.trim().slice(0, 60) : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
   const usernameError = validateUsername(username);
@@ -485,7 +483,6 @@ authRoutes.post('/register', async (c) => {
   const credential = await createPasswordCredential(password);
   const user = await createLocalUser(c.env.DB, {
     username,
-    displayName: displayName || username,
     credential,
   });
   if (!user) return c.json({ error: '这个账号名已经被使用' }, 409);

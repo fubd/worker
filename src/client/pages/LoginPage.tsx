@@ -15,7 +15,6 @@ interface LoginValues {
 
 interface RegisterValues {
   username: string;
-  displayName?: string;
   password: string;
   confirmation: string;
 }
@@ -146,7 +145,6 @@ export default function LoginPage() {
     try {
       await register({
         username: values.username,
-        displayName: values.displayName,
         password: values.password,
       });
       navigate('/docs', { replace: true });
@@ -274,15 +272,6 @@ export default function LoginPage() {
                     prefix={<AtSign aria-hidden="true" size={16} strokeWidth={1.8} />}
                     autoComplete="username"
                     placeholder="例如 yuyan_writer"
-                  />
-                </Form.Item>
-                <Form.Item name="displayName" label="显示名称（可选）">
-                  <Input
-                    size="large"
-                    prefix={<UserRound aria-hidden="true" size={16} strokeWidth={1.8} />}
-                    autoComplete="nickname"
-                    maxLength={60}
-                    placeholder="显示在文档和账号菜单中"
                   />
                 </Form.Item>
                 <Form.Item

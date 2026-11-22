@@ -127,6 +127,7 @@ migrations/0007_username_accounts.sql
 - GitHub OAuth 使用 state、PKCE、GitHub 用户 ID 和已验证邮箱校验。
 - 账号名由用户注册时设置，密码凭证直接绑定到该用户 ID。
 - 用户可以在登录后的账号菜单分别绑定尚未关联的 Google 或 GitHub，并同步其已验证邮箱。
+- 显示名称优先使用 Google 或 GitHub 返回的姓名；没有姓名时使用账号名、GitHub 用户名或邮箱。
 - 密码使用 PBKDF2-HMAC-SHA256、60 万次迭代和每个密码独立的 16 字节随机盐。
 - 密码凭证按 `user_id` 绑定到现有账号，三种登录方式签发相同结构的服务端会话。
 - 修改已有密码时必须验证当前密码，成功后撤销该账号的其他会话。

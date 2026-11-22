@@ -161,7 +161,6 @@ export async function createLocalUser(
   db: D1Database,
   input: {
     username: string;
-    displayName: string;
     credential: {
       algorithm: string;
       iterations: number;
@@ -178,7 +177,7 @@ export async function createLocalUser(
          VALUES (?, NULL, ?, '')
          RETURNING id, username, email, display_name, avatar_url`,
       )
-      .bind(input.username, input.displayName)
+      .bind(input.username, input.username)
       .first<UserRow>();
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) return null;
@@ -235,11 +234,12 @@ export async function bindExternalIdentity(
         .prepare(
           `UPDATE users
            SET email = ?,
+               display_name = ?,
                avatar_url = CASE WHEN avatar_url = '' THEN ? ELSE avatar_url END,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE id = ?`,
         )
-        .bind(identity.email, identity.avatarUrl, userId),
+        .bind(identity.email, identity.name, identity.avatarUrl, userId),
       db
         .prepare(
           `INSERT INTO user_identities (provider, provider_sub, user_id)
