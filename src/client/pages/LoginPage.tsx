@@ -64,7 +64,7 @@ function GithubIcon() {
 }
 
 function authErrorMessage(value: string | null): string | null {
-  if (value === 'denied') return '这个账号不在雨燕的允许名单中。';
+  if (value === 'denied') return '未能确认这个账号的已验证邮箱，请换一种登录方式。';
   if (value === 'cancelled') return '登录已取消，你可以重新尝试。';
   if (value === 'unavailable') return '登录服务还没有配置完成，请稍后重试。';
   return null;
@@ -149,7 +149,9 @@ export default function LoginPage() {
           <div className="swan-login-card">
             <span className="swan-public-eyebrow">登录雨燕</span>
             <h2>继续写作</h2>
-            <p className="swan-login-intro">选择你习惯的方式进入。</p>
+            <p className="swan-login-intro">
+              首次使用可直接通过 Google 或 GitHub 创建账号，之后也能设置密码登录。
+            </p>
             {authNotice && <Alert type="warning" showIcon title={authNotice} />}
             {loginError && <Alert type="error" showIcon title={loginError} />}
             <Form<PasswordLoginValues>

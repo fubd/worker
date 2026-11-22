@@ -198,7 +198,10 @@ async function exchangeOAuthCode(
 
 async function completeLogin(c: Context<AppEnv>, identity: ExternalIdentity): Promise<Response> {
   const user = await upsertExternalUser(c.env.DB, identity);
-  await claimOwnerlessDocuments(c.env.DB, user.id);
+  const legacyOwnerEmail = normalizeEmail(c.env.OWNER_EMAIL ?? '');
+  if (legacyOwnerEmail && normalizeEmail(identity.email) === legacyOwnerEmail) {
+    await claimOwnerlessDocuments(c.env.DB, user.id);
+  }
 
   await issueSession(c, user.id);
   return redirectToDocs(c);
@@ -217,10 +220,7 @@ async function readJsonObject(c: Context<AppEnv>): Promise<Record<string, unknow
     : null;
 }
 
-async function loadGithubIdentity(
-  accessToken: string,
-  ownerEmail: string,
-): Promise<ExternalIdentity | null> {
+async function loadGithubIdentity(accessToken: string): Promise<ExternalIdentity | null> {
   const headers = {
     Accept: 'application/vnd.github+json',
     Authorization: `Bearer ${accessToken}`,
@@ -245,15 +245,17 @@ async function loadGithubIdentity(
   };
   const emails = (await emailsResponse.json()) as Array<{
     email?: string;
+    primary?: boolean;
     verified?: boolean;
   }>;
-  const email = emails
-    .find(
-      (candidate) =>
-        candidate.verified === true && candidate.email?.trim().toLowerCase() === ownerEmail,
-    )
-    ?.email?.trim()
-    .toLowerCase();
+  const verifiedEmails = emails.filter(
+    (candidate) => candidate.verified === true && candidate.email?.trim(),
+  );
+  const email =
+    verifiedEmails
+      .find((candidate) => candidate.primary)
+      ?.email?.trim()
+      .toLowerCase() ?? verifiedEmails[0]?.email?.trim().toLowerCase();
 
   if (!githubUser.id || !githubUser.login || !email) return null;
 
@@ -267,7 +269,7 @@ async function loadGithubIdentity(
 }
 
 authRoutes.get('/google', async (c) => {
-  if (!c.env.GOOGLE_ID || !c.env.GOOGLE_SECRET || !c.env.OWNER_EMAIL) {
+  if (!c.env.GOOGLE_ID || !c.env.GOOGLE_SECRET) {
     clearOAuthCookies(c, 'google');
     return redirectToLogin(c, 'unavailable');
   }
@@ -313,10 +315,9 @@ authRoutes.get('/google', async (c) => {
       idTokenClaims.sub,
       userInfoResponse,
     );
-    const ownerEmail = c.env.OWNER_EMAIL.trim().toLowerCase();
     const email = googleUser.email?.trim().toLowerCase();
 
-    if (!googleUser.sub || !email || !googleUser.email_verified || email !== ownerEmail) {
+    if (!googleUser.sub || !email || !googleUser.email_verified) {
       return redirectToLogin(c, 'denied');
     }
 
@@ -334,7 +335,7 @@ authRoutes.get('/google', async (c) => {
 });
 
 authRoutes.get('/github', async (c) => {
-  if (!c.env.GITHUB_ID || !c.env.GITHUB_SECRET || !c.env.OWNER_EMAIL) {
+  if (!c.env.GITHUB_ID || !c.env.GITHUB_SECRET) {
     clearOAuthCookies(c, 'github');
     return redirectToLogin(c, 'unavailable');
   }
@@ -364,8 +365,7 @@ authRoutes.get('/github', async (c) => {
     );
     if (!tokens) return redirectToLogin(c, 'denied');
 
-    const ownerEmail = c.env.OWNER_EMAIL.trim().toLowerCase();
-    const identity = await loadGithubIdentity(tokens.access_token, ownerEmail);
+    const identity = await loadGithubIdentity(tokens.access_token);
     if (!identity) return redirectToLogin(c, 'denied');
     return completeLogin(c, identity);
   } catch (error) {
@@ -391,16 +391,13 @@ authRoutes.post('/password/login', async (c) => {
   if (!isValidEmail(email)) return c.json({ error: '请输入有效的邮箱地址' }, 400);
   if (!password || password.length > 128) return c.json({ error: '邮箱或密码错误' }, 401);
 
-  const ownerEmail = normalizeEmail(c.env.OWNER_EMAIL ?? '');
-  if (!ownerEmail) return c.json({ error: '密码登录尚未配置完成' }, 503);
-
   const clientIp =
     c.req.header('cf-connecting-ip') ??
     c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
     'unknown';
   const [ipRateLimitKey, accountRateLimitKey] = await Promise.all([
     hashRateLimitKey(`ip:${clientIp}`),
-    hashRateLimitKey(`account:${ownerEmail}`),
+    hashRateLimitKey(`account:${email}`),
   ]);
   const now = Date.now();
   const [ipLimit, accountLimit] = await Promise.all([
@@ -414,13 +411,13 @@ authRoutes.post('/password/login', async (c) => {
     return c.json({ error: '尝试次数过多，请稍后再试' }, 429);
   }
 
-  const user = email === ownerEmail ? await findUserByEmail(c.env.DB, email) : null;
+  const user = await findUserByEmail(c.env.DB, email);
   const credential = user ? await getPasswordCredential(c.env.DB, user.id) : null;
   const passwordMatches = await verifyPassword(password, credential ?? DUMMY_PASSWORD_CREDENTIAL);
 
   if (!user || !credential || !passwordMatches) {
     const failures = [recordPasswordFailure(c.env.DB, ipRateLimitKey, now, PASSWORD_RATE_LIMIT)];
-    if (email === ownerEmail) {
+    if (user) {
       failures.push(
         recordPasswordFailure(c.env.DB, accountRateLimitKey, now, PASSWORD_ACCOUNT_RATE_LIMIT),
       );
@@ -445,11 +442,6 @@ authRoutes.post('/password/login', async (c) => {
 
 authRoutes.put('/password', requireAuth, async (c) => {
   const user = c.get('user');
-  const ownerEmail = normalizeEmail(c.env.OWNER_EMAIL ?? '');
-  if (!ownerEmail || normalizeEmail(user.email) !== ownerEmail) {
-    return c.json({ error: '当前账号不能设置登录密码' }, 403);
-  }
-
   const body = await readJsonObject(c);
   const password = typeof body?.password === 'string' ? body.password : '';
   const validationError = validateNewPassword(password);

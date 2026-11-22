@@ -2,11 +2,11 @@
 
 **让文字飞起来。**
 
-雨燕是一个轻量的个人知识库。当前 M1 的目标是先把“私人、安全、可恢复”做完整：
+雨燕是一个轻量的知识库。当前 M1 的目标是先把“私人、安全、可恢复”做完整：
 
 - Google、GitHub、账号密码三种登录方式
-- 单账号邮箱白名单
-- 密码只能由已通过 Google/GitHub 验证的所有者设置
+- Google、GitHub 公开注册，任意已验证邮箱都可以创建独立账号
+- 密码由已通过 Google/GitHub 验证的账号自行设置
 - 文档按 owner 隔离
 - 自动保存版本冲突检测
 - 软删除、回收站与恢复
@@ -50,7 +50,7 @@ GOOGLE_ID=...
 GOOGLE_SECRET=...
 GITHUB_ID=...
 GITHUB_SECRET=...
-OWNER_EMAIL=...
+OWNER_EMAIL=... # 可选，仅用于接管历史无主文档
 ```
 
 不要把这些值写入仓库。生产环境通过 Cloudflare Secret 配置：
@@ -60,7 +60,7 @@ bunx wrangler secret put GOOGLE_ID
 bunx wrangler secret put GOOGLE_SECRET
 bunx wrangler secret put GITHUB_ID
 bunx wrangler secret put GITHUB_SECRET
-bunx wrangler secret put OWNER_EMAIL
+bunx wrangler secret put OWNER_EMAIL # 可选
 ```
 
 OAuth 授权回调地址：
@@ -123,14 +123,22 @@ migrations/0006_password_auth.sql
 - Cookie 使用 `HttpOnly`、`SameSite=Lax`，线上启用 `Secure`。
 - Google OAuth 使用 state、PKCE、ID Token 和 UserInfo subject 校验。
 - GitHub OAuth 使用 state、PKCE、GitHub 用户 ID 和已验证邮箱校验。
-- 公开注册入口不会直接创建账号；所有者必须先通过 Google 或 GitHub 验证，再在账号菜单设置密码。
+- 公开注册通过 Google 或 GitHub 的已验证邮箱完成；用户随后可以在账号菜单设置密码。
 - 密码使用 PBKDF2-HMAC-SHA256、60 万次迭代和每个密码独立的 16 字节随机盐。
 - 密码凭证按 `user_id` 绑定到现有账号，三种登录方式签发相同结构的服务端会话。
-- 密码登录失败按客户端 IP 和所有者账号双重限流，错误响应不会暴露账号是否存在。
+- 密码登录失败按客户端 IP 和账号双重限流，错误响应不会暴露账号是否存在。
 - 文档的读取、更新、删除和恢复都同时匹配 `id`、`owner_id` 和软删除状态。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。
 - 其他用户的文档统一返回 `404`。
-- 迁移前已有文档的 `owner_id` 为空，由白名单账号首次登录时接管。
+- 迁移前已有文档的 `owner_id` 为空，由 `OWNER_EMAIL` 对应的历史所有者首次登录时接管。
+
+## 免费多用户策略
+
+- 公开注册优先使用 Google 和 GitHub OAuth，不产生邮件发送费用。
+- 邮箱是账号的唯一可信身份，OAuth 提供的邮箱必须经过服务商验证。
+- 同一邮箱通过不同登录方式进入同一个账号，文档始终按用户 ID 隔离。
+- 邮箱验证码属于可选能力，只能在第三方邮件服务的免费额度内启用；额度耗尽时关闭验证码入口，不允许自动升级或产生账单。
+- 后续如需启用验证码，使用 Resend 免费额度并配置邮箱、IP、每日发送上限和 Cloudflare Turnstile。
 
 ## 构建与部署
 

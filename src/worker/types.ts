@@ -12,7 +12,7 @@ export interface Env {
   /** GitHub OAuth App */
   GITHUB_ID?: string;
   GITHUB_SECRET?: string;
-  /** 只允许这个已验证邮箱对应的账号登录 */
+  /** 历史所有者邮箱，仅用于首次登录时接管 owner_id 为空的旧文档 */
   OWNER_EMAIL?: string;
   /** 环境标识，可在 wrangler.jsonc 的 vars 里覆盖 */
   ENVIRONMENT?: string;
