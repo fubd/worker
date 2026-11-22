@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Empty, Input, Popconfirm, Spin, Tag, Typography } from 'antd';
 import {
-  BoldOutlined,
-  CodeOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  ItalicOutlined,
-  OrderedListOutlined,
-  PlusOutlined,
-  RedoOutlined,
-  ReloadOutlined,
-  UndoOutlined,
-  UnorderedListOutlined,
-  UndoOutlined as RestoreOutlined,
-} from '@ant-design/icons';
+  Bold,
+  CodeXml,
+  FileText,
+  Italic,
+  List,
+  ListOrdered,
+  Plus,
+  Redo2,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 import Placeholder from '@tiptap/extension-placeholder';
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -495,7 +495,7 @@ function DocsPageContent() {
           action={
             <Button
               size="small"
-              icon={<ReloadOutlined />}
+              icon={<RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />}
               onClick={() => void reloadActiveDocument()}
             >
               重新加载
@@ -516,7 +516,7 @@ function DocsPageContent() {
               <Button
                 type="primary"
                 size="small"
-                icon={<PlusOutlined />}
+                icon={<Plus aria-hidden="true" size={14} strokeWidth={1.8} />}
                 loading={creating}
                 disabled={saveState === 'conflict'}
                 onClick={() => void createDocument()}
@@ -542,7 +542,7 @@ function DocsPageContent() {
                 view === 'trash' ? (
                   <div className="swan-doc-list-item swan-doc-trash-item" key={document.id}>
                     <span className="swan-doc-list-title">
-                      <DeleteOutlined />
+                      <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
                       {document.title}
                     </span>
                     <span className="swan-doc-list-excerpt">{document.excerpt || '空白文档'}</span>
@@ -551,7 +551,7 @@ function DocsPageContent() {
                     </span>
                     <Button
                       size="small"
-                      icon={<RestoreOutlined />}
+                      icon={<RotateCcw aria-hidden="true" size={14} strokeWidth={1.8} />}
                       loading={restoringId === document.id}
                       onClick={() => void restoreDocument(document)}
                     >
@@ -571,7 +571,7 @@ function DocsPageContent() {
                     onClick={() => void selectDocument(document.id)}
                   >
                     <span className="swan-doc-list-title">
-                      <FileTextOutlined />
+                      <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
                       {document.title}
                     </span>
                     <span className="swan-doc-list-excerpt">{document.excerpt || '空白文档'}</span>
@@ -599,7 +599,7 @@ function DocsPageContent() {
               <Empty description="新建一篇文档，开始让文字飞起来">
                 <Button
                   type="primary"
-                  icon={<PlusOutlined />}
+                  icon={<Plus aria-hidden="true" size={16} strokeWidth={1.8} />}
                   onClick={() => void createDocument()}
                 >
                   新建文档
@@ -666,7 +666,7 @@ function DocsPageContent() {
                     <Button
                       type="text"
                       danger
-                      icon={<DeleteOutlined />}
+                      icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
                       loading={deleting}
                       disabled={saveState === 'conflict'}
                       aria-label="删除文档"
@@ -712,28 +712,28 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       <Button
         size="small"
         type={editor.isActive('bold') ? 'primary' : 'text'}
-        icon={<BoldOutlined />}
+        icon={<Bold aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="粗体"
         onClick={() => editor.chain().focus().toggleBold().run()}
       />
       <Button
         size="small"
         type={editor.isActive('italic') ? 'primary' : 'text'}
-        icon={<ItalicOutlined />}
+        icon={<Italic aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="斜体"
         onClick={() => editor.chain().focus().toggleItalic().run()}
       />
       <Button
         size="small"
         type={editor.isActive('bulletList') ? 'primary' : 'text'}
-        icon={<UnorderedListOutlined />}
+        icon={<List aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="无序列表"
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       />
       <Button
         size="small"
         type={editor.isActive('orderedList') ? 'primary' : 'text'}
-        icon={<OrderedListOutlined />}
+        icon={<ListOrdered aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="有序列表"
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       />
@@ -747,7 +747,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       <Button
         size="small"
         type={editor.isActive('codeBlock') ? 'primary' : 'text'}
-        icon={<CodeOutlined />}
+        icon={<CodeXml aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="代码块"
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
       />
@@ -755,7 +755,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       <Button
         size="small"
         type="text"
-        icon={<UndoOutlined />}
+        icon={<Undo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="撤销"
         disabled={!editor.can().undo()}
         onClick={() => editor.chain().focus().undo().run()}
@@ -763,7 +763,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       <Button
         size="small"
         type="text"
-        icon={<RedoOutlined />}
+        icon={<Redo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="重做"
         disabled={!editor.can().redo()}
         onClick={() => editor.chain().focus().redo().run()}

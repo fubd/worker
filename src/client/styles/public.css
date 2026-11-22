@@ -597,7 +597,8 @@
   line-height: 1.65;
 }
 
-.swan-login-hint .anticon {
+.swan-login-hint svg {
+  flex: 0 0 auto;
   margin-top: 2px;
   color: var(--public-blue);
 }

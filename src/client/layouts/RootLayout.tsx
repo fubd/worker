@@ -1,15 +1,15 @@
 import { lazy, Suspense, useState } from 'react';
 import { Avatar, Dropdown } from 'antd';
 import {
-  DeleteOutlined,
-  DownOutlined,
-  FileTextOutlined,
-  LockOutlined,
-  LogoutOutlined,
-  MenuFoldOutlined,
-  MenuOutlined,
-  MenuUnfoldOutlined,
-} from '@ant-design/icons';
+  ChevronDown,
+  FileText,
+  LockKeyhole,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Trash2,
+} from 'lucide-react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Link, Navigate, Outlet, useLocation, useMatches, useNavigate } from 'react-router';
 
@@ -18,8 +18,18 @@ import { BrandMark } from '../components/BrandMark';
 import { useAuth } from '../auth/AuthProvider';
 
 const MENU_ITEMS = [
-  { to: '/docs', icon: <FileTextOutlined />, label: '全部文档', view: 'documents' },
-  { to: '/docs?view=trash', icon: <DeleteOutlined />, label: '回收站', view: 'trash' },
+  {
+    to: '/docs',
+    icon: <FileText aria-hidden="true" size={16} strokeWidth={1.8} />,
+    label: '全部文档',
+    view: 'documents',
+  },
+  {
+    to: '/docs?view=trash',
+    icon: <Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />,
+    label: '回收站',
+    view: 'trash',
+  },
 ] as const;
 
 type RouteHandle = { title?: string };
@@ -120,11 +130,15 @@ export default function RootLayout() {
               aria-label={collapsed ? '展开菜单' : '收起菜单'}
               onClick={() => setCollapsed((value) => !value)}
             >
-              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              {collapsed ? (
+                <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.8} />
+              ) : (
+                <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.8} />
+              )}
             </button>
             <details className="swan-mobile-menu">
               <summary className="swan-icon-button" aria-label="打开菜单">
-                <MenuOutlined />
+                <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
               </summary>
               <aside className="swan-mobile-panel">
                 <Logo showText />
@@ -145,7 +159,7 @@ export default function RootLayout() {
                   items: [
                     {
                       key: 'password',
-                      icon: <LockOutlined />,
+                      icon: <LockKeyhole aria-hidden="true" size={16} strokeWidth={1.8} />,
                       label: user.hasPassword ? '修改登录密码' : '设置登录密码',
                     },
                     {
@@ -153,7 +167,7 @@ export default function RootLayout() {
                     },
                     {
                       key: 'logout',
-                      icon: <LogoutOutlined />,
+                      icon: <LogOut aria-hidden="true" size={16} strokeWidth={1.8} />,
                       label: '退出登录',
                     },
                   ],
@@ -171,7 +185,12 @@ export default function RootLayout() {
                     <strong>{user.name}</strong>
                     <small>{user.email}</small>
                   </span>
-                  <DownOutlined className="swan-user-chevron" />
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="swan-user-chevron"
+                    size={14}
+                    strokeWidth={1.8}
+                  />
                 </button>
               </Dropdown>
             ) : null}

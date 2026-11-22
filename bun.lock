@@ -6,13 +6,13 @@
       "name": "swan-worker",
       "dependencies": {
         "@ant-design/cssinjs": "^2.1.2",
-        "@ant-design/icons": "^6.3.4",
         "@tiptap/extension-placeholder": "^3.35.0",
         "@tiptap/react": "^3.35.0",
         "@tiptap/starter-kit": "^3.35.0",
         "@vercel/speed-insights": "^2.1.0",
         "antd": "^6.6.8",
         "hono": "^4.13.14",
+        "lucide-react": "^1.77.0",
         "oauth4webapi": "3.8.9",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
@@ -777,6 +777,8 @@
     "log-symbols": ["log-symbols@4.1.0", "", { "dependencies": { "chalk": "^4.1.0", "is-unicode-supported": "^0.1.0" } }, "sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg=="],
 
     "lru-cache": ["lru-cache@7.18.3", "", {}, "sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA=="],
+
+    "lucide-react": ["lucide-react@1.77.0", "", { "peerDependencies": { "@types/react": "*", "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-VS6sOi8ZUH1qm6swBL/tpI4xAhB6pFTdHvw3pfCJD+DaTJwpyynVzfOS6mdyMZ+OCdY/GMSQbqinOMOPbNSrQA=="],
 
     "magic-string": ["magic-string@1.4.5", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.6.0" } }, "sha512-oLLC2+YvQUfAa+vxoufE/yc1icb87M9iXIRqAoR/2EhE/8cb3SF/+Gi0c2By1B+5Vz2e2vQtUvHiu1+63Znh+w=="],
 

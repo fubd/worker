@@ -1,5 +1,5 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { ArrowRight } from 'lucide-react';
 
 import { BRAND } from '@/shared/brand';
 import { useAuth } from '../auth/AuthProvider';
@@ -78,7 +78,7 @@ export default function HomePage() {
             <div className="swan-home-actions">
               <a className="swan-public-button is-primary" href={primaryPath}>
                 {primaryLabel}
-                <ArrowRightOutlined />
+                <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
               </a>
               <a className="swan-public-button is-secondary" href="#about-yuyan">
                 看看雨燕
