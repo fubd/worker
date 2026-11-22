@@ -1,4 +1,6 @@
 PUBLIC_ORIGIN=http://localhost:3000
 GOOGLE_ID=replace-with-google-oauth-client-id
 GOOGLE_SECRET=replace-with-google-oauth-client-secret
+GITHUB_ID=replace-with-github-oauth-client-id
+GITHUB_SECRET=replace-with-github-oauth-client-secret
 OWNER_EMAIL=you@example.com

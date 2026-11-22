@@ -9,7 +9,10 @@ export interface Env {
   /** Google OAuth 客户端 */
   GOOGLE_ID?: string;
   GOOGLE_SECRET?: string;
-  /** M1 只允许这一个 Google 邮箱登录 */
+  /** GitHub OAuth App */
+  GITHUB_ID?: string;
+  GITHUB_SECRET?: string;
+  /** 只允许这个已验证邮箱对应的账号登录 */
   OWNER_EMAIL?: string;
   /** 环境标识，可在 wrangler.jsonc 的 vars 里覆盖 */
   ENVIRONMENT?: string;

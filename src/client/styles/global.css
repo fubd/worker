@@ -361,6 +361,17 @@ body {
   background: var(--swan-brand-fill);
 }
 
+.swan-auth-actions {
+  display: flex;
+  width: min(100%, 320px);
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swan-auth-actions .ant-btn {
+  width: 100%;
+}
+
 .swan-docs {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

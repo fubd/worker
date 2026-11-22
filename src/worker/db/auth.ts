@@ -2,7 +2,6 @@ import type { AuthUser } from '../../shared/types';
 
 interface UserRow {
   id: number;
-  google_sub: string;
   email: string;
   display_name: string;
   avatar_url: string;
@@ -12,8 +11,9 @@ interface SessionUserRow extends UserRow {
   expires_at: string;
 }
 
-export interface GoogleIdentity {
-  googleSub: string;
+export interface ExternalIdentity {
+  provider: 'google' | 'github';
+  providerSub: string;
   email: string;
   name: string;
   avatarUrl: string;
@@ -28,26 +28,37 @@ function toAuthUser(row: UserRow): AuthUser {
   };
 }
 
-export async function upsertGoogleUser(
+export async function upsertExternalUser(
   db: D1Database,
-  identity: GoogleIdentity,
+  identity: ExternalIdentity,
 ): Promise<AuthUser> {
-  const row = await db
+  const user = await db
     .prepare(
-      `INSERT INTO users (google_sub, email, display_name, avatar_url)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(google_sub) DO UPDATE SET
-         email = excluded.email,
+      `INSERT INTO users (email, display_name, avatar_url)
+       VALUES (?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET
          display_name = excluded.display_name,
          avatar_url = excluded.avatar_url,
          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       RETURNING id, google_sub, email, display_name, avatar_url`,
+       RETURNING id, email, display_name, avatar_url`,
     )
-    .bind(identity.googleSub, identity.email, identity.name, identity.avatarUrl)
+    .bind(identity.email, identity.name, identity.avatarUrl)
     .first<UserRow>();
 
-  if (!row) throw new Error('Failed to upsert Google user');
-  return toAuthUser(row);
+  if (!user) throw new Error('Failed to upsert user');
+
+  await db
+    .prepare(
+      `INSERT INTO user_identities (provider, provider_sub, user_id)
+       VALUES (?, ?, ?)
+       ON CONFLICT(provider, provider_sub) DO UPDATE SET
+         user_id = excluded.user_id,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+    )
+    .bind(identity.provider, identity.providerSub, user.id)
+    .run();
+
+  return toAuthUser(user);
 }
 
 export async function claimOwnerlessDocuments(db: D1Database, ownerId: number): Promise<number> {
@@ -79,7 +90,7 @@ export async function getUserBySession(
 ): Promise<AuthUser | null> {
   const row = await db
     .prepare(
-      `SELECT u.id, u.google_sub, u.email, u.display_name, u.avatar_url, s.expires_at
+      `SELECT u.id, u.email, u.display_name, u.avatar_url, s.expires_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ?`,

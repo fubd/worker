@@ -4,7 +4,7 @@
 
 雨燕是一个轻量的个人知识库。当前 M1 的目标是先把“私人、安全、可恢复”做完整：
 
-- Google OAuth 登录
+- Google、GitHub OAuth 登录
 - 单账号邮箱白名单
 - 文档按 owner 隔离
 - 自动保存版本冲突检测
@@ -45,6 +45,8 @@ http://localhost:3000/docs
 PUBLIC_ORIGIN=http://localhost:3000
 GOOGLE_ID=...
 GOOGLE_SECRET=...
+GITHUB_ID=...
+GITHUB_SECRET=...
 OWNER_EMAIL=...
 ```
 
@@ -53,14 +55,18 @@ OWNER_EMAIL=...
 ```bash
 bunx wrangler secret put GOOGLE_ID
 bunx wrangler secret put GOOGLE_SECRET
+bunx wrangler secret put GITHUB_ID
+bunx wrangler secret put GITHUB_SECRET
 bunx wrangler secret put OWNER_EMAIL
 ```
 
-Google OAuth 授权回调地址：
+OAuth 授权回调地址：
 
 ```text
 http://localhost:3000/api/auth/google
 https://deephos.com/api/auth/google
+http://localhost:3000/api/auth/github
+https://deephos.com/api/auth/github
 ```
 
 ## 常用命令
@@ -94,11 +100,12 @@ Browser
 src/client/auth/AuthProvider.tsx    前端登录状态
 src/client/pages/DocsPage.tsx       文档列表、编辑器、冲突和回收站
 src/worker/auth/session.ts          服务端会话 Cookie
-src/worker/routes/auth.ts           Google OAuth
+src/worker/routes/auth.ts           Google、GitHub OAuth
 src/worker/routes/documents.ts      文档 API 与 owner 校验
 src/worker/db/auth.ts               用户与会话数据访问
 src/worker/db/documents.ts          文档数据访问
 migrations/0004_auth_and_document_safety.sql
+migrations/0005_multi_provider_auth.sql
 ```
 
 ## 数据安全
@@ -106,6 +113,7 @@ migrations/0004_auth_and_document_safety.sql
 - 浏览器只持有随机会话令牌；D1 只保存令牌的 SHA-256 摘要。
 - Cookie 使用 `HttpOnly`、`SameSite=Lax`，线上启用 `Secure`。
 - Google OAuth 使用 state、PKCE、ID Token 和 UserInfo subject 校验。
+- GitHub OAuth 使用 state、PKCE、GitHub 用户 ID 和已验证邮箱校验。
 - 文档的读取、更新、删除和恢复都同时匹配 `id`、`owner_id` 和软删除状态。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。
 - 其他用户的文档统一返回 `404`。

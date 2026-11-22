@@ -6,7 +6,7 @@
   },
   {
     "name": "docs route",
-    "path": "dist/vercel/static/js/async/m.*.mjs",
+    "path": "dist/vercel/static/js/async/*.mjs",
     "limit": "190 kB"
   },
   {

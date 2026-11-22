@@ -2,7 +2,12 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import * as oauth from 'oauth4webapi';
 
-import { createSession, claimOwnerlessDocuments, upsertGoogleUser } from '../db/auth';
+import {
+  claimOwnerlessDocuments,
+  createSession,
+  upsertExternalUser,
+  type ExternalIdentity,
+} from '../db/auth';
 import {
   clearSessionCookie,
   createSessionToken,
@@ -16,8 +21,6 @@ import type { AppEnv } from '../types';
 
 export const authRoutes = new Hono<AppEnv>();
 
-const OAUTH_STATE_COOKIE = 'yuyan_oauth_state';
-const OAUTH_VERIFIER_COOKIE = 'yuyan_oauth_verifier';
 const OAUTH_COOKIE_MAX_AGE = 10 * 60;
 
 const googleAuthorizationServer: oauth.AuthorizationServer = {
@@ -28,6 +31,15 @@ const googleAuthorizationServer: oauth.AuthorizationServer = {
   userinfo_endpoint: 'https://openidconnect.googleapis.com/v1/userinfo',
   code_challenge_methods_supported: ['S256'],
 };
+
+const githubAuthorizationServer: oauth.AuthorizationServer = {
+  issuer: 'https://github.com',
+  authorization_endpoint: 'https://github.com/login/oauth/authorize',
+  token_endpoint: 'https://github.com/login/oauth/access_token',
+  code_challenge_methods_supported: ['S256'],
+};
+
+type LoginProvider = 'google' | 'github';
 
 function publicOrigin(c: Context<AppEnv>): string {
   return (c.env.PUBLIC_ORIGIN ?? new URL(c.req.url).origin).replace(/\/$/, '');
@@ -43,92 +55,207 @@ function oauthCookieOptions(c: Context<AppEnv>) {
   };
 }
 
-function clearOAuthCookies(c: Context<AppEnv>): void {
-  const { secure, path } = oauthCookieOptions(c);
-  deleteCookie(c, OAUTH_STATE_COOKIE, { path, secure });
-  deleteCookie(c, OAUTH_VERIFIER_COOKIE, { path, secure });
+function oauthCookies(provider: LoginProvider) {
+  return {
+    state: `yuyan_oauth_${provider}_state`,
+    verifier: `yuyan_oauth_${provider}_verifier`,
+  };
 }
 
-function redirectToDocs(c: Context<AppEnv>, authError?: string) {
+function clearOAuthCookies(c: Context<AppEnv>, provider: LoginProvider): void {
+  const { secure, path } = oauthCookieOptions(c);
+  const cookies = oauthCookies(provider);
+  deleteCookie(c, cookies.state, { path, secure });
+  deleteCookie(c, cookies.verifier, { path, secure });
+}
+
+function redirectToDocs(c: Context<AppEnv>, authError?: string): Response {
   const url = new URL('/docs', publicOrigin(c));
   if (authError) url.searchParams.set('auth', authError);
   return c.redirect(url.toString());
 }
 
-authRoutes.get('/google', async (c) => {
-  if (!c.env.GOOGLE_ID || !c.env.GOOGLE_SECRET || !c.env.OWNER_EMAIL) {
-    clearOAuthCookies(c);
-    return redirectToDocs(c, 'unavailable');
-  }
-
+function readOAuthError(c: Context<AppEnv>, provider: LoginProvider): Response | null {
   const callbackUrl = new URL(c.req.url);
   const oauthError = callbackUrl.searchParams.get('error');
-  if (oauthError) {
-    clearOAuthCookies(c);
-    return redirectToDocs(c, oauthError === 'access_denied' ? 'cancelled' : 'unavailable');
+  if (!oauthError) return null;
+
+  clearOAuthCookies(c, provider);
+  return redirectToDocs(c, oauthError === 'access_denied' ? 'cancelled' : 'unavailable');
+}
+
+async function beginOAuth(
+  c: Context<AppEnv>,
+  provider: LoginProvider,
+  clientId: string,
+  authorizationServer: oauth.AuthorizationServer,
+  scope: string,
+  extraParameters: Record<string, string> = {},
+): Promise<Response> {
+  const client: oauth.Client = { client_id: clientId };
+  const state = oauth.generateRandomState();
+  const codeVerifier = oauth.generateRandomCodeVerifier();
+  const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier);
+  const authorizationUrl = new URL(authorizationServer.authorization_endpoint!);
+  authorizationUrl.searchParams.set('client_id', client.client_id);
+  authorizationUrl.searchParams.set('redirect_uri', `${publicOrigin(c)}/api/auth/${provider}`);
+  authorizationUrl.searchParams.set('response_type', 'code');
+  authorizationUrl.searchParams.set('scope', scope);
+  authorizationUrl.searchParams.set('state', state);
+  authorizationUrl.searchParams.set('code_challenge', codeChallenge);
+  authorizationUrl.searchParams.set('code_challenge_method', 'S256');
+  for (const [key, value] of Object.entries(extraParameters)) {
+    authorizationUrl.searchParams.set(key, value);
   }
 
-  const client: oauth.Client = { client_id: c.env.GOOGLE_ID };
-  const redirectUri = `${publicOrigin(c)}/api/auth/google`;
-  const clientAuth = oauth.ClientSecretPost(c.env.GOOGLE_SECRET);
+  const cookies = oauthCookies(provider);
+  const cookieOptions = oauthCookieOptions(c);
+  setCookie(c, cookies.state, state, cookieOptions);
+  setCookie(c, cookies.verifier, codeVerifier, cookieOptions);
+  return c.redirect(authorizationUrl.toString());
+}
 
-  if (!callbackUrl.searchParams.has('code')) {
-    const state = oauth.generateRandomState();
-    const codeVerifier = oauth.generateRandomCodeVerifier();
-    const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier);
-    const authorizationUrl = new URL(googleAuthorizationServer.authorization_endpoint!);
-    authorizationUrl.searchParams.set('client_id', client.client_id);
-    authorizationUrl.searchParams.set('redirect_uri', redirectUri);
-    authorizationUrl.searchParams.set('response_type', 'code');
-    authorizationUrl.searchParams.set('scope', 'openid email profile');
-    authorizationUrl.searchParams.set('state', state);
-    authorizationUrl.searchParams.set('code_challenge', codeChallenge);
-    authorizationUrl.searchParams.set('code_challenge_method', 'S256');
-    authorizationUrl.searchParams.set('prompt', 'select_account');
+async function exchangeOAuthCode(
+  c: Context<AppEnv>,
+  provider: LoginProvider,
+  clientId: string,
+  clientSecret: string,
+  authorizationServer: oauth.AuthorizationServer,
+  requireIdToken = false,
+): Promise<oauth.TokenEndpointResponse | null> {
+  const callbackUrl = new URL(c.req.url);
+  const client: oauth.Client = { client_id: clientId };
+  const redirectUri = `${publicOrigin(c)}/api/auth/${provider}`;
+  const clientAuth = oauth.ClientSecretPost(clientSecret);
+  const cookies = oauthCookies(provider);
+  const storedState = getCookie(c, cookies.state);
+  const codeVerifier = getCookie(c, cookies.verifier);
+  clearOAuthCookies(c, provider);
 
-    const cookieOptions = oauthCookieOptions(c);
-    setCookie(c, OAUTH_STATE_COOKIE, state, cookieOptions);
-    setCookie(c, OAUTH_VERIFIER_COOKIE, codeVerifier, cookieOptions);
-    return c.redirect(authorizationUrl.toString());
-  }
+  if (!storedState || !codeVerifier) return null;
 
-  const storedState = getCookie(c, OAUTH_STATE_COOKIE);
-  const codeVerifier = getCookie(c, OAUTH_VERIFIER_COOKIE);
-  clearOAuthCookies(c);
-
-  if (!storedState || !codeVerifier) {
-    return redirectToDocs(c, 'denied');
-  }
-
-  let callbackParameters: URLSearchParams;
   try {
-    callbackParameters = oauth.validateAuthResponse(
-      googleAuthorizationServer,
+    const callbackParameters = oauth.validateAuthResponse(
+      authorizationServer,
       client,
       callbackUrl,
       storedState,
     );
-  } catch {
-    return redirectToDocs(c, 'denied');
-  }
-
-  try {
     const tokenResponse = await oauth.authorizationCodeGrantRequest(
-      googleAuthorizationServer,
+      authorizationServer,
       client,
       clientAuth,
       callbackParameters,
       redirectUri,
       codeVerifier,
     );
-    const tokens = await oauth.processAuthorizationCodeResponse(
-      googleAuthorizationServer,
+    return await oauth.processAuthorizationCodeResponse(
+      authorizationServer,
       client,
       tokenResponse,
-      { requireIdToken: true },
+      requireIdToken ? { requireIdToken: true } : undefined,
     );
+  } catch (error) {
+    console.error(`[auth] ${provider} token exchange failed:`, error);
+    return null;
+  }
+}
+
+async function completeLogin(c: Context<AppEnv>, identity: ExternalIdentity): Promise<Response> {
+  const user = await upsertExternalUser(c.env.DB, identity);
+  await claimOwnerlessDocuments(c.env.DB, user.id);
+
+  const token = createSessionToken();
+  await createSession(c.env.DB, await hashSessionToken(token), user.id, sessionExpiresAt());
+  setSessionCookie(c, token);
+  return redirectToDocs(c);
+}
+
+async function loadGithubIdentity(
+  accessToken: string,
+  ownerEmail: string,
+): Promise<ExternalIdentity | null> {
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${accessToken}`,
+    'User-Agent': 'yuyan',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  const [userResponse, emailsResponse] = await Promise.all([
+    fetch('https://api.github.com/user', { headers }),
+    fetch('https://api.github.com/user/emails', { headers }),
+  ]);
+  if (!userResponse.ok || !emailsResponse.ok) {
+    throw new Error(
+      `GitHub API failed (user=${userResponse.status}, emails=${emailsResponse.status})`,
+    );
+  }
+
+  const githubUser = (await userResponse.json()) as {
+    id?: number;
+    login?: string;
+    name?: string | null;
+    avatar_url?: string | null;
+  };
+  const emails = (await emailsResponse.json()) as Array<{
+    email?: string;
+    verified?: boolean;
+  }>;
+  const email = emails
+    .find(
+      (candidate) =>
+        candidate.verified === true && candidate.email?.trim().toLowerCase() === ownerEmail,
+    )
+    ?.email?.trim()
+    .toLowerCase();
+
+  if (!githubUser.id || !githubUser.login || !email) return null;
+
+  return {
+    provider: 'github',
+    providerSub: String(githubUser.id),
+    email,
+    name: githubUser.name?.trim() || githubUser.login,
+    avatarUrl: githubUser.avatar_url ?? '',
+  };
+}
+
+authRoutes.get('/google', async (c) => {
+  if (!c.env.GOOGLE_ID || !c.env.GOOGLE_SECRET || !c.env.OWNER_EMAIL) {
+    clearOAuthCookies(c, 'google');
+    return redirectToDocs(c, 'unavailable');
+  }
+
+  const oauthError = readOAuthError(c, 'google');
+  if (oauthError) return oauthError;
+
+  const callbackUrl = new URL(c.req.url);
+  if (!callbackUrl.searchParams.has('code')) {
+    return beginOAuth(
+      c,
+      'google',
+      c.env.GOOGLE_ID,
+      googleAuthorizationServer,
+      'openid email profile',
+      { prompt: 'select_account' },
+    );
+  }
+
+  try {
+    const tokens = await exchangeOAuthCode(
+      c,
+      'google',
+      c.env.GOOGLE_ID,
+      c.env.GOOGLE_SECRET,
+      googleAuthorizationServer,
+      true,
+    );
+    if (!tokens) return redirectToDocs(c, 'denied');
+
     const idTokenClaims = oauth.getValidatedIdTokenClaims(tokens);
     if (!idTokenClaims?.sub) throw new Error('Google response is missing the ID token subject');
+
+    const client: oauth.Client = { client_id: c.env.GOOGLE_ID };
     const userInfoResponse = await oauth.userInfoRequest(
       googleAuthorizationServer,
       client,
@@ -147,22 +274,56 @@ authRoutes.get('/google', async (c) => {
       return redirectToDocs(c, 'denied');
     }
 
-    const user = await upsertGoogleUser(c.env.DB, {
-      googleSub: googleUser.sub,
+    return completeLogin(c, {
+      provider: 'google',
+      providerSub: googleUser.sub,
       email,
       name: googleUser.name?.trim() || email,
       avatarUrl: googleUser.picture ?? '',
     });
-
-    await claimOwnerlessDocuments(c.env.DB, user.id);
-
-    const token = createSessionToken();
-    await createSession(c.env.DB, await hashSessionToken(token), user.id, sessionExpiresAt());
-    setSessionCookie(c, token);
-
-    return redirectToDocs(c);
   } catch (error) {
     console.error('[auth] Google OAuth callback failed:', error);
+    return redirectToDocs(c, 'unavailable');
+  }
+});
+
+authRoutes.get('/github', async (c) => {
+  if (!c.env.GITHUB_ID || !c.env.GITHUB_SECRET || !c.env.OWNER_EMAIL) {
+    clearOAuthCookies(c, 'github');
+    return redirectToDocs(c, 'unavailable');
+  }
+
+  const oauthError = readOAuthError(c, 'github');
+  if (oauthError) return oauthError;
+
+  const callbackUrl = new URL(c.req.url);
+  if (!callbackUrl.searchParams.has('code')) {
+    return beginOAuth(
+      c,
+      'github',
+      c.env.GITHUB_ID,
+      githubAuthorizationServer,
+      'read:user user:email',
+      { allow_signup: 'false' },
+    );
+  }
+
+  try {
+    const tokens = await exchangeOAuthCode(
+      c,
+      'github',
+      c.env.GITHUB_ID,
+      c.env.GITHUB_SECRET,
+      githubAuthorizationServer,
+    );
+    if (!tokens) return redirectToDocs(c, 'denied');
+
+    const ownerEmail = c.env.OWNER_EMAIL.trim().toLowerCase();
+    const identity = await loadGithubIdentity(tokens.access_token, ownerEmail);
+    if (!identity) return redirectToDocs(c, 'denied');
+    return completeLogin(c, identity);
+  } catch (error) {
+    console.error('[auth] GitHub OAuth callback failed:', error);
     return redirectToDocs(c, 'unavailable');
   }
 });

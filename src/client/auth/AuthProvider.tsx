@@ -5,11 +5,12 @@ import { api, ApiError } from '../api/client';
 import type { AuthUser } from '@/shared/types';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+type LoginProvider = 'google' | 'github';
 
 interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
-  signIn: () => void;
+  signIn: (provider: LoginProvider) => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   markUnauthenticated: () => void;
@@ -40,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const signIn = useCallback(() => {
-    window.location.assign('/api/auth/google');
+  const signIn = useCallback((provider: LoginProvider) => {
+    window.location.assign(`/api/auth/${provider}`);
   }, []);
 
   const signOut = useCallback(async () => {

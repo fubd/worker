@@ -5,6 +5,7 @@ import {
   CodeOutlined,
   DeleteOutlined,
   FileTextOutlined,
+  GithubOutlined,
   GoogleOutlined,
   ItalicOutlined,
   OrderedListOutlined,
@@ -70,7 +71,7 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function authErrorMessage(value: string | null): string | null {
-  if (value === 'denied') return '这个 Google 账号不在雨燕的允许名单中。';
+  if (value === 'denied') return '这个账号不在雨燕的允许名单中。';
   if (value === 'cancelled') return '登录已取消，你可以重新尝试。';
   if (value === 'unavailable') return '登录服务还没有配置完成，请稍后重试。';
   return null;
@@ -494,9 +495,19 @@ function DocsPageContent() {
           你的文档是私有的。M1 阶段只允许雨燕的所有者账号登录。
         </Typography.Paragraph>
         {authNotice && <Alert type="warning" showIcon title={authNotice} />}
-        <Button type="primary" size="large" icon={<GoogleOutlined />} onClick={signIn}>
-          使用 Google 登录
-        </Button>
+        <div className="swan-auth-actions">
+          <Button
+            type="primary"
+            size="large"
+            icon={<GoogleOutlined />}
+            onClick={() => signIn('google')}
+          >
+            使用 Google 登录
+          </Button>
+          <Button size="large" icon={<GithubOutlined />} onClick={() => signIn('github')}>
+            使用 GitHub 登录
+          </Button>
+        </div>
       </section>
     );
   }

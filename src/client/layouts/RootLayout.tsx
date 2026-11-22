@@ -4,6 +4,8 @@ import {
   DeleteOutlined,
   DownOutlined,
   FileTextOutlined,
+  GithubOutlined,
+  GoogleOutlined,
   LoginOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -154,9 +156,26 @@ export default function RootLayout() {
                 </button>
               </Dropdown>
             ) : (
-              <Button icon={<LoginOutlined />} onClick={signIn}>
-                登录
-              </Button>
+              <Dropdown
+                trigger={['click']}
+                menu={{
+                  items: [
+                    {
+                      key: 'google',
+                      icon: <GoogleOutlined />,
+                      label: '使用 Google 登录',
+                    },
+                    {
+                      key: 'github',
+                      icon: <GithubOutlined />,
+                      label: '使用 GitHub 登录',
+                    },
+                  ],
+                  onClick: ({ key }) => signIn(key as 'google' | 'github'),
+                }}
+              >
+                <Button icon={<LoginOutlined />}>登录</Button>
+              </Dropdown>
             )}
           </div>
         </header>
