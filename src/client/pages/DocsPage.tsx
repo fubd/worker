@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Input, Spin, Tooltip } from 'antd';
+import { App, Alert, Button, Dropdown, Input, Spin } from 'antd';
 import {
   Bold,
   ChevronRight,
@@ -154,7 +154,6 @@ function DocsPageContent() {
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
-  const [folderSelectOverflowing, setFolderSelectOverflowing] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -952,49 +951,53 @@ function DocsPageContent() {
                 <div className="swan-editor-submeta">
                   <span>更改会自动保存</span>
                   <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
-                  <Tooltip
-                    title={folderSelectOverflowing ? activeFolderName : undefined}
-                    placement="topLeft"
-                    mouseEnterDelay={0.2}
-                    classNames={{ root: 'swan-overflow-tooltip' }}
-                    styles={{
-                      container: {
-                        maxWidth: 360,
-                        overflowWrap: 'anywhere',
-                        whiteSpace: 'normal',
+                  <Dropdown
+                    trigger={['click']}
+                    placement="bottomRight"
+                    disabled={moving}
+                    menu={{
+                      selectable: true,
+                      selectedKeys: [
+                        activeDocument.folderId === null ? 'none' : String(activeDocument.folderId),
+                      ],
+                      items: [
+                        {
+                          key: 'none',
+                          icon: <Folder aria-hidden="true" size={14} strokeWidth={1.8} />,
+                          label: '未归档',
+                        },
+                        ...folders.map((folder) => ({
+                          key: String(folder.id),
+                          icon: <Folder aria-hidden="true" size={14} strokeWidth={1.8} />,
+                          label: (
+                            <OverflowText
+                              text={folder.name}
+                              className="swan-folder-dropdown-label"
+                            />
+                          ),
+                        })),
+                      ],
+                      onClick: ({ key }) => {
+                        void moveDocument(activeDocument, key === 'none' ? null : Number(key));
                       },
                     }}
                   >
-                    <label className="swan-doc-folder-select">
+                    <button
+                      type="button"
+                      className="swan-doc-folder-select"
+                      aria-label={`文档文件夹：${activeFolderName}`}
+                      aria-haspopup="menu"
+                      disabled={moving}
+                    >
                       <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
-                      <span className="swan-sr-only">文档文件夹</span>
                       <span className="swan-doc-folder-select-value">
                         <OverflowText
                           text={activeFolderName}
                           className="swan-doc-folder-select-label"
-                          onOverflowChange={setFolderSelectOverflowing}
                         />
-                        <select
-                          value={activeDocument.folderId ?? ''}
-                          disabled={moving}
-                          aria-label="文档文件夹"
-                          onChange={(event) =>
-                            void moveDocument(
-                              activeDocument,
-                              event.target.value ? Number(event.target.value) : null,
-                            )
-                          }
-                        >
-                          <option value="">未归档</option>
-                          {folders.map((folder) => (
-                            <option key={folder.id} value={folder.id}>
-                              {folder.name}
-                            </option>
-                          ))}
-                        </select>
                       </span>
-                    </label>
-                  </Tooltip>
+                    </button>
+                  </Dropdown>
                 </div>
 
                 <EditorToolbar editor={editor} />

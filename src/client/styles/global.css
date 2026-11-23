@@ -893,8 +893,13 @@ input {
   margin-left: auto;
   align-items: center;
   gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--swan-text-muted);
   cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .swan-doc-folder-select-value {
@@ -902,27 +907,15 @@ input {
   display: block;
   width: 150px;
   min-width: 0;
-}
-
-.swan-doc-folder-select-label {
-  width: 100%;
   padding: 3px 20px 3px 5px;
   border: 1px solid transparent;
   border-radius: 5px;
   color: var(--swan-text-soft);
   line-height: 1.5;
-  pointer-events: none;
 }
 
-.swan-doc-folder-select select {
-  position: absolute;
-  inset: 0;
+.swan-doc-folder-select-label {
   width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .swan-doc-folder-select::after {
@@ -939,15 +932,20 @@ input {
   transform: translateY(-25%);
 }
 
-.swan-doc-folder-select:hover .swan-doc-folder-select-label,
-.swan-doc-folder-select:focus-within .swan-doc-folder-select-label {
+.swan-doc-folder-select:hover .swan-doc-folder-select-value,
+.swan-doc-folder-select:focus-visible .swan-doc-folder-select-value,
+.swan-doc-folder-select.ant-dropdown-open .swan-doc-folder-select-value {
   border-color: #d7dbde;
   background-color: #f7f8f8;
 }
 
-.swan-doc-folder-select:has(select:disabled) {
+.swan-doc-folder-select:disabled {
   cursor: wait;
   opacity: 0.6;
+}
+
+.swan-folder-dropdown-label {
+  max-width: 220px;
 }
 
 .swan-editor-toolbar {
