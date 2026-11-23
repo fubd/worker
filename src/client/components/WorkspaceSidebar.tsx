@@ -20,6 +20,7 @@ import { Link } from 'react-router';
 import { BRAND } from '@/shared/brand';
 import type { AuthUser, DocumentSummary, FolderSummary } from '@/shared/types';
 import { BrandMark } from './BrandMark';
+import { OverflowText } from './OverflowText';
 import {
   formatUpdatedAt,
   type DocumentView,
@@ -81,6 +82,16 @@ export function WorkspaceSidebar({
   const linkedProviders = user.linkedProviders;
   const searchRef = useRef<HTMLInputElement>(null);
   const hasSearch = searchValue.trim().length > 0;
+  const sectionTitle =
+    view === 'trash'
+      ? '已删除'
+      : hasSearch
+        ? '搜索结果'
+        : folderScope === 'all'
+          ? '最近编辑'
+          : folderScope === 'unfiled'
+            ? '未归档'
+            : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -188,7 +199,7 @@ export function WorkspaceSidebar({
                 onClick={() => onFolderSelect(folder.id)}
               >
                 <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
-                <span>{folder.name}</span>
+                <OverflowText text={folder.name} />
                 <small>{folder.documentCount}</small>
               </button>
               <button
@@ -205,17 +216,7 @@ export function WorkspaceSidebar({
       )}
 
       <div className="swan-sidebar-section-head">
-        <span>
-          {view === 'trash'
-            ? '已删除'
-            : hasSearch
-              ? '搜索结果'
-              : folderScope === 'all'
-                ? '最近编辑'
-                : folderScope === 'unfiled'
-                  ? '未归档'
-                  : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹')}
-        </span>
+        <OverflowText text={sectionTitle} className="swan-sidebar-section-title" />
         <span className="swan-sidebar-section-actions">
           <span className="swan-sidebar-count">{String(documents.length).padStart(2, '0')}</span>
           {view === 'documents' && (
@@ -245,7 +246,7 @@ export function WorkspaceSidebar({
           documents.map((document) =>
             view === 'trash' ? (
               <div className="swan-sidebar-doc is-trash" key={document.id}>
-                <strong>{document.title}</strong>
+                <OverflowText text={document.title} className="swan-sidebar-doc-title" />
                 <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
                 <span className="swan-sidebar-doc-time">
                   删除于 {formatUpdatedAt(document.deletedAt ?? document.updatedAt)}
@@ -270,7 +271,7 @@ export function WorkspaceSidebar({
                 onClick={() => onSelect(document.id)}
               >
                 <span className="swan-sidebar-doc-title-row">
-                  <strong>{document.title}</strong>
+                  <OverflowText text={document.title} className="swan-sidebar-doc-title" />
                   <time>{formatUpdatedAt(document.updatedAt)}</time>
                 </span>
                 <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>

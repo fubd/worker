@@ -23,6 +23,7 @@ import { Navigate, useOutletContext, useSearchParams } from 'react-router';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
+import { OverflowText } from '../components/OverflowText';
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
 import type { WorkspaceOutletContext } from '../layouts/workspace-context';
 import {
@@ -160,8 +161,10 @@ function DocsPageContent() {
   const revisionRef = useRef(0);
   const savedRevisionRef = useRef(0);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
+  const setSearchParamsRef = useRef(setSearchParams);
 
   activeIdRef.current = activeId;
+  setSearchParamsRef.current = setSearchParams;
 
   const markDirty = useCallback(() => {
     revisionRef.current += 1;
@@ -272,7 +275,7 @@ function DocsPageContent() {
         if (view !== 'documents') return;
         if (searchQuery) return;
 
-        setSearchParams(
+        setSearchParamsRef.current(
           (current) => {
             const requestedId = parseDocumentId(current.get('id'));
             if (requestedId && items.some((item) => item.id === requestedId)) return current;
@@ -297,7 +300,7 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [folderScope, listRevision, markUnauthenticated, searchQuery, setSearchParams, status, view]);
+  }, [folderScope, listRevision, markUnauthenticated, searchQuery, status, view]);
 
   useEffect(() => {
     if (status !== 'authenticated' || view !== 'documents' || !activeId) {
@@ -694,6 +697,13 @@ function DocsPageContent() {
     typeof folderScope === 'number'
       ? folders.find((folder) => folder.id === folderScope)
       : undefined;
+  const breadcrumbFolder = searchQuery
+    ? `搜索：${searchQuery}`
+    : (selectedFolder?.name ?? (folderScope === 'unfiled' ? '未归档' : '私人笔记'));
+  const activeFolderName =
+    activeDocument?.folderId == null
+      ? '未归档'
+      : (folders.find((folder) => folder.id === activeDocument.folderId)?.name ?? '文件夹');
 
   return (
     <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
@@ -759,16 +769,13 @@ function DocsPageContent() {
               <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
             </button>
             <nav className="swan-editor-breadcrumb" aria-label="当前位置">
-              <span>{view === 'trash' ? '回收站' : '全部文档'}</span>
+              <span className="swan-editor-breadcrumb-root">
+                {view === 'trash' ? '回收站' : '全部文档'}
+              </span>
               {view === 'documents' && (
                 <>
                   <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-                  <strong>
-                    {searchQuery
-                      ? `搜索：${searchQuery}`
-                      : (selectedFolder?.name ??
-                        (folderScope === 'unfiled' ? '未归档' : '私人笔记'))}
-                  </strong>
+                  <OverflowText text={breadcrumbFolder} className="swan-editor-breadcrumb-folder" />
                 </>
               )}
             </nav>
@@ -902,6 +909,7 @@ function DocsPageContent() {
                       value={activeDocument.folderId ?? ''}
                       disabled={moving}
                       aria-label="文档文件夹"
+                      title={activeFolderName}
                       onChange={(event) =>
                         void moveActiveDocument(
                           event.target.value ? Number(event.target.value) : null,

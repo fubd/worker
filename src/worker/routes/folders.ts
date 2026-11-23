@@ -6,7 +6,7 @@ import type { AppEnv } from '../types';
 
 export const folderRoutes = new Hono<AppEnv>();
 
-const MAX_FOLDER_NAME_LENGTH = 60;
+const MAX_FOLDER_NAME_LENGTH = 30;
 
 folderRoutes.use('*', requireAuth);
 
@@ -30,7 +30,7 @@ folderRoutes.get('/', async (c) => {
 folderRoutes.post('/', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
   const name = normalizeName(body.name);
-  if (!name) return c.json({ error: '文件夹名称需在 1~60 个字符之间' }, 400);
+  if (!name) return c.json({ error: '文件夹名称需在 1~30 个字符之间' }, 400);
 
   const folder = await wrapTime(c, 'db', repo.createFolder(c.env.DB, c.get('user').id, name));
   if (!folder) return c.json({ error: '已经有同名文件夹' }, 409);
@@ -43,7 +43,7 @@ folderRoutes.patch('/:id', async (c) => {
 
   const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
   const name = normalizeName(body.name);
-  if (!name) return c.json({ error: '文件夹名称需在 1~60 个字符之间' }, 400);
+  if (!name) return c.json({ error: '文件夹名称需在 1~30 个字符之间' }, 400);
 
   const result = await wrapTime(c, 'db', repo.renameFolder(c.env.DB, c.get('user').id, id, name));
   if (result.kind === 'not_found') return c.json({ error: '文件夹不存在' }, 404);

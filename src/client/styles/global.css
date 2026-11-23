@@ -44,6 +44,14 @@ input {
   font: inherit;
 }
 
+.swan-overflow-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- 鉴权过渡 ---------- */
 .swan-workspace-loading {
   display: flex;
@@ -223,6 +231,7 @@ input {
 
 .swan-sidebar-section-head {
   display: flex;
+  min-width: 0;
   margin: 24px 8px 8px;
   align-items: center;
   justify-content: space-between;
@@ -233,8 +242,13 @@ input {
   text-transform: uppercase;
 }
 
+.swan-sidebar-section-title {
+  flex: 1;
+}
+
 .swan-sidebar-section-actions {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 4px;
 }
@@ -407,16 +421,14 @@ input {
   gap: 10px;
 }
 
-.swan-sidebar-doc strong {
-  overflow: hidden;
+.swan-sidebar-doc-title {
+  flex: 1;
   color: #27313c;
   font-size: 13px;
   font-weight: 620;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.swan-sidebar-doc.is-selected strong {
+.swan-sidebar-doc.is-selected .swan-sidebar-doc-title {
   color: #1c2632;
 }
 
@@ -538,6 +550,7 @@ input {
 
 .swan-workspace-location {
   display: flex;
+  flex: 1;
   min-width: 0;
   align-items: center;
   gap: 8px;
@@ -557,19 +570,25 @@ input {
 
 .swan-editor-breadcrumb {
   display: flex;
+  flex: 1;
   min-width: 0;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
   color: var(--swan-text-muted);
   font-size: 11px;
   white-space: nowrap;
 }
 
-.swan-editor-breadcrumb strong {
-  overflow: hidden;
+.swan-editor-breadcrumb-root,
+.swan-editor-breadcrumb svg {
+  flex: 0 0 auto;
+}
+
+.swan-editor-breadcrumb-folder {
+  flex: 1;
   color: var(--swan-text-soft);
   font-weight: 560;
-  text-overflow: ellipsis;
 }
 
 .swan-workspace-actions {
@@ -739,6 +758,8 @@ input {
 .swan-doc-folder-select {
   position: relative;
   display: inline-flex;
+  min-width: 0;
+  max-width: 190px;
   margin-left: auto;
   align-items: center;
   gap: 5px;
@@ -746,14 +767,18 @@ input {
 }
 
 .swan-doc-folder-select select {
+  min-width: 0;
   max-width: 150px;
   padding: 3px 20px 3px 5px;
+  overflow: hidden;
   border: 1px solid transparent;
   border-radius: 5px;
   outline: 0;
   background: transparent;
   color: var(--swan-text-soft);
   font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   appearance: none;
   cursor: pointer;
 }
@@ -1223,7 +1248,7 @@ input {
     gap: 8px;
   }
 
-  .swan-editor-breadcrumb strong,
+  .swan-editor-breadcrumb-folder,
   .swan-editor-breadcrumb svg {
     display: none;
   }

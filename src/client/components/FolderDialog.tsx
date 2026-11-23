@@ -70,12 +70,12 @@ export default function FolderDialog({
             <input
               id="swan-folder-name"
               autoFocus
-              maxLength={60}
+              maxLength={30}
               value={name}
               placeholder="例如：产品笔记"
               onChange={(event) => onChange(event.target.value)}
             />
-            <p>最多 60 个字符，同一账号下名称不能重复。</p>
+            <p>最多 30 个字符，同一账号下名称不能重复。</p>
             <div className="swan-folder-dialog-actions">
               {mode === 'rename' && (
                 <button
