@@ -939,7 +939,7 @@ function DocsPageContent() {
                 <Input.TextArea
                   variant="borderless"
                   className="swan-doc-title-input"
-                  autoSize={{ minRows: 1, maxRows: 3 }}
+                  autoSize={{ minRows: 1 }}
                   value={title}
                   maxLength={200}
                   placeholder="无标题文档"
