@@ -35,6 +35,7 @@ import {
   isValidEmail,
   normalizeEmail,
   normalizeUsername,
+  PASSWORD_ITERATIONS,
   validateNewPassword,
   validateUsername,
   verifyPassword,
@@ -66,7 +67,7 @@ const PASSWORD_CHANGE_RATE_LIMIT = {
 };
 const DUMMY_PASSWORD_CREDENTIAL = {
   algorithm: 'PBKDF2-HMAC-SHA256',
-  iterations: 600_000,
+  iterations: PASSWORD_ITERATIONS,
   salt: 'AAAAAAAAAAAAAAAAAAAAAA',
   passwordHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
 };

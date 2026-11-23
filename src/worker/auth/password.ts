@@ -1,4 +1,5 @@
-const PASSWORD_ITERATIONS = 600_000;
+// Cloudflare Workers WebCrypto rejects PBKDF2 iteration counts above 100,000.
+export const PASSWORD_ITERATIONS = 100_000;
 const PASSWORD_KEY_BITS = 256;
 const PASSWORD_SALT_BYTES = 16;
 const USERNAME_PATTERN = /^[\p{L}\p{N}](?:[\p{L}\p{N}_-]{1,30})[\p{L}\p{N}]$/u;
