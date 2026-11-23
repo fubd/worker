@@ -16,7 +16,13 @@ import {
   Undo2,
 } from 'lucide-react';
 import Placeholder from '@tiptap/extension-placeholder';
-import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react';
+import {
+  EditorContent,
+  useEditor,
+  useEditorState,
+  type Editor,
+  type JSONContent,
+} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Navigate, useOutletContext, useSearchParams } from 'react-router';
 
@@ -136,7 +142,6 @@ function DocsPageContent() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
-  const [title, setTitle] = useState('');
   const [listLoading, setListLoading] = useState(true);
   const [listRevision, setListRevision] = useState(0);
   const [folderRevision, setFolderRevision] = useState(0);
@@ -147,7 +152,6 @@ function DocsPageContent() {
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
-  const [editRevision, setEditRevision] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
@@ -163,16 +167,32 @@ function DocsPageContent() {
   const revisionRef = useRef(0);
   const savedRevisionRef = useRef(0);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
+  const saveTimerRef = useRef<number | null>(null);
+  const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
   const setSearchParamsRef = useRef(setSearchParams);
 
   activeIdRef.current = activeId;
   setSearchParamsRef.current = setSearchParams;
 
+  const clearSaveTimer = useCallback(() => {
+    if (saveTimerRef.current === null) return;
+    window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+  }, []);
+
+  const scheduleSave = useCallback(() => {
+    clearSaveTimer();
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveDocumentRef.current();
+    }, 900);
+  }, [clearSaveTimer]);
+
   const markDirty = useCallback(() => {
     revisionRef.current += 1;
-    setEditRevision(revisionRef.current);
-    setSaveState((current) => (current === 'conflict' ? current : 'dirty'));
-  }, []);
+    setSaveState((current) => (current === 'saving' || current === 'conflict' ? current : 'dirty'));
+    scheduleSave();
+  }, [scheduleSave]);
 
   const editor = useEditor({
     extensions: [
@@ -183,7 +203,7 @@ function DocsPageContent() {
     ],
     content: EMPTY_CONTENT,
     immediatelyRender: false,
-    shouldRerenderOnTransaction: true,
+    shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
         class: 'swan-prosemirror',
@@ -198,6 +218,8 @@ function DocsPageContent() {
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  useEffect(() => clearSaveTimer, [clearSaveTimer]);
 
   useEffect(() => {
     setSearchInput(searchQuery);
@@ -305,15 +327,15 @@ function DocsPageContent() {
   }, [folderScope, listRevision, markUnauthenticated, searchQuery, status, view]);
 
   useEffect(() => {
+    clearSaveTimer();
+
     if (status !== 'authenticated' || view !== 'documents' || !activeId) {
       activeIdRef.current = null;
       activeDocumentRef.current = null;
       setActiveDocument(null);
-      setTitle('');
       titleRef.current = '';
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
-      setEditRevision(0);
       setSaveState('idle');
       editor?.commands.setContent(EMPTY_CONTENT, { emitUpdate: false });
       return;
@@ -329,11 +351,9 @@ function DocsPageContent() {
         if (activeIdRef.current !== activeId) return;
         activeDocumentRef.current = document;
         setActiveDocument(document);
-        setTitle(document.title);
         titleRef.current = document.title;
         revisionRef.current = 0;
         savedRevisionRef.current = 0;
-        setEditRevision(0);
         setSaveState('saved');
         editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
       })
@@ -352,7 +372,7 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [activeId, editor, markUnauthenticated, status, view]);
+  }, [activeId, clearSaveTimer, editor, markUnauthenticated, status, view]);
 
   const saveDocument = useCallback(async (): Promise<boolean> => {
     const pending = savePromiseRef.current;
@@ -367,9 +387,9 @@ function DocsPageContent() {
 
     if (!titleRef.current.trim()) {
       titleRef.current = nextTitle;
-      setTitle(nextTitle);
     }
 
+    clearSaveTimer();
     setSaveState('saving');
 
     const task = (async () => {
@@ -383,16 +403,19 @@ function DocsPageContent() {
         });
 
         setDocuments((items) =>
-          [toSummary(updated), ...items.filter((item) => item.id !== updated.id)].sort(
-            (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-          ),
+          items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
         );
 
         if (activeIdRef.current === document.id) {
           activeDocumentRef.current = updated;
           setActiveDocument(updated);
           savedRevisionRef.current = revision;
-          setSaveState('saved');
+          if (revisionRef.current > revision) {
+            setSaveState('dirty');
+            scheduleSave();
+          } else {
+            setSaveState('saved');
+          }
         }
         return true;
       } catch (error) {
@@ -413,26 +436,9 @@ function DocsPageContent() {
     } finally {
       if (savePromiseRef.current === task) savePromiseRef.current = null;
     }
-  }, [markUnauthenticated]);
+  }, [clearSaveTimer, markUnauthenticated, scheduleSave]);
 
-  useEffect(() => {
-    if (
-      !activeDocument ||
-      !editor ||
-      saveState === 'saving' ||
-      saveState === 'error' ||
-      saveState === 'conflict'
-    ) {
-      return;
-    }
-    if (revisionRef.current <= savedRevisionRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      void saveDocument();
-    }, 900);
-
-    return () => window.clearTimeout(timer);
-  }, [activeDocument, editRevision, editor, saveDocument, saveState]);
+  saveDocumentRef.current = saveDocument;
 
   const reloadActiveDocument = async () => {
     if (!activeId) return;
@@ -441,11 +447,9 @@ function DocsPageContent() {
       const document = await api.getDocument(activeId);
       activeDocumentRef.current = document;
       setActiveDocument(document);
-      setTitle(document.title);
       titleRef.current = document.title;
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
-      setEditRevision(0);
       setSaveState('saved');
       editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
       message.success('已加载其他页面的最新版本');
@@ -732,16 +736,17 @@ function DocsPageContent() {
     }
   };
 
-  const handleTitleChange = (value: string) => {
-    setTitle(value);
-    titleRef.current = value;
-    markDirty();
-  };
+  const handleTitleChange = useCallback(
+    (value: string) => {
+      titleRef.current = value;
+      markDirty();
+    },
+    [markDirty],
+  );
 
   if (status === 'loading') return <HydrateFallback />;
   if (status === 'unauthenticated') return <Navigate to="/login" replace />;
 
-  const characterCount = editor?.getText().trim().length ?? 0;
   const selectedFolder =
     typeof folderScope === 'number'
       ? folders.find((folder) => folder.id === folderScope)
@@ -932,22 +937,17 @@ function DocsPageContent() {
                 <strong>{String(activeDocument.id).padStart(2, '0')}</strong>
                 <span>{formatUpdatedAt(activeDocument.updatedAt)}</span>
                 <span>第 {activeDocument.version} 版</span>
-                <span>{characterCount} 字</span>
+                <span>
+                  <EditorCharacterCount editor={editor} /> 字
+                </span>
               </aside>
 
               <article className="swan-editor-page">
                 <span className="swan-editor-kicker">私人笔记 · 写作</span>
-                <Input.TextArea
-                  variant="borderless"
-                  className="swan-doc-title-input"
-                  autoSize={{ minRows: 1 }}
-                  value={title}
-                  maxLength={DOCUMENT_TITLE_MAX_LENGTH}
-                  placeholder="无标题文档"
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') event.preventDefault();
-                  }}
-                  onChange={(event) => handleTitleChange(event.target.value)}
+                <DocumentTitleInput
+                  key={activeDocument.id}
+                  initialValue={activeDocument.title}
+                  onChange={handleTitleChange}
                 />
                 <div className="swan-editor-submeta">
                   <span>更改会自动保存</span>
@@ -965,7 +965,9 @@ function DocsPageContent() {
                   <EditorContent editor={editor} />
                 </div>
                 <div className="swan-editor-meta">
-                  <span>{characterCount} 字</span>
+                  <span>
+                    <EditorCharacterCount editor={editor} /> 字
+                  </span>
                   <span>V{activeDocument.version}</span>
                 </div>
               </article>
@@ -996,61 +998,114 @@ function DocsPageContent() {
   );
 }
 
+function DocumentTitleInput({
+  initialValue,
+  onChange,
+}: {
+  initialValue: string;
+  onChange: (value: string) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  return (
+    <Input.TextArea
+      variant="borderless"
+      className="swan-doc-title-input"
+      autoSize={{ minRows: 1 }}
+      value={value}
+      maxLength={DOCUMENT_TITLE_MAX_LENGTH}
+      placeholder="无标题文档"
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.preventDefault();
+      }}
+      onChange={(event) => {
+        setValue(event.target.value);
+        onChange(event.target.value);
+      }}
+    />
+  );
+}
+
+function EditorCharacterCount({ editor }: { editor: Editor }) {
+  const count = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => currentEditor.getText().trim().length,
+  });
+
+  return count;
+}
+
 function EditorToolbar({ editor }: { editor: Editor }) {
+  const activeFormats = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => ({
+      h1: currentEditor.isActive('heading', { level: 1 }),
+      h2: currentEditor.isActive('heading', { level: 2 }),
+      bold: currentEditor.isActive('bold'),
+      italic: currentEditor.isActive('italic'),
+      bulletList: currentEditor.isActive('bulletList'),
+      orderedList: currentEditor.isActive('orderedList'),
+      blockquote: currentEditor.isActive('blockquote'),
+      codeBlock: currentEditor.isActive('codeBlock'),
+      canUndo: currentEditor.can().undo(),
+      canRedo: currentEditor.can().redo(),
+    }),
+  });
+
   return (
     <div className="swan-editor-toolbar" role="toolbar" aria-label="文档格式">
       <Button
         size="small"
-        type={editor.isActive('heading', { level: 1 }) ? 'primary' : 'text'}
+        type={activeFormats.h1 ? 'primary' : 'text'}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
       >
         H1
       </Button>
       <Button
         size="small"
-        type={editor.isActive('heading', { level: 2 }) ? 'primary' : 'text'}
+        type={activeFormats.h2 ? 'primary' : 'text'}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
         H2
       </Button>
       <Button
         size="small"
-        type={editor.isActive('bold') ? 'primary' : 'text'}
+        type={activeFormats.bold ? 'primary' : 'text'}
         icon={<Bold aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="粗体"
         onClick={() => editor.chain().focus().toggleBold().run()}
       />
       <Button
         size="small"
-        type={editor.isActive('italic') ? 'primary' : 'text'}
+        type={activeFormats.italic ? 'primary' : 'text'}
         icon={<Italic aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="斜体"
         onClick={() => editor.chain().focus().toggleItalic().run()}
       />
       <Button
         size="small"
-        type={editor.isActive('bulletList') ? 'primary' : 'text'}
+        type={activeFormats.bulletList ? 'primary' : 'text'}
         icon={<List aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="无序列表"
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       />
       <Button
         size="small"
-        type={editor.isActive('orderedList') ? 'primary' : 'text'}
+        type={activeFormats.orderedList ? 'primary' : 'text'}
         icon={<ListOrdered aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="有序列表"
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       />
       <Button
         size="small"
-        type={editor.isActive('blockquote') ? 'primary' : 'text'}
+        type={activeFormats.blockquote ? 'primary' : 'text'}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       >
         引用
       </Button>
       <Button
         size="small"
-        type={editor.isActive('codeBlock') ? 'primary' : 'text'}
+        type={activeFormats.codeBlock ? 'primary' : 'text'}
         icon={<CodeXml aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="代码块"
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
@@ -1061,7 +1116,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
         type="text"
         icon={<Undo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="撤销"
-        disabled={!editor.can().undo()}
+        disabled={!activeFormats.canUndo}
         onClick={() => editor.chain().focus().undo().run()}
       />
       <Button
@@ -1069,7 +1124,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
         type="text"
         icon={<Redo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
         aria-label="重做"
-        disabled={!editor.can().redo()}
+        disabled={!activeFormats.canRedo}
         onClick={() => editor.chain().focus().redo().run()}
       />
     </div>
