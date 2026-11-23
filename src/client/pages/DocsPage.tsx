@@ -532,7 +532,7 @@ function DocsPageContent() {
             >
               <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
             </button>
-            <div className="swan-editor-breadcrumb" aria-label="当前位置">
+            <nav className="swan-editor-breadcrumb" aria-label="当前位置">
               <span>{view === 'trash' ? '回收站' : '全部文档'}</span>
               {view === 'documents' && (
                 <>
@@ -540,7 +540,7 @@ function DocsPageContent() {
                   <strong>私人笔记</strong>
                 </>
               )}
-            </div>
+            </nav>
           </div>
 
           {view === 'documents' && activeDocument && (

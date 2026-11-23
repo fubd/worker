@@ -7,7 +7,7 @@
   --swan-border-strong: #d9dcdf;
   --swan-text: #18202a;
   --swan-text-soft: #4f5965;
-  --swan-text-muted: #7f8790;
+  --swan-text-muted: #626b74;
   --swan-brand: #2f6fe8;
   --swan-brand-deep: #245fce;
   --swan-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
@@ -156,7 +156,7 @@ input {
   margin: 24px 8px 8px;
   align-items: center;
   justify-content: space-between;
-  color: #8a929b;
+  color: var(--swan-text-muted);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.12em;
@@ -170,7 +170,7 @@ input {
 }
 
 .swan-sidebar-count {
-  color: #8a929b;
+  color: var(--swan-text-muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
@@ -257,7 +257,7 @@ input {
 
 .swan-sidebar-doc time {
   flex: 0 0 auto;
-  color: #9aa1a8;
+  color: var(--swan-text-muted);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
 }
@@ -265,7 +265,7 @@ input {
 .swan-sidebar-doc-excerpt {
   display: -webkit-box;
   overflow: hidden;
-  color: #8a929b;
+  color: var(--swan-text-muted);
   font-size: 11px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
@@ -273,7 +273,7 @@ input {
 }
 
 .swan-sidebar-doc-time {
-  color: #929aa2;
+  color: var(--swan-text-muted);
   font-size: 10px;
 }
 
@@ -313,7 +313,7 @@ input {
 
 .swan-sidebar-user > svg {
   flex: 0 0 auto;
-  color: #8a929b;
+  color: var(--swan-text-muted);
 }
 
 .swan-sidebar-user-copy {
@@ -338,7 +338,7 @@ input {
 
 .swan-sidebar-user-copy small {
   margin-top: 3px;
-  color: #8a929b;
+  color: var(--swan-text-muted);
   font-size: 10px;
 }
 
@@ -390,14 +390,14 @@ input {
   min-width: 0;
   align-items: center;
   gap: 6px;
-  color: #7b848d;
+  color: var(--swan-text-muted);
   font-size: 11px;
   white-space: nowrap;
 }
 
 .swan-editor-breadcrumb strong {
   overflow: hidden;
-  color: #707983;
+  color: var(--swan-text-soft);
   font-weight: 560;
   text-overflow: ellipsis;
 }
@@ -509,14 +509,14 @@ input {
   padding-top: 12px;
   flex-direction: column;
   gap: 3px;
-  color: #a0a6ac;
+  color: var(--swan-text-muted);
   font-size: 10px;
   line-height: 1.7;
   letter-spacing: 0.06em;
 }
 
 .swan-editor-margin span:first-child {
-  color: #707983;
+  color: var(--swan-text-muted);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -525,7 +525,7 @@ input {
 
 .swan-editor-margin strong {
   margin-bottom: 2px;
-  color: #777f87;
+  color: var(--swan-text-muted);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.1em;
@@ -536,7 +536,7 @@ input {
 }
 
 .swan-editor-kicker {
-  color: #8190a1;
+  color: var(--swan-text-muted);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.14em;
@@ -562,7 +562,7 @@ input {
   margin-top: 18px;
   align-items: center;
   gap: 14px;
-  color: #949ba2;
+  color: var(--swan-text-muted);
   font-size: 10px;
 }
 
@@ -589,7 +589,7 @@ input {
   height: 30px;
   padding-inline: 8px;
   border-radius: 5px;
-  color: #6f7780;
+  color: #66717a;
   font-size: 11px;
   box-shadow: none;
 }
@@ -692,7 +692,7 @@ input {
   padding: 14px 0 0;
   justify-content: space-between;
   border-top: 1px solid #ececeb;
-  color: #a0a6ac;
+  color: var(--swan-text-muted);
   font-size: 10px;
 }
 
