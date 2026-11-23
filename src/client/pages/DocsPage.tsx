@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Dropdown, Input, Spin } from 'antd';
+import { App, Alert, Button, Input, Spin } from 'antd';
 import {
   Bold,
   ChevronRight,
@@ -951,53 +951,12 @@ function DocsPageContent() {
                 <div className="swan-editor-submeta">
                   <span>更改会自动保存</span>
                   <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
-                  <Dropdown
-                    trigger={['click']}
-                    placement="bottomRight"
-                    disabled={moving}
-                    menu={{
-                      selectable: true,
-                      selectedKeys: [
-                        activeDocument.folderId === null ? 'none' : String(activeDocument.folderId),
-                      ],
-                      items: [
-                        {
-                          key: 'none',
-                          icon: <Folder aria-hidden="true" size={14} strokeWidth={1.8} />,
-                          label: '未归档',
-                        },
-                        ...folders.map((folder) => ({
-                          key: String(folder.id),
-                          icon: <Folder aria-hidden="true" size={14} strokeWidth={1.8} />,
-                          label: (
-                            <OverflowText
-                              text={folder.name}
-                              className="swan-folder-dropdown-label"
-                            />
-                          ),
-                        })),
-                      ],
-                      onClick: ({ key }) => {
-                        void moveDocument(activeDocument, key === 'none' ? null : Number(key));
-                      },
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="swan-doc-folder-select"
-                      aria-label={`文档文件夹：${activeFolderName}`}
-                      aria-haspopup="menu"
-                      disabled={moving}
-                    >
-                      <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
-                      <span className="swan-doc-folder-select-value">
-                        <OverflowText
-                          text={activeFolderName}
-                          className="swan-doc-folder-select-label"
-                        />
-                      </span>
-                    </button>
-                  </Dropdown>
+                  <span className="swan-doc-folder">
+                    <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
+                    <span className="swan-doc-folder-value">
+                      <OverflowText text={activeFolderName} className="swan-doc-folder-label" />
+                    </span>
+                  </span>
                 </div>
 
                 <EditorToolbar editor={editor} />
