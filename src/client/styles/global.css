@@ -439,10 +439,14 @@ input {
 .swan-folder-item:hover .swan-folder-edit,
 .swan-folder-edit:focus-visible {
   opacity: 1;
+}
+
+.swan-folder-edit:hover,
+.swan-folder-edit:focus-visible {
   background: var(--swan-list-action);
 }
 
-.swan-folder-edit:hover {
+.swan-folder-edit:active {
   background: var(--swan-list-action-hover);
   color: var(--swan-text);
 }
@@ -547,7 +551,6 @@ input {
 .swan-sidebar-doc-item:focus-within .swan-sidebar-doc-more {
   opacity: 1;
   pointer-events: auto;
-  background: var(--swan-list-action);
 }
 
 .swan-sidebar-doc-item:hover time,
@@ -555,7 +558,12 @@ input {
   opacity: 0;
 }
 
-.swan-sidebar-doc-more:hover {
+.swan-sidebar-doc-more:hover,
+.swan-sidebar-doc-more:focus-visible {
+  background: var(--swan-list-action);
+}
+
+.swan-sidebar-doc-more:active {
   background: var(--swan-list-action-hover);
   color: var(--swan-text);
 }
@@ -1353,13 +1361,11 @@ input {
 
   .swan-folder-edit {
     opacity: 1;
-    background: var(--swan-list-action);
   }
 
   .swan-sidebar-doc-more {
     opacity: 1;
     pointer-events: auto;
-    background: var(--swan-list-action);
   }
 
   .swan-sidebar-doc time {
