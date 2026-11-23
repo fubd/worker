@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { Tooltip } from 'antd';
 
-export function OverflowText({ text, className }: { text: string; className?: string }) {
+export function OverflowText({
+  text,
+  className,
+  onOverflowChange,
+}: {
+  text: string;
+  className?: string;
+  onOverflowChange?: (overflowing: boolean) => void;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const [overflowing, setOverflowing] = useState(false);
 
@@ -21,13 +30,30 @@ export function OverflowText({ text, className }: { text: string; className?: st
     };
   }, [text]);
 
+  useEffect(() => {
+    onOverflowChange?.(overflowing);
+  }, [onOverflowChange, overflowing]);
+
   return (
-    <span
-      ref={ref}
-      className={className ? `swan-overflow-text ${className}` : 'swan-overflow-text'}
+    <Tooltip
       title={overflowing ? text : undefined}
+      placement="topLeft"
+      mouseEnterDelay={0.2}
+      classNames={{ root: 'swan-overflow-tooltip' }}
+      styles={{
+        container: {
+          maxWidth: 360,
+          overflowWrap: 'anywhere',
+          whiteSpace: 'normal',
+        },
+      }}
     >
-      {text}
-    </span>
+      <span
+        ref={ref}
+        className={className ? `swan-overflow-text ${className}` : 'swan-overflow-text'}
+      >
+        {text}
+      </span>
+    </Tooltip>
   );
 }

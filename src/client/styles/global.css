@@ -52,6 +52,11 @@ input {
   white-space: nowrap;
 }
 
+.swan-overflow-tooltip .ant-tooltip-inner {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 /* ---------- 鉴权过渡 ---------- */
 .swan-workspace-loading {
   display: flex;
@@ -764,22 +769,34 @@ input {
   align-items: center;
   gap: 5px;
   color: var(--swan-text-muted);
+  cursor: pointer;
+}
+
+.swan-doc-folder-select-value {
+  position: relative;
+  display: block;
+  width: 150px;
+  min-width: 0;
+}
+
+.swan-doc-folder-select-label {
+  width: 100%;
+  padding: 3px 20px 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--swan-text-soft);
+  line-height: 1.5;
+  pointer-events: none;
 }
 
 .swan-doc-folder-select select {
-  min-width: 0;
-  max-width: 150px;
-  padding: 3px 20px 3px 5px;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  outline: 0;
-  background: transparent;
-  color: var(--swan-text-soft);
-  font: inherit;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
   cursor: pointer;
 }
 
@@ -797,13 +814,13 @@ input {
   transform: translateY(-25%);
 }
 
-.swan-doc-folder-select select:hover,
-.swan-doc-folder-select select:focus-visible {
+.swan-doc-folder-select:hover .swan-doc-folder-select-label,
+.swan-doc-folder-select:focus-within .swan-doc-folder-select-label {
   border-color: #d7dbde;
   background-color: #f7f8f8;
 }
 
-.swan-doc-folder-select select:disabled {
+.swan-doc-folder-select:has(select:disabled) {
   cursor: wait;
   opacity: 0.6;
 }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Input, Popconfirm, Spin } from 'antd';
+import { App, Alert, Button, Input, Popconfirm, Spin, Tooltip } from 'antd';
 import {
   Bold,
   ChevronRight,
@@ -153,6 +153,7 @@ function DocsPageContent() {
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
+  const [folderSelectOverflowing, setFolderSelectOverflowing] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -902,28 +903,48 @@ function DocsPageContent() {
                 <div className="swan-editor-submeta">
                   <span>更改会自动保存</span>
                   <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
-                  <label className="swan-doc-folder-select">
-                    <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
-                    <span className="swan-sr-only">文档文件夹</span>
-                    <select
-                      value={activeDocument.folderId ?? ''}
-                      disabled={moving}
-                      aria-label="文档文件夹"
-                      title={activeFolderName}
-                      onChange={(event) =>
-                        void moveActiveDocument(
-                          event.target.value ? Number(event.target.value) : null,
-                        )
-                      }
-                    >
-                      <option value="">未归档</option>
-                      {folders.map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          {folder.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Tooltip
+                    title={folderSelectOverflowing ? activeFolderName : undefined}
+                    placement="topLeft"
+                    mouseEnterDelay={0.2}
+                    classNames={{ root: 'swan-overflow-tooltip' }}
+                    styles={{
+                      container: {
+                        maxWidth: 360,
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'normal',
+                      },
+                    }}
+                  >
+                    <label className="swan-doc-folder-select">
+                      <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
+                      <span className="swan-sr-only">文档文件夹</span>
+                      <span className="swan-doc-folder-select-value">
+                        <OverflowText
+                          text={activeFolderName}
+                          className="swan-doc-folder-select-label"
+                          onOverflowChange={setFolderSelectOverflowing}
+                        />
+                        <select
+                          value={activeDocument.folderId ?? ''}
+                          disabled={moving}
+                          aria-label="文档文件夹"
+                          onChange={(event) =>
+                            void moveActiveDocument(
+                              event.target.value ? Number(event.target.value) : null,
+                            )
+                          }
+                        >
+                          <option value="">未归档</option>
+                          {folders.map((folder) => (
+                            <option key={folder.id} value={folder.id}>
+                              {folder.name}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    </label>
+                  </Tooltip>
                 </div>
 
                 <EditorToolbar editor={editor} />
