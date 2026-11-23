@@ -14,7 +14,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
         cssVar: { key: 'yuyan' },
         token: {
           colorPrimary: '#2f6fe8',
-          borderRadius: 10,
+          colorText: '#17243a',
+          colorTextSecondary: '#718197',
+          colorBorderSecondary: 'rgba(37, 67, 105, 0.1)',
+          colorBgContainer: '#ffffff',
+          borderRadius: 12,
+          controlHeight: 36,
           fontFamily:
             "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
         },

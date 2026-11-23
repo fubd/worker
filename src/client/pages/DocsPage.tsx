@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Empty, Input, Popconfirm, Spin, Tag, Typography } from 'antd';
+import { App, Alert, Button, Empty, Input, Popconfirm, Spin } from 'antd';
 import {
   Bold,
+  ChevronRight,
   CodeXml,
   FileText,
   Italic,
@@ -59,6 +60,14 @@ function formatUpdatedAt(value: string): string {
   }).format(date);
 }
 
+function saveStateLabel(state: SaveState): string {
+  if (state === 'saving') return '保存中';
+  if (state === 'dirty') return '等待保存';
+  if (state === 'error') return '保存失败';
+  if (state === 'conflict') return '版本冲突';
+  return '已保存';
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
@@ -73,7 +82,7 @@ export function HydrateFallback() {
       <aside className="swan-doc-list-panel swan-card">
         <div className="swan-doc-list-head">
           <div className="swan-doc-list-heading">
-            <strong>全部文档</strong>
+            <strong>我的文字</strong>
             <span className="swan-doc-count">0</span>
           </div>
         </div>
@@ -509,7 +518,7 @@ function DocsPageContent() {
         <aside className="swan-doc-list-panel swan-card">
           <div className="swan-doc-list-head">
             <div className="swan-doc-list-heading">
-              <strong>{view === 'trash' ? '回收站' : '全部文档'}</strong>
+              <strong>{view === 'trash' ? '回收站' : '我的文字'}</strong>
               <span className="swan-doc-count">{documents.length}</span>
             </div>
             {view === 'documents' && (
@@ -609,42 +618,16 @@ function DocsPageContent() {
           ) : (
             <>
               <div className="swan-editor-head">
-                <Input
-                  variant="borderless"
-                  className="swan-doc-title-input"
-                  value={title}
-                  maxLength={200}
-                  placeholder="无标题文档"
-                  onChange={(event) => handleTitleChange(event.target.value)}
-                />
+                <div className="swan-editor-breadcrumb" aria-label="当前位置">
+                  <span>全部文档</span>
+                  <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+                  <strong>私人笔记</strong>
+                </div>
                 <div className="swan-editor-actions">
-                  <Tag
-                    style={{
-                      marginInlineEnd: 0,
-                      color:
-                        saveState === 'error' || saveState === 'conflict'
-                          ? '#b42318'
-                          : saveState === 'saving' || saveState === 'dirty'
-                            ? '#8a4b00'
-                            : '#166534',
-                      background:
-                        saveState === 'error' || saveState === 'conflict'
-                          ? '#fef3f2'
-                          : saveState === 'saving' || saveState === 'dirty'
-                            ? '#fff7e6'
-                            : '#ecfdf3',
-                    }}
-                  >
-                    {saveState === 'saving'
-                      ? '保存中…'
-                      : saveState === 'dirty'
-                        ? '等待保存'
-                        : saveState === 'error'
-                          ? '保存失败'
-                          : saveState === 'conflict'
-                            ? '版本冲突'
-                            : '已保存'}
-                  </Tag>
+                  <span className={`swan-save-state is-${saveState}`}>
+                    <span className="swan-save-dot" aria-hidden="true" />
+                    {saveStateLabel(saveState)}
+                  </span>
                   {saveState === 'error' && (
                     <Button size="small" type="link" onClick={() => void saveDocument()}>
                       重试
@@ -675,14 +658,32 @@ function DocsPageContent() {
                 </div>
               </div>
 
-              <EditorToolbar editor={editor} />
-              <div className="swan-tiptap">
-                <EditorContent editor={editor} />
-              </div>
-              <div className="swan-editor-meta">
-                <Typography.Text style={{ color: '#64748b' }}>
-                  V{activeDocument.version} · {formatUpdatedAt(activeDocument.updatedAt)}
-                </Typography.Text>
+              <div className="swan-editor-canvas">
+                <div className="swan-editor-title-block">
+                  <Input
+                    variant="borderless"
+                    className="swan-doc-title-input"
+                    value={title}
+                    maxLength={200}
+                    placeholder="无标题文档"
+                    onChange={(event) => handleTitleChange(event.target.value)}
+                  />
+                  <div className="swan-editor-submeta">
+                    <span className="swan-editor-kind">私人笔记</span>
+                    <span>
+                      V{activeDocument.version} · {formatUpdatedAt(activeDocument.updatedAt)}
+                    </span>
+                  </div>
+                </div>
+
+                <EditorToolbar editor={editor} />
+                <div className="swan-tiptap">
+                  <EditorContent editor={editor} />
+                </div>
+                <div className="swan-editor-meta">
+                  <span>更改会自动保存</span>
+                  <span>{formatUpdatedAt(activeDocument.updatedAt)}</span>
+                </div>
               </div>
             </>
           )}

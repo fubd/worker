@@ -68,7 +68,7 @@ export default function RootLayout() {
   const matches = useMatches();
   const navigate = useNavigate();
   const { status, user, bindProvider, signOut } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const linkedProviders = user?.linkedProviders ?? [];
 
@@ -90,11 +90,14 @@ export default function RootLayout() {
           <Link
             key={item.to}
             className={isSelected ? 'swan-menu-item is-selected' : 'swan-menu-item'}
+            aria-current={isSelected ? 'page' : undefined}
+            aria-label={collapsed ? item.label : undefined}
             onClick={
               closeDetails
                 ? (event) => event.currentTarget.closest('details')?.removeAttribute('open')
                 : undefined
             }
+            title={collapsed ? item.label : undefined}
             to={item.to}
           >
             <span className="swan-menu-icon">{item.icon}</span>
@@ -117,10 +120,10 @@ export default function RootLayout() {
     <div className="swan-shell">
       <aside
         className={collapsed ? 'swan-sider is-collapsed' : 'swan-sider'}
-        style={{ width: collapsed ? 0 : 228 }}
+        style={{ width: collapsed ? 76 : 220 }}
       >
         <Logo showText={!collapsed} />
-        {!collapsed && renderMenu()}
+        {renderMenu()}
       </aside>
 
       <div className="swan-main">
@@ -150,7 +153,10 @@ export default function RootLayout() {
             <span className="swan-mobile-brand" aria-hidden="true">
               <BrandMark size={24} />
             </span>
-            <span className="swan-title">{title}</span>
+            <span className="swan-header-title">
+              <span className="swan-header-eyebrow">雨燕空间</span>
+              <span className="swan-title">{title}</span>
+            </span>
           </div>
 
           <div className="swan-header-right">

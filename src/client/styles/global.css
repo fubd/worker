@@ -1,16 +1,20 @@
 :root {
-  --swan-bg: #f4f7fb;
+  --swan-bg: #f2f7fd;
   --swan-panel: #ffffff;
-  --swan-border: rgba(15, 23, 42, 0.08);
-  --swan-text: #0f172a;
-  --swan-text-muted: #64748b;
-  --swan-brand-deep: #3b82f6;
+  --swan-panel-soft: rgba(255, 255, 255, 0.72);
+  --swan-border: rgba(37, 67, 105, 0.1);
+  --swan-border-strong: rgba(37, 67, 105, 0.14);
+  --swan-text: #17243a;
+  --swan-text-muted: #718197;
+  --swan-brand-deep: #245fce;
   --swan-brand: #2f6fe8;
-  --swan-brand-soft: rgba(47, 111, 232, 0.08);
-  --swan-brand-fill: #eef5ff;
-  --swan-brand-fill-strong: #dceaff;
-  --swan-radius: 14px;
-  --swan-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --swan-brand-soft: rgba(47, 111, 232, 0.09);
+  --swan-brand-fill: #edf4ff;
+  --swan-brand-fill-strong: #dfeaff;
+  --swan-radius: 20px;
+  --swan-radius-sm: 13px;
+  --swan-shadow: 0 1px 2px rgba(38, 67, 104, 0.03), 0 18px 46px rgba(38, 67, 104, 0.07);
+  --swan-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
 }
 
 * {
@@ -25,7 +29,10 @@ body,
 }
 
 body {
-  background: var(--swan-bg);
+  background:
+    radial-gradient(1100px 560px at 78% -18%, rgba(181, 211, 255, 0.42), transparent 62%),
+    radial-gradient(780px 480px at -8% 88%, rgba(217, 232, 252, 0.55), transparent 68%),
+    var(--swan-bg);
   color: var(--swan-text);
   font-family:
     'Inter',
@@ -55,11 +62,12 @@ body {
 /* ---------- 布局 ---------- */
 .swan-shell {
   min-height: 100vh;
-  background: var(--swan-bg);
+  background: transparent;
 }
 
 .swan-sider {
-  background: var(--swan-panel) !important;
+  background: rgba(247, 251, 255, 0.76) !important;
+  backdrop-filter: blur(18px);
   border-right: 1px solid var(--swan-border);
 }
 
@@ -67,11 +75,12 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 64px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--swan-border);
+  height: 72px;
+  padding: 0 22px;
+  border-bottom: 0;
   font-weight: 700;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .swan-logo-mark {
@@ -81,6 +90,8 @@ body {
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
+  border-radius: 10px;
+  filter: drop-shadow(0 8px 14px rgba(47, 111, 232, 0.18));
 }
 
 .swan-logo-text {
@@ -100,44 +111,52 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
+  height: 72px;
   padding: 0 28px !important;
-  background: rgba(255, 255, 255, 0.94) !important;
+  background: rgba(247, 251, 255, 0.72) !important;
+  backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--swan-border);
 }
 
 .swan-content {
-  padding: 28px;
+  min-height: 0;
+  padding: 22px 26px 18px;
 }
 
 .swan-content-inner {
-  max-width: 1080px;
+  max-width: none;
+  min-height: 0;
   margin: 0 auto;
 }
 
 .swan-shell {
   display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .swan-sider.is-collapsed {
-  border-right: 0;
+  border-right: 1px solid var(--swan-border);
 }
 
 .swan-sider {
   flex: 0 0 auto;
   overflow: hidden;
-  transition: width 0.2s ease;
+  transition: width 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .swan-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .swan-content {
   flex: 1;
+  overflow: hidden;
 }
 
 .swan-header-left,
@@ -145,6 +164,10 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.swan-header-left {
+  min-width: 0;
 }
 
 .swan-header-right {
@@ -156,16 +179,20 @@ body {
   align-items: center;
   gap: 9px;
   min-width: 0;
-  padding: 4px 8px 4px 4px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.4);
   color: var(--swan-text);
   cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
 }
 
 .swan-user-button:hover {
-  background: rgba(15, 23, 42, 0.05);
+  border-color: var(--swan-border);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .swan-user-copy {
@@ -215,9 +242,27 @@ body {
 }
 
 .swan-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--swan-text, #0f172a);
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--swan-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-header-title {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.swan-header-eyebrow {
+  color: #8a99ac;
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.1em;
 }
 
 .swan-mobile-brand {
@@ -228,10 +273,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 11px;
   background: transparent;
   color: var(--swan-text-muted, #64748b);
   cursor: pointer;
@@ -239,7 +284,8 @@ body {
 }
 
 .swan-icon-button:hover {
-  background: rgba(15, 23, 42, 0.06);
+  border-color: var(--swan-border);
+  background: rgba(255, 255, 255, 0.76);
   color: var(--swan-text, #0f172a);
 }
 
@@ -261,41 +307,79 @@ body {
 }
 
 .swan-menu {
-  padding: 12px 8px;
+  display: grid;
+  gap: 7px;
+  padding: 14px 12px;
 }
 
 .swan-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 40px;
-  padding: 0 16px 0 24px;
-  margin: 4px;
-  border-radius: 8px;
+  gap: 11px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 13px;
   font-size: 14px;
-  color: var(--swan-text, #0f172a);
+  font-weight: 550;
+  color: #506176;
   text-decoration: none;
   transition:
     background-color 0.2s,
-    color 0.2s;
+    border-color 0.2s,
+    color 0.2s,
+    transform 0.2s;
 }
 
 .swan-menu-item:hover {
-  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(47, 111, 232, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--swan-text);
 }
 
 .swan-menu-item.is-selected {
   background: var(--swan-brand-fill);
-  color: var(--swan-brand);
+  color: var(--swan-brand-deep);
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 232, 0.06);
+}
+
+.swan-menu-item:focus-visible,
+.swan-icon-button:focus-visible,
+.swan-user-button:focus-visible {
+  outline: 2px solid rgba(47, 111, 232, 0.48);
+  outline-offset: 2px;
 }
 
 .swan-menu-icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   font-size: 14px;
 }
 
 .swan-menu-label {
   white-space: nowrap;
+}
+
+.swan-sider.is-collapsed .swan-logo {
+  justify-content: center;
+  padding: 0;
+}
+
+.swan-sider.is-collapsed .swan-menu {
+  padding: 14px 10px;
+}
+
+.swan-sider.is-collapsed .swan-menu-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.swan-sider.is-collapsed .swan-menu-label {
+  display: none;
 }
 
 .swan-mobile-menu {
@@ -350,20 +434,26 @@ body {
 /* ---------- 文档 ---------- */
 .swan-docs {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 16px;
-  min-height: 680px;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 14px;
+  height: calc(100dvh - 112px);
+  min-height: 0;
 }
 
-.swan-doc-list-panel,
-.swan-editor-panel {
+.swan-doc-list-panel.swan-card,
+.swan-editor-panel.swan-card {
   min-height: 0;
   overflow: hidden;
+  border: 1px solid var(--swan-border);
+  border-radius: var(--swan-radius);
 }
 
-.swan-doc-list-panel {
+.swan-doc-list-panel.swan-card {
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 34px rgba(43, 74, 112, 0.045);
+  backdrop-filter: blur(16px);
 }
 
 .swan-doc-list-head {
@@ -371,8 +461,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 64px;
-  padding: 14px 16px;
+  min-height: 72px;
+  padding: 18px 18px 14px;
   border-bottom: 1px solid var(--swan-border);
 }
 
@@ -386,41 +476,58 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 7px;
-  background: var(--swan-brand-fill);
-  color: var(--swan-brand);
+  min-width: 25px;
+  height: 23px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: rgba(47, 111, 232, 0.075);
+  color: var(--swan-brand-deep);
   font-size: 12px;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
+}
+
+.swan-doc-list-head .ant-btn-primary {
+  height: 32px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  box-shadow: 0 7px 18px rgba(47, 111, 232, 0.2);
 }
 
 .swan-doc-list {
   flex: 1;
-  padding: 8px;
+  padding: 10px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(73, 105, 144, 0.18) transparent;
 }
 
 .swan-doc-list-item {
+  position: relative;
   display: grid;
   width: 100%;
-  gap: 5px;
-  padding: 12px;
+  gap: 6px;
+  padding: 13px 14px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 14px;
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 }
 
 .swan-doc-list-item:hover {
-  background: rgba(15, 23, 42, 0.04);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 24px rgba(43, 74, 112, 0.05);
 }
 
 .swan-doc-list-item.is-selected {
-  background: var(--swan-brand-fill);
+  background: linear-gradient(135deg, rgba(235, 244, 255, 0.98), rgba(247, 251, 255, 0.9));
+  box-shadow: inset 3px 0 var(--swan-brand);
 }
 
 .swan-doc-list-item:disabled {
@@ -443,32 +550,32 @@ body {
   gap: 7px;
   overflow: hidden;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .swan-doc-list-item.is-selected .swan-doc-list-title {
-  color: #245fce;
+  color: var(--swan-brand-deep);
 }
 
 .swan-doc-list-excerpt {
   display: -webkit-box;
   overflow: hidden;
   color: var(--swan-text-muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11.5px;
+  line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
 .swan-doc-list-time {
-  color: #596b82;
-  font-size: 11px;
+  color: #8492a5;
+  font-size: 10.5px;
 }
 
 .swan-doc-list-item.is-selected .swan-doc-list-excerpt {
-  color: #53647a;
+  color: #617289;
 }
 
 .swan-doc-list-empty {
@@ -480,27 +587,53 @@ body {
   font-size: 12px;
 }
 
-.swan-editor-panel {
+.swan-editor-panel.swan-card {
   display: flex;
   flex-direction: column;
-  min-height: 680px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 1px 2px rgba(38, 67, 104, 0.03),
+    0 22px 58px rgba(38, 67, 104, 0.075);
 }
 
 .swan-editor-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  min-height: 64px;
-  padding: 8px 14px 8px 20px;
+  min-height: 62px;
+  padding: 0 20px 0 24px;
+  background: rgba(251, 253, 255, 0.86);
   border-bottom: 1px solid var(--swan-border);
+}
+
+.swan-editor-breadcrumb {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: #8a98aa;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.swan-editor-breadcrumb strong {
+  overflow: hidden;
+  color: #65758b;
+  font-weight: 560;
+  text-overflow: ellipsis;
 }
 
 .swan-doc-title-input.ant-input {
   min-width: 0;
   padding-inline: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  height: auto;
+  color: #17243a;
+  font-family: var(--swan-serif);
+  font-size: clamp(34px, 3.4vw, 46px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
 }
 
 .swan-editor-actions {
@@ -511,14 +644,107 @@ body {
   flex: 0 0 auto;
 }
 
+.swan-save-state {
+  display: inline-flex;
+  height: 28px;
+  padding: 0 10px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(27, 116, 73, 0.09);
+  border-radius: 999px;
+  background: #f0fbf5;
+  color: #25704c;
+  font-size: 11px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.swan-save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(37, 112, 76, 0.09);
+}
+
+.swan-save-state.is-saving,
+.swan-save-state.is-dirty {
+  border-color: rgba(174, 111, 23, 0.09);
+  background: #fff8eb;
+  color: #99611e;
+}
+
+.swan-save-state.is-error,
+.swan-save-state.is-conflict {
+  border-color: rgba(190, 60, 54, 0.09);
+  background: #fff3f2;
+  color: #ad3d38;
+}
+
+.swan-editor-canvas {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(249, 252, 255, 0.72), transparent 180px), #ffffff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(73, 105, 144, 0.18) transparent;
+}
+
+.swan-editor-title-block {
+  width: min(820px, calc(100% - 72px));
+  margin: 0 auto;
+  padding: 34px 0 20px;
+}
+
+.swan-editor-submeta {
+  display: flex;
+  margin-top: 12px;
+  align-items: center;
+  gap: 9px;
+  color: #8a98aa;
+  font-size: 11px;
+}
+
+.swan-editor-kind {
+  display: inline-flex;
+  height: 22px;
+  padding: 0 8px;
+  align-items: center;
+  border-radius: 7px;
+  background: rgba(47, 111, 232, 0.065);
+  color: #54729d;
+  font-weight: 550;
+}
+
 .swan-editor-toolbar {
   display: flex;
+  width: min(820px, calc(100% - 72px));
   align-items: center;
   gap: 2px;
-  min-height: 44px;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--swan-border);
+  min-height: 46px;
+  margin: 0 auto;
+  padding: 5px 7px;
+  border: 1px solid var(--swan-border);
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.9);
+  box-shadow: 0 8px 22px rgba(43, 74, 112, 0.035);
   overflow-x: auto;
+}
+
+.swan-editor-toolbar .ant-btn {
+  min-width: 32px;
+  height: 32px;
+  padding-inline: 9px;
+  border-radius: 9px;
+  color: #617289;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.swan-editor-toolbar .ant-btn-primary {
+  color: #ffffff;
 }
 
 .swan-editor-toolbar-spacer {
@@ -527,17 +753,19 @@ body {
 
 .swan-tiptap {
   flex: 1;
-  min-height: 420px;
-  overflow-y: auto;
-  padding: 28px 34px 48px;
+  width: min(820px, calc(100% - 72px));
+  min-height: 320px;
+  margin: 0 auto;
+  padding: 28px 0 52px;
 }
 
 .swan-prosemirror {
-  min-height: 360px;
+  min-height: 320px;
   outline: none;
-  color: var(--swan-text);
-  font-size: 15px;
-  line-height: 1.8;
+  color: #27364b;
+  font-size: 16.5px;
+  line-height: 1.9;
+  letter-spacing: 0.002em;
 }
 
 .swan-prosemirror > *:first-child {
@@ -546,15 +774,16 @@ body {
 
 .swan-prosemirror h1 {
   margin: 1.3em 0 0.5em;
-  font-size: 30px;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
+  font-family: var(--swan-serif);
+  font-size: 31px;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
 }
 
 .swan-prosemirror h2 {
   margin: 1.2em 0 0.45em;
-  font-size: 22px;
-  line-height: 1.4;
+  font-size: 23px;
+  line-height: 1.45;
 }
 
 .swan-prosemirror p {
@@ -567,17 +796,20 @@ body {
 }
 
 .swan-prosemirror blockquote {
-  margin: 1em 0;
-  padding: 2px 0 2px 16px;
+  margin: 1.3em 0;
+  padding: 15px 18px;
   border-left: 3px solid var(--swan-brand);
-  color: var(--swan-text-muted);
+  border-radius: 0 12px 12px 0;
+  background: #f4f8ff;
+  color: #5d7089;
 }
 
 .swan-prosemirror pre {
   padding: 16px 18px;
-  border-radius: 10px;
-  background: #0f172a;
-  color: #e2e8f0;
+  border: 1px solid rgba(46, 80, 120, 0.08);
+  border-radius: 12px;
+  background: #f5f8fc;
+  color: #2c3d55;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.65;
@@ -597,9 +829,14 @@ body {
 }
 
 .swan-editor-meta {
-  padding: 10px 20px;
+  display: flex;
+  width: min(820px, calc(100% - 72px));
+  margin: 0 auto;
+  padding: 14px 0 24px;
+  justify-content: space-between;
   border-top: 1px solid var(--swan-border);
-  font-size: 12px;
+  color: #98a5b6;
+  font-size: 10.5px;
 }
 
 .swan-editor-loading {
@@ -607,7 +844,7 @@ body {
   flex: 1;
   align-items: center;
   justify-content: center;
-  min-height: 480px;
+  min-height: 0;
   padding: 24px;
 }
 
@@ -705,13 +942,16 @@ body {
 }
 
 .swan-footer {
-  padding: 20px 28px 28px;
-  color: #596b82;
-  font-size: 12px;
-  text-align: center;
+  display: none;
 }
 
 @media (max-width: 768px) {
+  .swan-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .swan-header {
     padding: 0 16px !important;
   }
@@ -726,7 +966,8 @@ body {
   }
 
   .swan-content {
-    padding: 16px;
+    padding: 14px;
+    overflow: visible;
   }
 
   .swan-hero {
@@ -739,14 +980,15 @@ body {
 
   .swan-docs {
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
     min-height: 0;
   }
 
-  .swan-doc-list-panel {
+  .swan-doc-list-panel.swan-card {
     max-height: 280px;
   }
 
-  .swan-editor-panel {
+  .swan-editor-panel.swan-card {
     min-height: 560px;
   }
 
@@ -763,12 +1005,23 @@ body {
 
   .swan-doc-title-input.ant-input {
     width: 100%;
-    font-size: 20px;
+    font-size: 31px;
+  }
+
+  .swan-editor-title-block,
+  .swan-editor-toolbar,
+  .swan-tiptap,
+  .swan-editor-meta {
+    width: calc(100% - 32px);
   }
 
   .swan-tiptap {
     min-height: 360px;
-    padding: 22px 18px 36px;
+    padding: 24px 0 38px;
+  }
+
+  .swan-prosemirror {
+    font-size: 16px;
   }
 }
 
@@ -784,5 +1037,14 @@ body {
 
   .swan-mobile-brand {
     display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swan-sider,
+  .swan-menu-item,
+  .swan-doc-list-item,
+  .swan-user-button {
+    transition: none;
   }
 }
