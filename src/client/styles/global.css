@@ -343,6 +343,57 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
+.swan-folder-create {
+  display: grid;
+  height: 36px;
+  margin-bottom: 3px;
+  grid-template-columns: 16px minmax(0, 1fr) 24px 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 5px 0 9px;
+  border: 1px solid rgba(47, 111, 232, 0.38);
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.08);
+  color: var(--swan-text-muted);
+}
+
+.swan-folder-create input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--swan-text);
+  font-size: 12px;
+}
+
+.swan-folder-create input::placeholder {
+  color: var(--swan-text-muted);
+}
+
+.swan-folder-create button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+}
+
+.swan-folder-create button:hover {
+  background: #eef0f1;
+  color: var(--swan-text);
+}
+
+.swan-folder-create button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
 .swan-folder-item.is-selected,
 .swan-folder-row.is-selected {
   background: #e7eaec;
@@ -389,6 +440,10 @@ input {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
+}
+
+.swan-sidebar-doc-item {
+  position: relative;
 }
 
 .swan-sidebar-doc {
@@ -447,6 +502,52 @@ input {
   color: var(--swan-text-muted);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+  transition: opacity 0.15s ease;
+}
+
+.swan-sidebar-doc-more {
+  position: absolute;
+  top: 6px;
+  right: 5px;
+  z-index: 1;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: #eef0f1;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.swan-sidebar-doc-item:hover .swan-sidebar-doc-more,
+.swan-sidebar-doc-item:focus-within .swan-sidebar-doc-more {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swan-sidebar-doc-item:hover time,
+.swan-sidebar-doc-item:focus-within time {
+  opacity: 0;
+}
+
+.swan-sidebar-doc-more:hover {
+  background: #e1e5e7;
+  color: var(--swan-text);
+}
+
+.swan-sidebar-doc-more:disabled {
+  cursor: wait;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .swan-sidebar-doc-excerpt {
@@ -1236,6 +1337,15 @@ input {
 
   .swan-folder-edit {
     opacity: 1;
+  }
+
+  .swan-sidebar-doc-more {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .swan-sidebar-doc time {
+    display: none;
   }
 
   .swan-editor-stage {

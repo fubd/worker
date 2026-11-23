@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Avatar, Button, Dropdown, Spin } from 'antd';
+import { Avatar, Button, Dropdown, Spin, Tooltip, type MenuProps } from 'antd';
 import {
+  Check,
   ChevronDown,
   FileText,
   Folder,
@@ -31,8 +32,12 @@ import {
 interface WorkspaceSidebarProps {
   activeId: number | null;
   creating: boolean;
+  creatingFolder: boolean;
+  deletingDocumentId: number | null;
   documents: DocumentSummary[];
+  folderDraft: string;
   folderScope: FolderScope;
+  folderSaving: boolean;
   folders: FolderSummary[];
   isOpen: boolean;
   listLoading: boolean;
@@ -42,23 +47,32 @@ interface WorkspaceSidebarProps {
   user: AuthUser;
   view: DocumentView;
   onBindProvider: (provider: 'google' | 'github') => void;
+  onCancelFolderCreate: () => void;
   onCreate: () => void;
   onCreateFolder: () => void;
+  onDeleteDocument: (document: DocumentSummary) => void;
   onEditFolder: (folder: FolderSummary) => void;
+  onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
+  onMoveDocument: (document: DocumentSummary, folderId: number | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
   onRestore: (document: DocumentSummary) => void;
   onSearchChange: (value: string) => void;
   onSelect: (id: number) => void;
   onSignOut: () => void;
+  onSubmitFolderCreate: () => void;
 }
 
 export function WorkspaceSidebar({
   activeId,
   creating,
+  creatingFolder,
+  deletingDocumentId,
   documents,
+  folderDraft,
   folderScope,
+  folderSaving,
   folders,
   isOpen,
   listLoading,
@@ -68,16 +82,21 @@ export function WorkspaceSidebar({
   user,
   view,
   onBindProvider,
+  onCancelFolderCreate,
   onCreate,
   onCreateFolder,
+  onDeleteDocument,
   onEditFolder,
+  onFolderDraftChange,
   onFolderSelect,
+  onMoveDocument,
   onNavigate,
   onOpenPasswordSettings,
   onRestore,
   onSearchChange,
   onSelect,
   onSignOut,
+  onSubmitFolderCreate,
 }: WorkspaceSidebarProps) {
   const linkedProviders = user.linkedProviders;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -92,6 +111,35 @@ export function WorkspaceSidebar({
           : folderScope === 'unfiled'
             ? '未归档'
             : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
+
+  const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
+    const moveTargets = [
+      ...(document.folderId === null ? [] : [{ key: 'move:none', label: '未归档' }]),
+      ...folders
+        .filter((folder) => folder.id !== document.folderId)
+        .map((folder) => ({ key: `move:${folder.id}`, label: folder.name })),
+    ];
+
+    return [
+      ...(moveTargets.length
+        ? [
+            {
+              key: 'move',
+              label: '移动到文件夹',
+              icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
+              children: moveTargets,
+            },
+          ]
+        : []),
+      ...(moveTargets.length ? [{ type: 'divider' as const }] : []),
+      {
+        key: 'delete',
+        label: '移入回收站',
+        danger: true,
+        icon: <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+      },
+    ];
+  };
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -165,15 +213,56 @@ export function WorkspaceSidebar({
         <div className="swan-sidebar-folders">
           <div className="swan-sidebar-section-head">
             <span>文件夹</span>
-            <button
-              type="button"
-              className="swan-sidebar-add"
-              aria-label="新建文件夹"
-              onClick={onCreateFolder}
-            >
-              <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />
-            </button>
+            <Tooltip title="新建文件夹" placement="top">
+              <button
+                type="button"
+                className="swan-sidebar-add"
+                aria-label="新建文件夹"
+                aria-expanded={creatingFolder}
+                onClick={onCreateFolder}
+              >
+                <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />
+              </button>
+            </Tooltip>
           </div>
+
+          {creatingFolder && (
+            <form
+              className="swan-folder-create"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onSubmitFolderCreate();
+              }}
+            >
+              <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
+              <input
+                autoFocus
+                maxLength={30}
+                value={folderDraft}
+                aria-label="新文件夹名称"
+                placeholder="文件夹名称"
+                onChange={(event) => onFolderDraftChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') onCancelFolderCreate();
+                }}
+              />
+              <button
+                type="submit"
+                aria-label="创建文件夹"
+                disabled={folderSaving || !folderDraft.trim()}
+              >
+                <Check aria-hidden="true" size={14} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                aria-label="取消新建文件夹"
+                disabled={folderSaving}
+                onClick={onCancelFolderCreate}
+              >
+                <X aria-hidden="true" size={14} strokeWidth={2} />
+              </button>
+            </form>
+          )}
 
           <button
             type="button"
@@ -261,21 +350,47 @@ export function WorkspaceSidebar({
                 </Button>
               </div>
             ) : (
-              <button
-                type="button"
-                key={document.id}
-                className={
-                  document.id === activeId ? 'swan-sidebar-doc is-selected' : 'swan-sidebar-doc'
-                }
-                disabled={saveState === 'saving'}
-                onClick={() => onSelect(document.id)}
-              >
-                <span className="swan-sidebar-doc-title-row">
-                  <OverflowText text={document.title} className="swan-sidebar-doc-title" />
-                  <time>{formatUpdatedAt(document.updatedAt)}</time>
-                </span>
-                <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
-              </button>
+              <div className="swan-sidebar-doc-item" key={document.id}>
+                <button
+                  type="button"
+                  className={
+                    document.id === activeId ? 'swan-sidebar-doc is-selected' : 'swan-sidebar-doc'
+                  }
+                  disabled={saveState === 'saving' || deletingDocumentId === document.id}
+                  onClick={() => onSelect(document.id)}
+                >
+                  <span className="swan-sidebar-doc-title-row">
+                    <OverflowText text={document.title} className="swan-sidebar-doc-title" />
+                    <time>{formatUpdatedAt(document.updatedAt)}</time>
+                  </span>
+                  <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
+                </button>
+                <Dropdown
+                  trigger={['click']}
+                  placement="bottomRight"
+                  menu={{
+                    items: getDocumentMenuItems(document),
+                    onClick: ({ key }) => {
+                      if (key === 'delete') {
+                        onDeleteDocument(document);
+                        return;
+                      }
+                      if (!key.startsWith('move:')) return;
+                      const target = key.slice('move:'.length);
+                      onMoveDocument(document, target === 'none' ? null : Number(target));
+                    },
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="swan-sidebar-doc-more"
+                    aria-label={`更多操作 ${document.title}`}
+                    disabled={saveState === 'saving' || deletingDocumentId === document.id}
+                  >
+                    <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
+                  </button>
+                </Dropdown>
+              </div>
             ),
           )
         )}

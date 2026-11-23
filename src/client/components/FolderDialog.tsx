@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 export default function FolderDialog({
-  mode,
   name,
   saving,
   deleting,
@@ -10,7 +9,6 @@ export default function FolderDialog({
   onDelete,
   onSubmit,
 }: {
-  mode: 'create' | 'rename';
   name: string;
   saving: boolean;
   deleting: boolean;
@@ -20,7 +18,6 @@ export default function FolderDialog({
   onSubmit: () => void;
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const title = mode === 'create' ? '新建文件夹' : '管理文件夹';
 
   return (
     <div
@@ -39,8 +36,8 @@ export default function FolderDialog({
         }}
       >
         <header>
-          <span>{mode === 'create' ? 'ORGANIZE' : 'FOLDER'}</span>
-          <h2 id="swan-folder-dialog-title">{title}</h2>
+          <span>FOLDER</span>
+          <h2 id="swan-folder-dialog-title">管理文件夹</h2>
           <button type="button" aria-label="关闭" onClick={onClose}>
             ×
           </button>
@@ -77,21 +74,19 @@ export default function FolderDialog({
             />
             <p>最多 30 个字符，同一账号下名称不能重复。</p>
             <div className="swan-folder-dialog-actions">
-              {mode === 'rename' && (
-                <button
-                  type="button"
-                  className="is-danger-text"
-                  onClick={() => setConfirmingDelete(true)}
-                >
-                  删除文件夹
-                </button>
-              )}
+              <button
+                type="button"
+                className="is-danger-text"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                删除文件夹
+              </button>
               <span />
               <button type="button" onClick={onClose}>
                 取消
               </button>
               <button type="submit" className="is-primary" disabled={saving || !name.trim()}>
-                {saving ? '保存中…' : mode === 'create' ? '创建文件夹' : '保存名称'}
+                {saving ? '保存中…' : '保存名称'}
               </button>
             </div>
           </form>

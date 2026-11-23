@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Input, Popconfirm, Spin, Tooltip } from 'antd';
+import { App, Alert, Button, Input, Spin, Tooltip } from 'antd';
 import {
   Bold,
   ChevronRight,
@@ -66,7 +66,7 @@ function parseFolderScope(value: string | null): FolderScope {
   return Number.isInteger(id) && id > 0 ? id : 'all';
 }
 
-type FolderDialogState = { mode: 'create' } | { mode: 'rename'; folder: FolderSummary } | null;
+type FolderDialogState = { folder: FolderSummary } | null;
 
 function saveStateLabel(state: SaveState): string {
   if (state === 'saving') return '保存中';
@@ -122,7 +122,7 @@ export default function DocsPage() {
 }
 
 function DocsPageContent() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { status, markUnauthenticated } = useAuth();
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
@@ -141,7 +141,7 @@ function DocsPageContent() {
   const [folderRevision, setFolderRevision] = useState(0);
   const [editorLoading, setEditorLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -150,6 +150,7 @@ function DocsPageContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
@@ -515,25 +516,32 @@ function DocsPageContent() {
     }
   };
 
-  const deleteActiveDocument = async () => {
-    const document = activeDocumentRef.current;
-    if (!document || deleting || saveState === 'conflict') return;
+  const deleteDocument = async (document: Pick<DocumentSummary, 'id'>) => {
+    if (deletingDocumentId !== null) return;
+    const isActive = activeDocumentRef.current?.id === document.id;
+    if (isActive && saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return;
+    }
 
-    setDeleting(true);
+    setDeletingDocumentId(document.id);
     try {
-      if (savePromiseRef.current) await savePromiseRef.current;
+      if (isActive && savePromiseRef.current) await savePromiseRef.current;
       await api.deleteDocument(document.id);
       const remaining = documents.filter((item) => item.id !== document.id);
       setDocuments(remaining);
-      activeIdRef.current = remaining[0]?.id ?? null;
-      activeDocumentRef.current = null;
-      setActiveDocument(null);
       setFolderRevision((value) => value + 1);
 
-      const next = new URLSearchParams(searchParams);
-      if (remaining[0]) next.set('id', String(remaining[0].id));
-      else next.delete('id');
-      setSearchParams(next, { replace: true });
+      if (isActive) {
+        activeIdRef.current = remaining[0]?.id ?? null;
+        activeDocumentRef.current = null;
+        setActiveDocument(null);
+
+        const next = new URLSearchParams(searchParams);
+        if (remaining[0]) next.set('id', String(remaining[0].id));
+        else next.delete('id');
+        setSearchParams(next, { replace: true });
+      }
       message.success('文档已移入回收站');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -542,8 +550,20 @@ function DocsPageContent() {
       }
       message.error(errorMessage(error, '删除失败'));
     } finally {
-      setDeleting(false);
+      setDeletingDocumentId(null);
     }
+  };
+
+  const requestDeleteDocument = (document: Pick<DocumentSummary, 'id' | 'title'>) => {
+    if (deletingDocumentId !== null) return;
+    modal.confirm({
+      title: '将这篇文档移入回收站？',
+      content: document.title,
+      okText: '移入回收站',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => deleteDocument(document),
+    });
   };
 
   const restoreDocument = async (document: DocumentSummary) => {
@@ -567,6 +587,7 @@ function DocsPageContent() {
 
   const selectFolder = (scope: FolderScope) => {
     setSidebarOpen(false);
+    setCreatingFolder(false);
     setSearchInput('');
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -580,41 +601,64 @@ function DocsPageContent() {
   };
 
   const openCreateFolder = () => {
+    setFolderDialog(null);
     setFolderName('');
-    setFolderDialog({ mode: 'create' });
+    setCreatingFolder(true);
+  };
+
+  const cancelCreateFolder = () => {
+    if (folderSaving) return;
+    setCreatingFolder(false);
+    setFolderName('');
   };
 
   const openEditFolder = (folder: FolderSummary) => {
+    setCreatingFolder(false);
     setFolderName(folder.name);
-    setFolderDialog({ mode: 'rename', folder });
+    setFolderDialog({ folder });
   };
 
-  const saveFolder = async () => {
+  const createFolder = async () => {
+    const name = folderName.trim();
+    if (!creatingFolder || !name || folderSaving) return;
+
+    setFolderSaving(true);
+    try {
+      const folder = await api.createFolder(name);
+      setFolders((items) =>
+        [...items, folder].sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
+      );
+      setCreatingFolder(false);
+      setFolderName('');
+      setFolderRevision((value) => value + 1);
+      selectFolder(folder.id);
+      message.success('文件夹已创建');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '文件夹保存失败'));
+    } finally {
+      setFolderSaving(false);
+    }
+  };
+
+  const renameFolder = async () => {
     const name = folderName.trim();
     if (!folderDialog || !name || folderSaving) return;
 
     setFolderSaving(true);
     try {
-      if (folderDialog.mode === 'create') {
-        const folder = await api.createFolder(name);
-        setFolders((items) =>
-          [...items, folder].sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
-        );
-        setFolderDialog(null);
-        setFolderRevision((value) => value + 1);
-        selectFolder(folder.id);
-        message.success('文件夹已创建');
-      } else {
-        const folder = await api.renameFolder(folderDialog.folder.id, name);
-        setFolders((items) =>
-          items
-            .map((item) => (item.id === folder.id ? folder : item))
-            .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
-        );
-        setFolderDialog(null);
-        setFolderRevision((value) => value + 1);
-        message.success('文件夹已重命名');
-      }
+      const folder = await api.renameFolder(folderDialog.folder.id, name);
+      setFolders((items) =>
+        items
+          .map((item) => (item.id === folder.id ? folder : item))
+          .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
+      );
+      setFolderDialog(null);
+      setFolderRevision((value) => value + 1);
+      message.success('文件夹已重命名');
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
@@ -627,7 +671,7 @@ function DocsPageContent() {
   };
 
   const deleteFolder = async () => {
-    if (!folderDialog || folderDialog.mode !== 'rename' || folderDeleting) return;
+    if (!folderDialog || folderDeleting) return;
     const { folder } = folderDialog;
 
     setFolderDeleting(true);
@@ -658,15 +702,19 @@ function DocsPageContent() {
     }
   };
 
-  const moveActiveDocument = async (folderId: number | null) => {
-    const document = activeDocumentRef.current;
-    if (!document || moving || document.folderId === folderId) return;
+  const moveDocument = async (
+    document: Pick<DocumentSummary, 'id' | 'folderId'>,
+    folderId: number | null,
+  ) => {
+    if (moving || document.folderId === folderId) return;
 
     setMoving(true);
     try {
       const updated = await api.moveDocument(document.id, folderId);
-      activeDocumentRef.current = updated;
-      setActiveDocument(updated);
+      if (activeDocumentRef.current?.id === updated.id) {
+        activeDocumentRef.current = updated;
+        setActiveDocument(updated);
+      }
       setDocuments((items) =>
         items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
       );
@@ -711,8 +759,12 @@ function DocsPageContent() {
       <WorkspaceSidebar
         activeId={activeId}
         creating={creating}
+        creatingFolder={creatingFolder}
+        deletingDocumentId={deletingDocumentId}
         documents={documents}
+        folderDraft={folderName}
         folderScope={folderScope}
+        folderSaving={folderSaving}
         folders={folders}
         isOpen={sidebarOpen}
         listLoading={listLoading}
@@ -722,13 +774,17 @@ function DocsPageContent() {
         user={user}
         view={view}
         onBindProvider={bindProvider}
+        onCancelFolderCreate={cancelCreateFolder}
         onCreate={() => {
           setSidebarOpen(false);
           void createDocument();
         }}
         onCreateFolder={openCreateFolder}
+        onDeleteDocument={requestDeleteDocument}
         onEditFolder={openEditFolder}
+        onFolderDraftChange={setFolderName}
         onFolderSelect={selectFolder}
+        onMoveDocument={(document, folderId) => void moveDocument(document, folderId)}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
         onRestore={(document) => void restoreDocument(document)}
@@ -747,6 +803,7 @@ function DocsPageContent() {
           void selectDocument(id);
         }}
         onSignOut={() => void signOut()}
+        onSubmitFolderCreate={() => void createFolder()}
       />
 
       {sidebarOpen && (
@@ -798,23 +855,15 @@ function DocsPageContent() {
                   重新加载
                 </Button>
               )}
-              <Popconfirm
-                title="将这篇文档移入回收站？"
-                description="你之后可以从回收站恢复。"
-                okText="移入回收站"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
-                onConfirm={() => void deleteActiveDocument()}
-              >
-                <Button
-                  type="text"
-                  danger
-                  icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
-                  loading={deleting}
-                  disabled={saveState === 'conflict'}
-                  aria-label="删除文档"
-                />
-              </Popconfirm>
+              <Button
+                type="text"
+                danger
+                icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
+                loading={deletingDocumentId === activeDocument.id}
+                disabled={saveState === 'conflict'}
+                aria-label="删除文档"
+                onClick={() => requestDeleteDocument(activeDocument)}
+              />
             </div>
           )}
         </header>
@@ -930,7 +979,8 @@ function DocsPageContent() {
                           disabled={moving}
                           aria-label="文档文件夹"
                           onChange={(event) =>
-                            void moveActiveDocument(
+                            void moveDocument(
+                              activeDocument,
                               event.target.value ? Number(event.target.value) : null,
                             )
                           }
@@ -966,8 +1016,7 @@ function DocsPageContent() {
       {folderDialog && (
         <Suspense fallback={null}>
           <FolderDialog
-            key={folderDialog.mode === 'create' ? 'create' : `rename-${folderDialog.folder.id}`}
-            mode={folderDialog.mode}
+            key={`rename-${folderDialog.folder.id}`}
             name={folderName}
             saving={folderSaving}
             deleting={folderDeleting}
@@ -976,7 +1025,7 @@ function DocsPageContent() {
               if (!folderSaving && !folderDeleting) setFolderDialog(null);
             }}
             onDelete={deleteFolder}
-            onSubmit={() => void saveFolder()}
+            onSubmit={() => void renameFolder()}
           />
         </Suspense>
       )}
