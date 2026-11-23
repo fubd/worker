@@ -3,16 +3,20 @@ import { App, Alert, Button, Input, Spin } from 'antd';
 import {
   Bold,
   ChevronRight,
+  CircleAlert,
+  Clock3,
+  CloudCheck,
   CodeXml,
   Folder,
   Italic,
   List,
   ListOrdered,
+  LoaderCircle,
   Menu,
   Plus,
   Redo2,
   RefreshCw,
-  Trash2,
+  TriangleAlert,
   Undo2,
 } from 'lucide-react';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -75,12 +79,15 @@ function parseFolderScope(value: string | null): FolderScope {
 
 type FolderDialogState = { folder: FolderSummary } | null;
 
-function saveStateLabel(state: SaveState): string {
-  if (state === 'saving') return '保存中';
-  if (state === 'dirty') return '等待保存';
-  if (state === 'error') return '保存失败';
-  if (state === 'conflict') return '版本冲突';
-  return '已保存';
+function formatLastEditedAt(value: string, now: number): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+
+  const elapsed = Math.max(0, now - date.getTime());
+  if (elapsed < 60_000) return '刚刚';
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} 分钟前`;
+  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} 小时前`;
+  return formatUpdatedAt(value);
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -354,7 +361,7 @@ function DocsPageContent() {
         titleRef.current = document.title;
         revisionRef.current = 0;
         savedRevisionRef.current = 0;
-        setSaveState('saved');
+        setSaveState('idle');
         editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
       })
       .catch((error: unknown) => {
@@ -450,7 +457,7 @@ function DocsPageContent() {
       titleRef.current = document.title;
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
-      setSaveState('saved');
+      setSaveState('idle');
       editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
       message.success('已加载其他页面的最新版本');
     } catch (error) {
@@ -846,10 +853,7 @@ function DocsPageContent() {
 
           {view === 'documents' && activeDocument && (
             <div className="swan-workspace-actions">
-              <span className={`swan-save-state is-${saveState}`}>
-                <span className="swan-save-dot" aria-hidden="true" />
-                {saveStateLabel(saveState)}
-              </span>
+              <SaveStatus state={saveState} updatedAt={activeDocument.updatedAt} />
               {saveState === 'error' && (
                 <Button size="small" type="link" onClick={() => void saveDocument()}>
                   重试
@@ -860,15 +864,6 @@ function DocsPageContent() {
                   重新加载
                 </Button>
               )}
-              <Button
-                type="text"
-                danger
-                icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
-                loading={deletingDocumentId === activeDocument.id}
-                disabled={saveState === 'conflict'}
-                aria-label="删除文档"
-                onClick={() => requestDeleteDocument(activeDocument)}
-              />
             </div>
           )}
         </header>
@@ -995,6 +990,51 @@ function DocsPageContent() {
         </Suspense>
       )}
     </div>
+  );
+}
+
+function SaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: string }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (state !== 'idle') return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [state]);
+
+  const syncing = state === 'dirty' || state === 'saving';
+  const Icon =
+    state === 'error'
+      ? CircleAlert
+      : state === 'conflict'
+        ? TriangleAlert
+        : syncing
+          ? LoaderCircle
+          : state === 'saved'
+            ? CloudCheck
+            : Clock3;
+  const label =
+    state === 'error'
+      ? '保存失败'
+      : state === 'conflict'
+        ? '版本冲突'
+        : syncing
+          ? '正在保存...'
+          : state === 'saved'
+            ? '已保存'
+            : `上次编辑 ${formatLastEditedAt(updatedAt, now)}`;
+
+  return (
+    <span className={`swan-save-state is-${state}`} aria-live="polite">
+      <Icon
+        className={syncing ? 'swan-save-icon is-spinning' : 'swan-save-icon'}
+        aria-hidden="true"
+        size={14}
+        strokeWidth={1.8}
+      />
+      <span>{label}</span>
+    </span>
   );
 }
 

@@ -737,21 +737,29 @@ input {
   white-space: nowrap;
 }
 
-.swan-save-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #4d9a70;
+.swan-save-icon {
+  flex: none;
+}
+
+.swan-save-icon.is-spinning {
+  animation: swan-save-spin 0.9s linear infinite;
+}
+
+.swan-save-state.is-idle {
+  color: var(--swan-text-muted);
+}
+
+.swan-save-state.is-saved {
+  color: #557063;
+}
+
+.swan-save-state.is-saved .swan-save-icon {
+  color: #4d9a70;
 }
 
 .swan-save-state.is-saving,
 .swan-save-state.is-dirty {
-  color: #99611e;
-}
-
-.swan-save-state.is-saving .swan-save-dot,
-.swan-save-state.is-dirty .swan-save-dot {
-  background: #bd7929;
+  color: #6c767f;
 }
 
 .swan-save-state.is-error,
@@ -759,9 +767,10 @@ input {
   color: #ad3d38;
 }
 
-.swan-save-state.is-error .swan-save-dot,
-.swan-save-state.is-conflict .swan-save-dot {
-  background: #c6534d;
+@keyframes swan-save-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .swan-workspace-notices {
