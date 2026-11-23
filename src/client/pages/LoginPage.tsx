@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Button, Form, Input } from 'antd';
-import { ArrowLeft, ArrowRight, AtSign, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 
@@ -267,12 +267,7 @@ export default function LoginPage() {
                     },
                   ]}
                 >
-                  <Input
-                    size="large"
-                    prefix={<AtSign aria-hidden="true" size={16} strokeWidth={1.8} />}
-                    autoComplete="username"
-                    placeholder="例如 yuyan_writer"
-                  />
+                  <Input size="large" autoComplete="username" placeholder="例如 yuyan_writer" />
                 </Form.Item>
                 <Form.Item
                   name="password"
