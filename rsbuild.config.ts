@@ -4,7 +4,11 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { BRAND } from './src/shared/brand';
 
 export default defineConfig(({ command }) => ({
-  plugins: [pluginReact()],
+  plugins: [
+    pluginReact({
+      reactCompiler: true,
+    }),
+  ],
 
   environments: {
     web: {
