@@ -306,6 +306,12 @@ input {
   grid-template-columns: minmax(0, 1fr) 26px;
   align-items: center;
   border-radius: 7px;
+  transition: background-color 0.18s ease;
+}
+
+.swan-folder-item:hover,
+.swan-folder-item:focus-within {
+  background: rgba(255, 255, 255, 0.56);
 }
 
 .swan-folder-row {
@@ -329,6 +335,10 @@ input {
 .swan-folder-row:hover {
   background: rgba(255, 255, 255, 0.56);
   color: var(--swan-text);
+}
+
+.swan-folder-item > .swan-folder-row:hover {
+  background: transparent;
 }
 
 .swan-folder-row span {
@@ -419,7 +429,7 @@ input {
   opacity: 0;
   transition:
     opacity 0.15s ease,
-    background-color 0.15s ease;
+    color 0.15s ease;
 }
 
 .swan-folder-item:hover .swan-folder-edit,
@@ -428,7 +438,6 @@ input {
 }
 
 .swan-folder-edit:hover {
-  background: #e1e5e7;
   color: var(--swan-text);
 }
 
