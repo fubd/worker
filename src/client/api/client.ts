@@ -1,4 +1,10 @@
-import type { AuthSessionResponse, DocumentListResponse, DocumentRecord } from '@/shared/types';
+import type {
+  AuthSessionResponse,
+  DocumentListResponse,
+  DocumentRecord,
+  FolderListResponse,
+  FolderSummary,
+} from '@/shared/types';
 import { apiPath } from '@/shared/api-config';
 
 export class ApiError extends Error {
@@ -72,11 +78,23 @@ export const api = {
 
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST' }),
 
-  listDocuments: (options: { signal?: AbortSignal } = {}) =>
-    request<DocumentListResponse>('/documents', {
+  listDocuments: (
+    options: {
+      signal?: AbortSignal;
+      folderId?: number | null;
+      query?: string;
+    } = {},
+  ) => {
+    const params = new URLSearchParams();
+    if (options.folderId === null) params.set('folder', 'unfiled');
+    if (typeof options.folderId === 'number') params.set('folder', String(options.folderId));
+    if (options.query?.trim()) params.set('q', options.query.trim());
+    const search = params.size > 0 ? `?${params}` : '';
+    return request<DocumentListResponse>(`/documents${search}`, {
       cache: 'no-store',
       signal: options.signal,
-    }),
+    });
+  },
 
   listTrashDocuments: (options: { signal?: AbortSignal } = {}) =>
     request<DocumentListResponse>('/documents/trash', {
@@ -90,10 +108,10 @@ export const api = {
       signal: options.signal,
     }),
 
-  createDocument: (title = '无标题文档') =>
+  createDocument: (title = '无标题文档', folderId: number | null = null) =>
     request<DocumentRecord>('/documents', {
       method: 'POST',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify({ title, folderId }),
     }),
 
   updateDocument: (
@@ -119,5 +137,34 @@ export const api = {
   restoreDocument: (id: number) =>
     request<DocumentRecord>(`/documents/${id}/restore`, {
       method: 'POST',
+    }),
+
+  moveDocument: (id: number, folderId: number | null) =>
+    request<DocumentRecord>(`/documents/${id}/folder`, {
+      method: 'PATCH',
+      body: JSON.stringify({ folderId }),
+    }),
+
+  listFolders: (options: { signal?: AbortSignal } = {}) =>
+    request<FolderListResponse>('/folders', {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  createFolder: (name: string) =>
+    request<FolderSummary>('/folders', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  renameFolder: (id: number, name: string) =>
+    request<FolderSummary>(`/folders/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteFolder: (id: number) =>
+    request<{ ok: boolean; id: number }>(`/folders/${id}`, {
+      method: 'DELETE',
     }),
 };

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 import * as repo from '../db/documents';
+import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
 import type { AppEnv } from '../types';
 
@@ -8,6 +9,7 @@ export const documentRoutes = new Hono<AppEnv>();
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 1_000_000;
+const MAX_SEARCH_LENGTH = 100;
 
 documentRoutes.use('*', requireAuth);
 
@@ -24,6 +26,19 @@ function parseId(value: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function parseFolderFilter(value: string | undefined): number | null | undefined | 'invalid' {
+  if (value === undefined || value === '') return undefined;
+  if (value === 'unfiled') return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : 'invalid';
+}
+
+function parseOptionalFolderId(value: unknown): number | null | 'invalid' {
+  if (value === null || value === undefined) return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : 'invalid';
+}
+
 function normalizeContent(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -37,8 +52,18 @@ function normalizeText(value: unknown, field: string): string | null {
 documentRoutes.get('/', async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
+  const folderId = parseFolderFilter(c.req.query('folder'));
+  if (folderId === 'invalid') return c.json({ error: 'folder 非法' }, 400);
+  const query = (c.req.query('q') ?? '').trim();
+  if (query.length > MAX_SEARCH_LENGTH) {
+    return c.json({ error: `搜索词不能超过 ${MAX_SEARCH_LENGTH} 个字符` }, 400);
+  }
   const ownerId = c.get('user').id;
-  const result = await wrapTime(c, 'db', repo.listDocuments(c.env.DB, ownerId, { limit, offset }));
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.listDocuments(c.env.DB, ownerId, { limit, offset, folderId, query }),
+  );
   return c.json(result);
 });
 
@@ -64,11 +89,23 @@ documentRoutes.get('/:id', async (c) => {
 });
 
 documentRoutes.post('/', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { title?: unknown };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    title?: unknown;
+    folderId?: unknown;
+  };
   const title = normalizeTitle(body.title, '无标题文档');
   if (!title) return c.json({ error: 'title 长度需在 1~200 之间' }, 400);
+  const folderId = parseOptionalFolderId(body.folderId);
+  if (folderId === 'invalid') return c.json({ error: 'folderId 非法' }, 400);
+  if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
+    return c.json({ error: '文件夹不存在' }, 404);
+  }
 
-  const document = await wrapTime(c, 'db', repo.createDocument(c.env.DB, c.get('user').id, title));
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.createDocument(c.env.DB, c.get('user').id, title, folderId),
+  );
   return c.json(document, 201);
 });
 
@@ -141,6 +178,29 @@ documentRoutes.delete('/:id', async (c) => {
   const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, c.get('user').id, id));
   if (!ok) return c.json({ error: '文档不存在' }, 404);
   return c.json({ ok: true, id });
+});
+
+documentRoutes.patch('/:id/folder', async (c) => {
+  const id = parseId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as { folderId?: unknown } | null;
+  if (!body || !Object.hasOwn(body, 'folderId')) {
+    return c.json({ error: '请求体必须包含 folderId' }, 400);
+  }
+  const folderId = parseOptionalFolderId(body.folderId);
+  if (folderId === 'invalid') return c.json({ error: 'folderId 非法' }, 400);
+  if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
+    return c.json({ error: '文件夹不存在' }, 404);
+  }
+
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.moveDocument(c.env.DB, c.get('user').id, id, folderId),
+  );
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+  return c.json(document);
 });
 
 documentRoutes.post('/:id/restore', async (c) => {

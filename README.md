@@ -2,13 +2,15 @@
 
 **让文字飞起来。**
 
-雨燕是一个轻量的知识库。当前 M1 的目标是先把“私人、安全、可恢复”做完整：
+雨燕是一个轻量的知识库。M1 先把“私人、安全、可恢复”做完整，M2 继续解决“可整理、可找到”：
 
 - Google、GitHub、账号密码三种登录方式
 - 账号名和密码可以直接注册，不要求先提供邮箱
 - 邮箱可以稍后通过 Google/GitHub 的可信邮箱绑定
 - Google、GitHub 也可以直接注册或登录独立账号
 - 文档按 owner 隔离
+- 单层文件夹、未归档和文档移动
+- 标题与正文全文检索，支持 `⌘K` / `Ctrl+K`
 - 自动保存版本冲突检测
 - 软删除、回收站与恢复
 - 未登录、会话过期和保存失败的明确状态
@@ -113,10 +115,13 @@ src/worker/routes/documents.ts      文档 API 与 owner 校验
 src/worker/auth/password.ts         PBKDF2 密码哈希与限流键
 src/worker/db/auth.ts               用户与会话数据访问
 src/worker/db/documents.ts          文档数据访问
+src/worker/db/folders.ts            文件夹与文档计数
+src/worker/routes/folders.ts        文件夹 API
 migrations/0004_auth_and_document_safety.sql
 migrations/0005_multi_provider_auth.sql
 migrations/0006_password_auth.sql
 migrations/0007_username_accounts.sql
+migrations/0008_folders.sql
 ```
 
 ## 数据安全
@@ -133,6 +138,8 @@ migrations/0007_username_accounts.sql
 - 修改已有密码时必须验证当前密码，成功后撤销该账号的其他会话。
 - 密码登录失败按客户端 IP 和账号双重限流，错误响应不会暴露账号是否存在。
 - 文档的读取、更新、删除和恢复都同时匹配 `id`、`owner_id` 和软删除状态。
+- 文件夹的创建、改名、删除和文档移动都按 `owner_id` 隔离。
+- 删除文件夹只把文档移回“未归档”，不会删除文档。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。
 - 其他用户的文档统一返回 `404`。
 - 迁移前已有文档的 `owner_id` 为空，由 `OWNER_EMAIL` 对应的历史所有者首次登录时接管。
@@ -161,7 +168,7 @@ GitHub Actions 在推送到 `main` 后执行格式、类型、构建和体积预
 2. 部署 Worker。
 3. 部署 Vercel 页面。
 
-这个顺序保证 M1 的鉴权规则先于新页面生效。
+这个顺序保证数据库规则先于新页面和 API 生效。
 
 ## 里程碑
 
@@ -174,3 +181,13 @@ M1 已完成，验收结果如下：
 - 浏览器清除会话后访问 `/docs` 会跳转到 `/login`。
 
 M1 到此停止，不自动进入搜索、文件夹、分享、附件和实时协作。
+
+M2 是“可整理、可找到”，当前范围如下：
+
+- 单层文件夹、未归档和文件夹文档计数。
+- 创建、改名、删除文件夹；删除后文档自动回到未归档。
+- 新建文档继承当前文件夹，已有文档可从编辑器移动到其他文件夹。
+- 搜索同时匹配标题和正文，结果沿用当前文件夹范围。
+- 搜索、文件夹和文档 API 全部按 `owner_id` 隔离。
+
+分享、附件、导入导出、嵌套文件夹和实时协作留到后续里程碑。

@@ -32,10 +32,20 @@ export interface DocumentRow {
   content_json: string;
   content_html: string;
   content_text: string;
+  folder_id: number | null;
   version: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface FolderRow {
+  id: number;
+  owner_id: number;
+  name: string;
+  document_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export type {
@@ -44,4 +54,6 @@ export type {
   DocumentListResponse,
   DocumentRecord,
   DocumentSummary,
+  FolderListResponse,
+  FolderSummary,
 } from '../shared/types';

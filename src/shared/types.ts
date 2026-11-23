@@ -4,6 +4,7 @@ export interface DocumentSummary {
   id: number;
   title: string;
   excerpt: string;
+  folderId: number | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,18 @@ export interface DocumentRecord extends DocumentSummary {
 
 export interface DocumentListResponse {
   items: DocumentSummary[];
+}
+
+export interface FolderSummary {
+  id: number;
+  name: string;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FolderListResponse {
+  items: FolderSummary[];
 }
 
 export interface AuthUser {

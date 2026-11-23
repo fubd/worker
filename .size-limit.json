@@ -7,7 +7,7 @@
   {
     "name": "docs route",
     "path": "dist/vercel/static/js/async/*.mjs",
-    "limit": "190 kB"
+    "limit": "194 kB"
   },
   {
     "name": "shared antd",

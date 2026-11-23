@@ -2,12 +2,12 @@ import type { DocumentRecord, DocumentRow, DocumentSummary } from '../types';
 
 const LIST_COLUMNS = `
   id, owner_id, title, substr(content_text, 1, 140) AS content_text,
-  version, created_at, updated_at, deleted_at
+  folder_id, version, created_at, updated_at, deleted_at
 `;
 
 const FULL_COLUMNS = `
   id, owner_id, title, content_json, content_html, content_text,
-  version, created_at, updated_at, deleted_at
+  folder_id, version, created_at, updated_at, deleted_at
 `;
 
 const EMPTY_CONTENT_JSON = JSON.stringify({
@@ -36,6 +36,7 @@ function toSummary(row: DocumentRow): DocumentSummary {
     id: row.id,
     title: row.title,
     excerpt: row.content_text.trim(),
+    folderId: row.folder_id,
     version: row.version,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
@@ -55,20 +56,42 @@ function toDocument(row: DocumentRow): DocumentRecord {
 export async function listDocuments(
   db: D1Database,
   ownerId: number,
-  options: { limit?: number; offset?: number } = {},
+  options: {
+    limit?: number;
+    offset?: number;
+    folderId?: number | null;
+    query?: string;
+  } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200);
   const offset = Math.max(options.offset ?? 0, 0);
+  const conditions = ['owner_id = ?', 'deleted_at IS NULL'];
+  const params: unknown[] = [ownerId];
+
+  if (options.folderId === null) {
+    conditions.push('folder_id IS NULL');
+  } else if (typeof options.folderId === 'number') {
+    conditions.push('folder_id = ?');
+    params.push(options.folderId);
+  }
+
+  const query = options.query?.trim();
+  if (query) {
+    conditions.push(
+      '(instr(lower(title), lower(?)) > 0 OR instr(lower(content_text), lower(?)) > 0)',
+    );
+    params.push(query, query);
+  }
 
   const result = await db
     .prepare(
       `SELECT ${LIST_COLUMNS}
        FROM documents
-       WHERE owner_id = ? AND deleted_at IS NULL
+       WHERE ${conditions.join(' AND ')}
        ORDER BY updated_at DESC, id DESC
        LIMIT ? OFFSET ?`,
     )
-    .bind(ownerId, limit, offset)
+    .bind(...params, limit, offset)
     .all<DocumentRow>();
 
   return { items: (result.results ?? []).map(toSummary) };
@@ -117,14 +140,17 @@ export async function createDocument(
   db: D1Database,
   ownerId: number,
   title: string,
+  folderId: number | null = null,
 ): Promise<DocumentRecord> {
   const row = await db
     .prepare(
-      `INSERT INTO documents (owner_id, title, content_json, content_html, content_text)
-       VALUES (?, ?, ?, '<p></p>', '')
+      `INSERT INTO documents (
+         owner_id, folder_id, title, content_json, content_html, content_text
+       )
+       VALUES (?, ?, ?, ?, '<p></p>', '')
        RETURNING ${FULL_COLUMNS}`,
     )
-    .bind(ownerId, title, EMPTY_CONTENT_JSON)
+    .bind(ownerId, folderId, title, EMPTY_CONTENT_JSON)
     .first<DocumentRow>();
 
   if (!row) {
@@ -239,6 +265,25 @@ export async function restoreDocument(
        RETURNING ${FULL_COLUMNS}`,
     )
     .bind(id, ownerId)
+    .first<DocumentRow>();
+
+  return row ? toDocument(row) : null;
+}
+
+export async function moveDocument(
+  db: D1Database,
+  ownerId: number,
+  id: number,
+  folderId: number | null,
+): Promise<DocumentRecord | null> {
+  const row = await db
+    .prepare(
+      `UPDATE documents
+       SET folder_id = ?
+       WHERE id = ? AND owner_id = ? AND deleted_at IS NULL
+       RETURNING ${FULL_COLUMNS}`,
+    )
+    .bind(folderId, id, ownerId)
     .first<DocumentRow>();
 
   return row ? toDocument(row) : null;

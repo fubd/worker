@@ -118,9 +118,79 @@ input {
   letter-spacing: 0.08em;
 }
 
+.swan-sidebar-search {
+  display: grid;
+  height: 36px;
+  margin-top: 22px;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border: 1px solid #dfe2e4;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--swan-text-muted);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.swan-sidebar-search:focus-within {
+  border-color: rgba(47, 111, 232, 0.55);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.1);
+}
+
+.swan-sidebar-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--swan-text);
+  font-size: 12px;
+}
+
+.swan-sidebar-search input::placeholder {
+  color: var(--swan-text-muted);
+}
+
+.swan-sidebar-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.swan-sidebar-search kbd {
+  padding: 2px 5px;
+  border: 1px solid #dfe2e4;
+  border-radius: 4px;
+  background: #f8f9f9;
+  color: var(--swan-text-muted);
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.swan-sidebar-search button {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+}
+
+.swan-sidebar-search button:hover {
+  background: #e9ebed;
+  color: var(--swan-text);
+}
+
 .swan-sidebar-nav {
   display: grid;
-  margin-top: 24px;
+  margin-top: 18px;
   gap: 3px;
 }
 
@@ -197,6 +267,101 @@ input {
   opacity: 0.45;
 }
 
+.swan-sidebar-folders {
+  max-height: 190px;
+  margin: 0 -2px;
+  padding: 0 2px 5px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
+}
+
+.swan-sidebar-folders .swan-sidebar-section-head {
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+
+.swan-folder-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  align-items: center;
+  border-radius: 7px;
+}
+
+.swan-folder-row {
+  display: grid;
+  width: 100%;
+  height: 32px;
+  min-width: 0;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #59636f;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.swan-folder-row:hover {
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--swan-text);
+}
+
+.swan-folder-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-folder-row small {
+  color: var(--swan-text-muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.swan-folder-item.is-selected,
+.swan-folder-row.is-selected {
+  background: #e7eaec;
+  color: #1c2632;
+  font-weight: 650;
+}
+
+.swan-folder-item > .swan-folder-row {
+  border-radius: 7px 0 0 7px;
+}
+
+.swan-folder-edit {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.swan-folder-item:hover .swan-folder-edit,
+.swan-folder-edit:focus-visible {
+  opacity: 1;
+}
+
+.swan-folder-edit:hover {
+  background: #e1e5e7;
+  color: var(--swan-text);
+}
+
 .swan-sidebar-doc-list {
   flex: 1;
   min-height: 0;
@@ -253,6 +418,11 @@ input {
 
 .swan-sidebar-doc.is-selected strong {
   color: #1c2632;
+}
+
+.swan-sidebar-doc.is-selected time,
+.swan-sidebar-doc.is-selected .swan-sidebar-doc-excerpt {
+  color: var(--swan-text-soft);
 }
 
 .swan-sidebar-doc time {
@@ -566,6 +736,53 @@ input {
   font-size: 10px;
 }
 
+.swan-doc-folder-select {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--swan-text-muted);
+}
+
+.swan-doc-folder-select select {
+  max-width: 150px;
+  padding: 3px 20px 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  outline: 0;
+  background: transparent;
+  color: var(--swan-text-soft);
+  font: inherit;
+  appearance: none;
+  cursor: pointer;
+}
+
+.swan-doc-folder-select::after {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid currentColor;
+  border-right: 3px solid transparent;
+  border-left: 3px solid transparent;
+  content: '';
+  pointer-events: none;
+  transform: translateY(-25%);
+}
+
+.swan-doc-folder-select select:hover,
+.swan-doc-folder-select select:focus-visible {
+  border-color: #d7dbde;
+  background-color: #f7f8f8;
+}
+
+.swan-doc-folder-select select:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .swan-editor-toolbar {
   display: flex;
   width: 100%;
@@ -696,6 +913,200 @@ input {
   font-size: 10px;
 }
 
+/* ---------- 文件夹弹窗 ---------- */
+.swan-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(24, 32, 42, 0.3);
+  backdrop-filter: blur(3px);
+}
+
+.swan-folder-dialog {
+  width: min(420px, 100%);
+  padding: 25px 26px 23px;
+  border: 1px solid #e0e3e5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(31, 42, 53, 0.18);
+}
+
+.swan-folder-dialog header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: start;
+  gap: 2px 12px;
+}
+
+.swan-folder-dialog header > span {
+  grid-column: 1;
+  color: var(--swan-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.swan-folder-dialog h2 {
+  grid-column: 1;
+  margin: 5px 0 0;
+  color: var(--swan-text);
+  font-family: var(--swan-serif);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.swan-folder-dialog header > button {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.swan-folder-dialog header > button:hover {
+  background: #f1f2f2;
+  color: var(--swan-text);
+}
+
+.swan-folder-dialog form {
+  display: grid;
+  margin-top: 24px;
+  gap: 8px;
+}
+
+.swan-folder-dialog form > label {
+  color: var(--swan-text-soft);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.swan-folder-dialog form > input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d9dddf;
+  border-radius: 8px;
+  outline: 0;
+  background: #fbfbfa;
+  color: var(--swan-text);
+  font-size: 14px;
+}
+
+.swan-folder-dialog form > input:focus {
+  border-color: rgba(47, 111, 232, 0.6);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.1);
+}
+
+.swan-folder-dialog form > p,
+.swan-folder-delete-confirm p {
+  margin: 0;
+  color: var(--swan-text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.swan-folder-dialog-actions,
+.swan-folder-delete-confirm > div {
+  display: flex;
+  margin-top: 18px;
+  align-items: center;
+  gap: 8px;
+}
+
+.swan-folder-dialog-actions > span {
+  flex: 1;
+}
+
+.swan-folder-dialog-actions button,
+.swan-folder-delete-confirm button {
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid #dfe2e4;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--swan-text-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.swan-folder-dialog-actions button:hover,
+.swan-folder-delete-confirm button:hover {
+  border-color: #cfd4d7;
+  background: #f7f8f8;
+}
+
+.swan-folder-dialog-actions .is-primary {
+  border-color: var(--swan-brand);
+  background: var(--swan-brand);
+  color: #fff;
+}
+
+.swan-folder-dialog-actions .is-primary:hover {
+  border-color: var(--swan-brand-deep);
+  background: var(--swan-brand-deep);
+}
+
+.swan-folder-dialog-actions .is-danger-text {
+  padding-inline: 0;
+  border-color: transparent;
+  background: transparent;
+  color: #b44942;
+}
+
+.swan-folder-delete-confirm {
+  margin-top: 24px;
+}
+
+.swan-folder-delete-confirm strong {
+  color: var(--swan-text);
+  font-family: var(--swan-serif);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.swan-folder-delete-confirm p {
+  margin-top: 7px;
+}
+
+.swan-folder-delete-confirm > div {
+  justify-content: flex-end;
+}
+
+.swan-folder-delete-confirm .is-danger {
+  border-color: #b44942;
+  background: #b44942;
+  color: #fff;
+}
+
+.swan-folder-delete-confirm button:disabled,
+.swan-folder-dialog-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.swan-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 /* ---------- 密码设置 ---------- */
 .swan-password-modal-copy {
   margin: 0 0 20px;
@@ -779,6 +1190,10 @@ input {
 
   .swan-workspace-actions {
     gap: 4px;
+  }
+
+  .swan-folder-edit {
+    opacity: 1;
   }
 
   .swan-editor-stage {

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { App, Alert, Button, Input, Popconfirm, Spin } from 'antd';
 import {
   Bold,
   ChevronRight,
   CodeXml,
+  Folder,
   Italic,
   List,
   ListOrdered,
@@ -24,14 +25,21 @@ import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
 import type { WorkspaceOutletContext } from '../layouts/workspace-context';
-import { formatUpdatedAt, type DocumentView, type SaveState } from '../workspace-utils';
+import {
+  formatUpdatedAt,
+  type DocumentView,
+  type FolderScope,
+  type SaveState,
+} from '../workspace-utils';
 import { BRAND } from '@/shared/brand';
-import type { DocumentRecord, DocumentSummary } from '@/shared/types';
+import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
 
 const EMPTY_CONTENT: JSONContent = {
   type: 'doc',
   content: [{ type: 'paragraph' }],
 };
+
+const FolderDialog = lazy(() => import('../components/FolderDialog'));
 
 function parseDocumentId(value: string | null): number | null {
   const id = Number(value);
@@ -43,12 +51,21 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     id: document.id,
     title: document.title,
     excerpt: document.contentText.trim().slice(0, 140),
+    folderId: document.folderId,
     version: document.version,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
     deletedAt: document.deletedAt,
   };
 }
+
+function parseFolderScope(value: string | null): FolderScope {
+  if (value === 'unfiled') return 'unfiled';
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : 'all';
+}
+
+type FolderDialogState = { mode: 'create' } | { mode: 'rename'; folder: FolderSummary } | null;
 
 function saveStateLabel(state: SaveState): string {
   if (state === 'saving') return '保存中';
@@ -111,19 +128,30 @@ function DocsPageContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const view: DocumentView = searchParams.get('view') === 'trash' ? 'trash' : 'documents';
   const activeId = view === 'documents' ? parseDocumentId(searchParams.get('id')) : null;
+  const folderScope = parseFolderScope(searchParams.get('folder'));
+  const searchQuery = searchParams.get('q')?.trim() ?? '';
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
+  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
   const [title, setTitle] = useState('');
   const [listLoading, setListLoading] = useState(true);
+  const [listRevision, setListRevision] = useState(0);
+  const [folderRevision, setFolderRevision] = useState(0);
   const [editorLoading, setEditorLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [editRevision, setEditRevision] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
+  const [folderName, setFolderName] = useState('');
+  const [folderSaving, setFolderSaving] = useState(false);
+  const [folderDeleting, setFolderDeleting] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -167,6 +195,52 @@ function DocsPageContent() {
   }, [editor]);
 
   useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const normalized = searchInput.trim();
+    if (normalized === searchQuery) return;
+
+    const timer = window.setTimeout(() => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          if (normalized) next.set('q', normalized);
+          else next.delete('q');
+          next.delete('id');
+          return next;
+        },
+        { replace: true },
+      );
+    }, 240);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput, searchQuery, setSearchParams]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      setFolders([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    api
+      .listFolders({ signal: controller.signal })
+      .then(({ items }) => setFolders(items))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (isUnauthorized(error)) {
+          markUnauthenticated();
+          return;
+        }
+        setLoadError(errorMessage(error, '文件夹加载失败'));
+      });
+
+    return () => controller.abort();
+  }, [folderRevision, markUnauthenticated, status]);
+
+  useEffect(() => {
     if (status === 'loading') {
       setListLoading(true);
       return;
@@ -181,15 +255,22 @@ function DocsPageContent() {
     setListLoading(true);
     setLoadError(null);
 
+    const folderId =
+      folderScope === 'all' ? undefined : folderScope === 'unfiled' ? null : folderScope;
     const request =
       view === 'trash'
         ? api.listTrashDocuments({ signal: controller.signal })
-        : api.listDocuments({ signal: controller.signal });
+        : api.listDocuments({
+            signal: controller.signal,
+            folderId,
+            query: searchQuery,
+          });
 
     request
       .then(({ items }) => {
         setDocuments(items);
         if (view !== 'documents') return;
+        if (searchQuery) return;
 
         setSearchParams(
           (current) => {
@@ -216,7 +297,7 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [markUnauthenticated, setSearchParams, status, view]);
+  }, [folderScope, listRevision, markUnauthenticated, searchQuery, setSearchParams, status, view]);
 
   useEffect(() => {
     if (status !== 'authenticated' || view !== 'documents' || !activeId) {
@@ -407,13 +488,17 @@ function DocsPageContent() {
 
     setCreating(true);
     try {
-      const document = await api.createDocument();
+      const folderId = typeof folderScope === 'number' ? folderScope : null;
+      const document = await api.createDocument('无标题文档', folderId);
       setDocuments((items) => [toSummary(document), ...items]);
+      setFolderRevision((value) => value + 1);
       activeIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
       next.delete('view');
+      next.delete('q');
       next.set('id', String(document.id));
       setSearchParams(next);
+      setSearchInput('');
       message.success('已新建文档');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -439,6 +524,7 @@ function DocsPageContent() {
       activeIdRef.current = remaining[0]?.id ?? null;
       activeDocumentRef.current = null;
       setActiveDocument(null);
+      setFolderRevision((value) => value + 1);
 
       const next = new URLSearchParams(searchParams);
       if (remaining[0]) next.set('id', String(remaining[0].id));
@@ -462,6 +548,7 @@ function DocsPageContent() {
     try {
       await api.restoreDocument(document.id);
       setDocuments((items) => items.filter((item) => item.id !== document.id));
+      setFolderRevision((value) => value + 1);
       message.success('文档已恢复');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -471,6 +558,125 @@ function DocsPageContent() {
       message.error(errorMessage(error, '恢复失败'));
     } finally {
       setRestoringId(null);
+    }
+  };
+
+  const selectFolder = (scope: FolderScope) => {
+    setSidebarOpen(false);
+    setSearchInput('');
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('view');
+      next.delete('q');
+      next.delete('id');
+      if (scope === 'all') next.delete('folder');
+      else next.set('folder', String(scope));
+      return next;
+    });
+  };
+
+  const openCreateFolder = () => {
+    setFolderName('');
+    setFolderDialog({ mode: 'create' });
+  };
+
+  const openEditFolder = (folder: FolderSummary) => {
+    setFolderName(folder.name);
+    setFolderDialog({ mode: 'rename', folder });
+  };
+
+  const saveFolder = async () => {
+    const name = folderName.trim();
+    if (!folderDialog || !name || folderSaving) return;
+
+    setFolderSaving(true);
+    try {
+      if (folderDialog.mode === 'create') {
+        const folder = await api.createFolder(name);
+        setFolders((items) =>
+          [...items, folder].sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
+        );
+        setFolderDialog(null);
+        setFolderRevision((value) => value + 1);
+        selectFolder(folder.id);
+        message.success('文件夹已创建');
+      } else {
+        const folder = await api.renameFolder(folderDialog.folder.id, name);
+        setFolders((items) =>
+          items
+            .map((item) => (item.id === folder.id ? folder : item))
+            .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
+        );
+        setFolderDialog(null);
+        setFolderRevision((value) => value + 1);
+        message.success('文件夹已重命名');
+      }
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '文件夹保存失败'));
+    } finally {
+      setFolderSaving(false);
+    }
+  };
+
+  const deleteFolder = async () => {
+    if (!folderDialog || folderDialog.mode !== 'rename' || folderDeleting) return;
+    const { folder } = folderDialog;
+
+    setFolderDeleting(true);
+    try {
+      await api.deleteFolder(folder.id);
+      setFolders((items) => items.filter((item) => item.id !== folder.id));
+      setFolderDialog(null);
+      setFolderRevision((value) => value + 1);
+      setListRevision((value) => value + 1);
+      if (folderScope === folder.id) {
+        setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.delete('folder');
+          next.delete('id');
+          next.delete('q');
+          return next;
+        });
+      }
+      message.success('文件夹已删除，文档已移到未归档');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '文件夹删除失败'));
+    } finally {
+      setFolderDeleting(false);
+    }
+  };
+
+  const moveActiveDocument = async (folderId: number | null) => {
+    const document = activeDocumentRef.current;
+    if (!document || moving || document.folderId === folderId) return;
+
+    setMoving(true);
+    try {
+      const updated = await api.moveDocument(document.id, folderId);
+      activeDocumentRef.current = updated;
+      setActiveDocument(updated);
+      setDocuments((items) =>
+        items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
+      );
+      setFolderRevision((value) => value + 1);
+      setListRevision((value) => value + 1);
+      message.success(folderId === null ? '文档已移到未归档' : '文档已移动');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '移动文档失败'));
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -484,6 +690,10 @@ function DocsPageContent() {
   if (status === 'unauthenticated') return <Navigate to="/login" replace />;
 
   const characterCount = editor?.getText().trim().length ?? 0;
+  const selectedFolder =
+    typeof folderScope === 'number'
+      ? folders.find((folder) => folder.id === folderScope)
+      : undefined;
 
   return (
     <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
@@ -491,10 +701,13 @@ function DocsPageContent() {
         activeId={activeId}
         creating={creating}
         documents={documents}
+        folderScope={folderScope}
+        folders={folders}
         isOpen={sidebarOpen}
         listLoading={listLoading}
         restoringId={restoringId}
         saveState={saveState}
+        searchValue={searchInput}
         user={user}
         view={view}
         onBindProvider={bindProvider}
@@ -502,9 +715,22 @@ function DocsPageContent() {
           setSidebarOpen(false);
           void createDocument();
         }}
+        onCreateFolder={openCreateFolder}
+        onEditFolder={openEditFolder}
+        onFolderSelect={selectFolder}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
         onRestore={(document) => void restoreDocument(document)}
+        onSearchChange={(value) => {
+          setSearchInput(value);
+          if (view === 'trash' && value.trim()) {
+            setSearchParams((current) => {
+              const next = new URLSearchParams(current);
+              next.delete('view');
+              return next;
+            });
+          }
+        }}
         onSelect={(id) => {
           setSidebarOpen(false);
           void selectDocument(id);
@@ -537,7 +763,12 @@ function DocsPageContent() {
               {view === 'documents' && (
                 <>
                   <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-                  <strong>私人笔记</strong>
+                  <strong>
+                    {searchQuery
+                      ? `搜索：${searchQuery}`
+                      : (selectedFolder?.name ??
+                        (folderScope === 'unfiled' ? '未归档' : '私人笔记'))}
+                  </strong>
                 </>
               )}
             </nav>
@@ -664,6 +895,27 @@ function DocsPageContent() {
                 <div className="swan-editor-submeta">
                   <span>更改会自动保存</span>
                   <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
+                  <label className="swan-doc-folder-select">
+                    <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
+                    <span className="swan-sr-only">文档文件夹</span>
+                    <select
+                      value={activeDocument.folderId ?? ''}
+                      disabled={moving}
+                      aria-label="文档文件夹"
+                      onChange={(event) =>
+                        void moveActiveDocument(
+                          event.target.value ? Number(event.target.value) : null,
+                        )
+                      }
+                    >
+                      <option value="">未归档</option>
+                      {folders.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
 
                 <EditorToolbar editor={editor} />
@@ -681,6 +933,24 @@ function DocsPageContent() {
           </div>
         )}
       </main>
+
+      {folderDialog && (
+        <Suspense fallback={null}>
+          <FolderDialog
+            key={folderDialog.mode === 'create' ? 'create' : `rename-${folderDialog.folder.id}`}
+            mode={folderDialog.mode}
+            name={folderName}
+            saving={folderSaving}
+            deleting={folderDeleting}
+            onChange={setFolderName}
+            onClose={() => {
+              if (!folderSaving && !folderDeleting) setFolderDialog(null);
+            }}
+            onDelete={deleteFolder}
+            onSubmit={() => void saveFolder()}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

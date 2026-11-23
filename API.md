@@ -1,6 +1,6 @@
 # 雨燕 API
 
-M1 的 API 由 Cloudflare Worker + Hono 提供，数据存放在 D1。除健康检查和登录流程外，所有接口都要求有效的 `yuyan_session` Cookie。
+雨燕 API 由 Cloudflare Worker + Hono 提供，数据存放在 D1。除健康检查和登录流程外，所有接口都要求有效的 `yuyan_session` Cookie。
 
 ## 环境
 
@@ -37,17 +37,38 @@ M1 支持公开多用户注册。账号名和密码可以直接创建独立用�
 
 ## 文档
 
-| 方法   | 路径                         | 说明                               |
-| ------ | ---------------------------- | ---------------------------------- |
-| GET    | `/api/documents`             | 当前用户的全部文档                 |
-| GET    | `/api/documents/trash`       | 当前用户的回收站                   |
-| GET    | `/api/documents/:id`         | 获取单篇文档                       |
-| POST   | `/api/documents`             | 新建文档                           |
-| PATCH  | `/api/documents/:id`         | 保存标题和正文，必须携带 `version` |
-| DELETE | `/api/documents/:id`         | 移入回收站                         |
-| POST   | `/api/documents/:id/restore` | 从回收站恢复                       |
+| 方法   | 路径                         | 说明                                   |
+| ------ | ---------------------------- | -------------------------------------- |
+| GET    | `/api/documents`             | 当前用户的文档，可按文件夹和关键词筛选 |
+| GET    | `/api/documents/trash`       | 当前用户的回收站                       |
+| GET    | `/api/documents/:id`         | 获取单篇文档                           |
+| POST   | `/api/documents`             | 新建文档                               |
+| PATCH  | `/api/documents/:id`         | 保存标题和正文，必须携带 `version`     |
+| DELETE | `/api/documents/:id`         | 移入回收站                             |
+| POST   | `/api/documents/:id/restore` | 从回收站恢复                           |
+| PATCH  | `/api/documents/:id/folder`  | 把文档移动到文件夹或未归档             |
 
 所有查询都按服务端会话中的 `owner_id` 过滤。其他用户的文档统一返回 `404`，不会暴露文档是否存在。
+
+`GET /api/documents` 支持：
+
+| 参数     | 说明                                                    |
+| -------- | ------------------------------------------------------- |
+| `folder` | 正整数表示文件夹 ID，`unfiled` 表示未归档；省略表示全部 |
+| `q`      | 同时搜索标题和正文，最多 100 个字符                     |
+| `limit`  | 每页数量，默认 100，最大 200                            |
+| `offset` | 偏移量，默认 0                                          |
+
+### 文件夹
+
+| 方法   | 路径               | 说明                             |
+| ------ | ------------------ | -------------------------------- |
+| GET    | `/api/folders`     | 当前用户的文件夹和未删除文档数量 |
+| POST   | `/api/folders`     | 创建文件夹，名称 1~60 个字符     |
+| PATCH  | `/api/folders/:id` | 重命名文件夹                     |
+| DELETE | `/api/folders/:id` | 删除文件夹，文档自动移回未归档   |
+
+文件夹名称在同一用户下不区分大小写且不可重复。删除文件夹不会删除文档。
 
 ### 保存冲突
 
