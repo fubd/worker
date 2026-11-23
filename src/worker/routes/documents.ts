@@ -3,11 +3,11 @@ import { wrapTime } from 'hono/timing';
 import * as repo from '../db/documents';
 import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
+import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
 
-const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 1_000_000;
 const MAX_SEARCH_LENGTH = 100;
 
@@ -17,7 +17,7 @@ function normalizeTitle(value: unknown, fallback = ''): string | null {
   if (value === undefined && fallback) return fallback;
   if (typeof value !== 'string') return null;
   const title = value.trim();
-  if (!title || title.length > MAX_TITLE_LENGTH) return null;
+  if (!title || title.length > DOCUMENT_TITLE_MAX_LENGTH) return null;
   return title;
 }
 
@@ -94,7 +94,9 @@ documentRoutes.post('/', async (c) => {
     folderId?: unknown;
   };
   const title = normalizeTitle(body.title, '无标题文档');
-  if (!title) return c.json({ error: 'title 长度需在 1~200 之间' }, 400);
+  if (!title) {
+    return c.json({ error: `title 长度需在 1~${DOCUMENT_TITLE_MAX_LENGTH} 之间` }, 400);
+  }
   const folderId = parseOptionalFolderId(body.folderId);
   if (folderId === 'invalid') return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
@@ -131,7 +133,9 @@ documentRoutes.patch('/:id', async (c) => {
 
   if (body.title !== undefined) {
     const title = normalizeTitle(body.title);
-    if (!title) return c.json({ error: 'title 长度需在 1~200 之间' }, 400);
+    if (!title) {
+      return c.json({ error: `title 长度需在 1~${DOCUMENT_TITLE_MAX_LENGTH} 之间` }, 400);
+    }
     input.title = title;
   }
 

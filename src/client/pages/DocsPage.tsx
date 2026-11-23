@@ -33,6 +33,7 @@ import {
   type SaveState,
 } from '../workspace-utils';
 import { BRAND } from '@/shared/brand';
+import { DOCUMENT_TITLE_MAX_LENGTH } from '@/shared/limits';
 import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
 
 const EMPTY_CONTENT: JSONContent = {
@@ -375,7 +376,7 @@ function DocsPageContent() {
       try {
         const updated = await api.updateDocument(document.id, {
           version: document.version,
-          title: nextTitle,
+          ...(nextTitle !== document.title ? { title: nextTitle } : {}),
           content: currentEditor.getJSON() as Record<string, unknown>,
           contentHtml: currentEditor.getHTML(),
           contentText: currentEditor.getText(),
@@ -941,7 +942,7 @@ function DocsPageContent() {
                   className="swan-doc-title-input"
                   autoSize={{ minRows: 1 }}
                   value={title}
-                  maxLength={200}
+                  maxLength={DOCUMENT_TITLE_MAX_LENGTH}
                   placeholder="无标题文档"
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') event.preventDefault();
