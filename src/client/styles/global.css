@@ -517,14 +517,13 @@ input {
   padding: 0;
   border: 0;
   border-radius: 5px;
-  background: #eef0f1;
+  background: transparent;
   color: var(--swan-text-muted);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transition:
     opacity 0.15s ease,
-    background-color 0.15s ease,
     color 0.15s ease;
 }
 
@@ -540,7 +539,6 @@ input {
 }
 
 .swan-sidebar-doc-more:hover {
-  background: #e1e5e7;
   color: var(--swan-text);
 }
 
