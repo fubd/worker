@@ -9,8 +9,8 @@
   --swan-text-soft: #4f5965;
   --swan-text-muted: #626b74;
   --swan-list-hover: #eef0f1;
-  --swan-list-action: rgba(255, 255, 255, 0.72);
-  --swan-list-action-hover: #ffffff;
+  --swan-list-action: rgba(24, 32, 42, 0.07);
+  --swan-list-action-hover: rgba(24, 32, 42, 0.12);
   --swan-brand: #2f6fe8;
   --swan-brand-deep: #245fce;
   --swan-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
