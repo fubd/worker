@@ -1,36 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Empty, Input, Popconfirm, Spin } from 'antd';
+import { App, Alert, Button, Input, Popconfirm, Spin } from 'antd';
 import {
   Bold,
   ChevronRight,
   CodeXml,
-  FileText,
   Italic,
   List,
   ListOrdered,
+  Menu,
   Plus,
   Redo2,
   RefreshCw,
-  RotateCcw,
   Trash2,
   Undo2,
 } from 'lucide-react';
 import Placeholder from '@tiptap/extension-placeholder';
 import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Navigate, useSearchParams } from 'react-router';
+import { Navigate, useOutletContext, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
+import { BrandMark } from '../components/BrandMark';
+import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
+import type { WorkspaceOutletContext } from '../layouts/workspace-context';
+import { formatUpdatedAt, type DocumentView, type SaveState } from '../workspace-utils';
+import { BRAND } from '@/shared/brand';
 import type { DocumentRecord, DocumentSummary } from '@/shared/types';
 
 const EMPTY_CONTENT: JSONContent = {
   type: 'doc',
   content: [{ type: 'paragraph' }],
 };
-
-type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
-type DocumentView = 'documents' | 'trash';
 
 function parseDocumentId(value: string | null): number | null {
   const id = Number(value);
@@ -47,17 +48,6 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     updatedAt: document.updatedAt,
     deletedAt: document.deletedAt,
   };
-}
-
-function formatUpdatedAt(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
 }
 
 function saveStateLabel(state: SaveState): string {
@@ -78,21 +68,29 @@ function isUnauthorized(error: unknown): boolean {
 
 export function HydrateFallback() {
   return (
-    <div className="swan-docs">
-      <aside className="swan-doc-list-panel swan-card">
-        <div className="swan-doc-list-head">
-          <div className="swan-doc-list-heading">
-            <strong>我的文字</strong>
-            <span className="swan-doc-count">0</span>
-          </div>
+    <div className="swan-workspace">
+      <aside className="swan-sidebar">
+        <div className="swan-sidebar-brand">
+          <span className="swan-sidebar-brand-mark">
+            <BrandMark size={34} />
+          </span>
+          <span className="swan-sidebar-brand-copy">
+            <strong>{BRAND.name}</strong>
+            <small>{BRAND.tagline}</small>
+          </span>
         </div>
-        <div className="swan-doc-list-empty">正在载入文档…</div>
+        <div className="swan-sidebar-section-head">
+          <span>最近编辑</span>
+          <span className="swan-sidebar-count">00</span>
+        </div>
+        <div className="swan-sidebar-empty">正在载入文档…</div>
       </aside>
-      <section className="swan-editor-panel swan-card">
-        <div className="swan-editor-loading">
+      <main className="swan-workspace-main">
+        <header className="swan-workspace-topbar" />
+        <div className="swan-workspace-loading-panel">
           <Spin />
         </div>
-      </section>
+      </main>
     </div>
   );
 }
@@ -108,6 +106,8 @@ export default function DocsPage() {
 function DocsPageContent() {
   const { message } = App.useApp();
   const { status, markUnauthenticated } = useAuth();
+  const { user, bindProvider, openPasswordSettings, signOut } =
+    useOutletContext<WorkspaceOutletContext>();
   const [searchParams, setSearchParams] = useSearchParams();
   const view: DocumentView = searchParams.get('view') === 'trash' ? 'trash' : 'documents';
   const activeId = view === 'documents' ? parseDocumentId(searchParams.get('id')) : null;
@@ -123,6 +123,7 @@ function DocsPageContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [editRevision, setEditRevision] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -482,198 +483,187 @@ function DocsPageContent() {
   if (status === 'loading') return <HydrateFallback />;
   if (status === 'unauthenticated') return <Navigate to="/login" replace />;
 
+  const characterCount = editor?.getText().trim().length ?? 0;
+
   return (
-    <>
-      {loadError && (
-        <Alert
-          type="error"
-          showIcon
-          title={loadError}
-          style={{ marginBottom: 16 }}
-          closable
-          onClose={() => setLoadError(null)}
+    <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
+      <WorkspaceSidebar
+        activeId={activeId}
+        creating={creating}
+        documents={documents}
+        isOpen={sidebarOpen}
+        listLoading={listLoading}
+        restoringId={restoringId}
+        saveState={saveState}
+        user={user}
+        view={view}
+        onBindProvider={bindProvider}
+        onCreate={() => {
+          setSidebarOpen(false);
+          void createDocument();
+        }}
+        onNavigate={() => setSidebarOpen(false)}
+        onOpenPasswordSettings={openPasswordSettings}
+        onRestore={(document) => void restoreDocument(document)}
+        onSelect={(id) => {
+          setSidebarOpen(false);
+          void selectDocument(id);
+        }}
+        onSignOut={() => void signOut()}
+      />
+
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="swan-sidebar-scrim"
+          aria-label="关闭菜单"
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {saveState === 'conflict' && (
-        <Alert
-          type="warning"
-          showIcon
-          title="这篇文档已在其他页面更新"
-          description="当前编辑内容仍保留在页面上。重新加载会使用服务器上的最新版本。"
-          action={
-            <Button
-              size="small"
-              icon={<RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />}
-              onClick={() => void reloadActiveDocument()}
+      <main className="swan-workspace-main">
+        <header className="swan-workspace-topbar">
+          <div className="swan-workspace-location">
+            <button
+              type="button"
+              className="swan-workspace-menu-button"
+              aria-label="打开菜单"
+              onClick={() => setSidebarOpen(true)}
             >
-              重新加载
-            </Button>
-          }
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
-      <div className="swan-docs">
-        <aside className="swan-doc-list-panel swan-card">
-          <div className="swan-doc-list-head">
-            <div className="swan-doc-list-heading">
-              <strong>{view === 'trash' ? '回收站' : '我的文字'}</strong>
-              <span className="swan-doc-count">{documents.length}</span>
-            </div>
-            {view === 'documents' && (
-              <Button
-                type="primary"
-                size="small"
-                icon={<Plus aria-hidden="true" size={14} strokeWidth={1.8} />}
-                loading={creating}
-                disabled={saveState === 'conflict'}
-                onClick={() => void createDocument()}
-              >
-                新建
-              </Button>
-            )}
-          </div>
-
-          <div className="swan-doc-list">
-            {listLoading ? (
-              <div className="swan-doc-list-empty">
-                <Spin size="small" />
-              </div>
-            ) : documents.length === 0 ? (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={view === 'trash' ? '回收站是空的' : '还没有文档'}
-                style={{ padding: '40px 0' }}
-              />
-            ) : (
-              documents.map((document) =>
-                view === 'trash' ? (
-                  <div className="swan-doc-list-item swan-doc-trash-item" key={document.id}>
-                    <span className="swan-doc-list-title">
-                      <Trash2 aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {document.title}
-                    </span>
-                    <span className="swan-doc-list-excerpt">{document.excerpt || '空白文档'}</span>
-                    <span className="swan-doc-list-time">
-                      删除于 {formatUpdatedAt(document.deletedAt ?? document.updatedAt)}
-                    </span>
-                    <Button
-                      size="small"
-                      icon={<RotateCcw aria-hidden="true" size={14} strokeWidth={1.8} />}
-                      loading={restoringId === document.id}
-                      onClick={() => void restoreDocument(document)}
-                    >
-                      恢复
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    key={document.id}
-                    className={
-                      document.id === activeId
-                        ? 'swan-doc-list-item is-selected'
-                        : 'swan-doc-list-item'
-                    }
-                    disabled={saveState === 'saving'}
-                    onClick={() => void selectDocument(document.id)}
-                  >
-                    <span className="swan-doc-list-title">
-                      <FileText aria-hidden="true" size={14} strokeWidth={1.8} />
-                      {document.title}
-                    </span>
-                    <span className="swan-doc-list-excerpt">{document.excerpt || '空白文档'}</span>
-                    <span className="swan-doc-list-time">
-                      {formatUpdatedAt(document.updatedAt)}
-                    </span>
-                  </button>
-                ),
-              )
-            )}
-          </div>
-        </aside>
-
-        <section className="swan-editor-panel swan-card">
-          {view === 'trash' ? (
-            <div className="swan-editor-loading">
-              <Empty description="回收站中的文档不能编辑。恢复后会重新出现在全部文档中。" />
-            </div>
-          ) : editorLoading || !editor ? (
-            <div className="swan-editor-loading">
-              <Spin />
-            </div>
-          ) : !activeDocument ? (
-            <div className="swan-editor-loading">
-              <Empty description="新建一篇文档，开始让文字飞起来">
-                <Button
-                  type="primary"
-                  icon={<Plus aria-hidden="true" size={16} strokeWidth={1.8} />}
-                  onClick={() => void createDocument()}
-                >
-                  新建文档
-                </Button>
-              </Empty>
-            </div>
-          ) : (
-            <>
-              <div className="swan-editor-head">
-                <div className="swan-editor-breadcrumb" aria-label="当前位置">
-                  <span>全部文档</span>
+              <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
+            </button>
+            <div className="swan-editor-breadcrumb" aria-label="当前位置">
+              <span>{view === 'trash' ? '回收站' : '全部文档'}</span>
+              {view === 'documents' && (
+                <>
                   <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
                   <strong>私人笔记</strong>
-                </div>
-                <div className="swan-editor-actions">
-                  <span className={`swan-save-state is-${saveState}`}>
-                    <span className="swan-save-dot" aria-hidden="true" />
-                    {saveStateLabel(saveState)}
-                  </span>
-                  {saveState === 'error' && (
-                    <Button size="small" type="link" onClick={() => void saveDocument()}>
-                      重试
-                    </Button>
-                  )}
-                  {saveState === 'conflict' && (
-                    <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
-                      重新加载
-                    </Button>
-                  )}
-                  <Popconfirm
-                    title="将这篇文档移入回收站？"
-                    description="你之后可以从回收站恢复。"
-                    okText="移入回收站"
-                    cancelText="取消"
-                    okButtonProps={{ danger: true }}
-                    onConfirm={() => void deleteActiveDocument()}
-                  >
-                    <Button
-                      type="text"
-                      danger
-                      icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
-                      loading={deleting}
-                      disabled={saveState === 'conflict'}
-                      aria-label="删除文档"
-                    />
-                  </Popconfirm>
-                </div>
-              </div>
+                </>
+              )}
+            </div>
+          </div>
 
-              <div className="swan-editor-canvas">
-                <div className="swan-editor-title-block">
-                  <Input
-                    variant="borderless"
-                    className="swan-doc-title-input"
-                    value={title}
-                    maxLength={200}
-                    placeholder="无标题文档"
-                    onChange={(event) => handleTitleChange(event.target.value)}
-                  />
-                  <div className="swan-editor-submeta">
-                    <span className="swan-editor-kind">私人笔记</span>
-                    <span>
-                      V{activeDocument.version} · {formatUpdatedAt(activeDocument.updatedAt)}
-                    </span>
-                  </div>
+          {view === 'documents' && activeDocument && (
+            <div className="swan-workspace-actions">
+              <span className={`swan-save-state is-${saveState}`}>
+                <span className="swan-save-dot" aria-hidden="true" />
+                {saveStateLabel(saveState)}
+              </span>
+              {saveState === 'error' && (
+                <Button size="small" type="link" onClick={() => void saveDocument()}>
+                  重试
+                </Button>
+              )}
+              {saveState === 'conflict' && (
+                <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
+                  重新加载
+                </Button>
+              )}
+              <Popconfirm
+                title="将这篇文档移入回收站？"
+                description="你之后可以从回收站恢复。"
+                okText="移入回收站"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+                onConfirm={() => void deleteActiveDocument()}
+              >
+                <Button
+                  type="text"
+                  danger
+                  icon={<Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />}
+                  loading={deleting}
+                  disabled={saveState === 'conflict'}
+                  aria-label="删除文档"
+                />
+              </Popconfirm>
+            </div>
+          )}
+        </header>
+
+        {(loadError || saveState === 'conflict') && (
+          <div className="swan-workspace-notices">
+            {loadError && (
+              <Alert
+                type="error"
+                showIcon
+                title={loadError}
+                closable
+                onClose={() => setLoadError(null)}
+              />
+            )}
+            {saveState === 'conflict' && (
+              <Alert
+                type="warning"
+                showIcon
+                title="这篇文档已在其他页面更新"
+                description="当前编辑内容仍保留在页面上。重新加载会使用服务器上的最新版本。"
+                action={
+                  <Button
+                    size="small"
+                    icon={<RefreshCw aria-hidden="true" size={14} strokeWidth={1.8} />}
+                    onClick={() => void reloadActiveDocument()}
+                  >
+                    重新加载
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        )}
+
+        {view === 'trash' ? (
+          <div className="swan-workspace-empty">
+            <div className="swan-empty-state">
+              <strong>回收站里还没有可编辑的文档</strong>
+              <span>恢复后会重新出现在全部文档中。</span>
+            </div>
+          </div>
+        ) : editorLoading || !editor ? (
+          <div className="swan-workspace-empty">
+            <Spin />
+          </div>
+        ) : !activeDocument ? (
+          <div className="swan-workspace-empty">
+            <div className="swan-empty-state">
+              <strong>从一张空白纸开始</strong>
+              <span>新建一篇文档，开始让文字飞起来。</span>
+              <Button
+                type="primary"
+                icon={<Plus aria-hidden="true" size={16} strokeWidth={1.8} />}
+                onClick={() => void createDocument()}
+              >
+                新建文档
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="swan-editor-canvas">
+            <div className="swan-editor-stage">
+              <aside className="swan-editor-margin">
+                <span>DOCUMENT</span>
+                <strong>{String(activeDocument.id).padStart(2, '0')}</strong>
+                <span>{formatUpdatedAt(activeDocument.updatedAt)}</span>
+                <span>第 {activeDocument.version} 版</span>
+                <span>{characterCount} 字</span>
+              </aside>
+
+              <article className="swan-editor-page">
+                <span className="swan-editor-kicker">私人笔记 · 写作</span>
+                <Input.TextArea
+                  variant="borderless"
+                  className="swan-doc-title-input"
+                  autoSize={{ minRows: 1, maxRows: 3 }}
+                  value={title}
+                  maxLength={200}
+                  placeholder="无标题文档"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.preventDefault();
+                  }}
+                  onChange={(event) => handleTitleChange(event.target.value)}
+                />
+                <div className="swan-editor-submeta">
+                  <span>更改会自动保存</span>
+                  <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
                 </div>
 
                 <EditorToolbar editor={editor} />
@@ -681,15 +671,17 @@ function DocsPageContent() {
                   <EditorContent editor={editor} />
                 </div>
                 <div className="swan-editor-meta">
-                  <span>更改会自动保存</span>
-                  <span>{formatUpdatedAt(activeDocument.updatedAt)}</span>
+                  <span>{characterCount} 字</span>
+                  <span>V{activeDocument.version}</span>
                 </div>
-              </div>
-            </>
-          )}
-        </section>
-      </div>
-    </>
+              </article>
+
+              <aside className="swan-editor-margin is-right" aria-hidden="true" />
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
