@@ -8,6 +8,9 @@
   --swan-text: #18202a;
   --swan-text-soft: #4f5965;
   --swan-text-muted: #626b74;
+  --swan-list-hover: #eef0f1;
+  --swan-list-action: rgba(255, 255, 255, 0.72);
+  --swan-list-action-hover: #ffffff;
   --swan-brand: #2f6fe8;
   --swan-brand-deep: #245fce;
   --swan-serif: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
@@ -311,7 +314,7 @@ input {
 
 .swan-folder-item:hover,
 .swan-folder-item:focus-within {
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--swan-list-hover);
 }
 
 .swan-folder-row {
@@ -333,7 +336,7 @@ input {
 }
 
 .swan-folder-row:hover {
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--swan-list-hover);
   color: var(--swan-text);
 }
 
@@ -429,15 +432,18 @@ input {
   opacity: 0;
   transition:
     opacity 0.15s ease,
+    background-color 0.15s ease,
     color 0.15s ease;
 }
 
 .swan-folder-item:hover .swan-folder-edit,
 .swan-folder-edit:focus-visible {
   opacity: 1;
+  background: var(--swan-list-action);
 }
 
 .swan-folder-edit:hover {
+  background: var(--swan-list-action-hover);
   color: var(--swan-text);
 }
 
@@ -470,7 +476,7 @@ input {
 }
 
 .swan-sidebar-doc:hover {
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--swan-list-hover);
 }
 
 .swan-sidebar-doc.is-selected {
@@ -533,6 +539,7 @@ input {
   pointer-events: none;
   transition:
     opacity 0.15s ease,
+    background-color 0.15s ease,
     color 0.15s ease;
 }
 
@@ -540,6 +547,7 @@ input {
 .swan-sidebar-doc-item:focus-within .swan-sidebar-doc-more {
   opacity: 1;
   pointer-events: auto;
+  background: var(--swan-list-action);
 }
 
 .swan-sidebar-doc-item:hover time,
@@ -548,6 +556,7 @@ input {
 }
 
 .swan-sidebar-doc-more:hover {
+  background: var(--swan-list-action-hover);
   color: var(--swan-text);
 }
 
@@ -1344,11 +1353,13 @@ input {
 
   .swan-folder-edit {
     opacity: 1;
+    background: var(--swan-list-action);
   }
 
   .swan-sidebar-doc-more {
     opacity: 1;
     pointer-events: auto;
+    background: var(--swan-list-action);
   }
 
   .swan-sidebar-doc time {
