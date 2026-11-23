@@ -527,7 +527,6 @@ body {
 
 .swan-doc-list-item.is-selected {
   background: linear-gradient(135deg, rgba(235, 244, 255, 0.98), rgba(247, 251, 255, 0.9));
-  box-shadow: inset 3px 0 var(--swan-brand);
 }
 
 .swan-doc-list-item:disabled {
