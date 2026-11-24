@@ -804,6 +804,51 @@ input {
   gap: 8px;
 }
 
+.swan-workspace-more.ant-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--swan-text-muted);
+}
+
+.swan-workspace-more.ant-btn:hover {
+  background: var(--swan-list-hover);
+  color: var(--swan-text);
+}
+
+.swan-document-info-list {
+  display: grid;
+  margin: 22px 0 4px;
+  gap: 0;
+}
+
+.swan-document-info-list > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid #eceeed;
+}
+
+.swan-document-info-list > div:last-child {
+  border-bottom: 0;
+}
+
+.swan-document-info-list dt {
+  color: var(--swan-text-muted);
+  font-size: 12px;
+}
+
+.swan-document-info-list dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--swan-text-soft);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .swan-topbar-skeleton {
   display: flex;
   width: 100%;
@@ -1425,6 +1470,7 @@ input {
 .swan-sidebar-add:focus-visible,
 .swan-sidebar-user:focus-visible,
 .swan-workspace-menu-button:focus-visible,
+.swan-workspace-more:focus-visible,
 .swan-sidebar-doc:focus-visible {
   outline: 2px solid rgba(47, 111, 232, 0.4);
   outline-offset: 2px;
@@ -1584,5 +1630,75 @@ input {
 
   .swan-skeleton-bar::after {
     display: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 18mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff;
+  }
+
+  .swan-workspace {
+    display: block;
+  }
+
+  .swan-sidebar,
+  .swan-workspace-topbar,
+  .swan-workspace-notices,
+  .swan-editor-margin,
+  .swan-editor-kicker,
+  .swan-editor-submeta,
+  .swan-editor-toolbar,
+  .swan-editor-meta {
+    display: none !important;
+  }
+
+  .swan-workspace-main,
+  .swan-editor-canvas {
+    display: block;
+    overflow: visible;
+  }
+
+  .swan-editor-stage {
+    display: block;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .swan-editor-page {
+    max-width: none;
+  }
+
+  .swan-doc-title-input.ant-input {
+    margin-top: 0;
+    border: 0;
+    color: #111;
+    font-size: 30pt;
+  }
+
+  .swan-tiptap {
+    min-height: 0;
+    padding-top: 26px;
+  }
+
+  .swan-prosemirror {
+    min-height: 0;
+    color: #111;
+    font-size: 12pt;
+    line-height: 1.8;
+  }
+
+  .swan-prosemirror h1,
+  .swan-prosemirror h2,
+  .swan-prosemirror blockquote,
+  .swan-prosemirror pre {
+    break-inside: avoid;
   }
 }

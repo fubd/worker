@@ -1,21 +1,28 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Input } from 'antd';
+import { App, Alert, Button, Dropdown, Input, Modal, type MenuProps } from 'antd';
 import {
   Bold,
   ChevronRight,
   CircleAlert,
+  ClipboardCopy,
   Clock3,
   CloudCheck,
   CodeXml,
+  FileDown,
   Folder,
+  Info,
   Italic,
+  Link2,
   List,
   ListOrdered,
   LoaderCircle,
   Menu,
+  MoreVertical,
   Plus,
+  Printer,
   Redo2,
   RefreshCw,
+  Trash2,
   TriangleAlert,
   Undo2,
 } from 'lucide-react';
@@ -96,6 +103,52 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
+}
+
+function formatDocumentDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function safeMarkdownFilename(title: string): string {
+  const filename = title
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .slice(0, 80);
+  return `${filename || '无标题文档'}.md`;
+}
+
+async function editorMarkdown(editor: Editor, title: string): Promise<string> {
+  const { default: TurndownService } = await import('turndown');
+  const converter = new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    codeBlockStyle: 'fenced',
+    emDelimiter: '*',
+  });
+  const body = converter.turndown(editor.getHTML()).trim();
+  const normalizedTitle = title.trim() || '无标题文档';
+  return `# ${normalizedTitle}${body ? `\n\n${body}` : ''}\n`;
+}
+
+function downloadMarkdown(content: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.style.display = 'none';
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export function HydrateFallback() {
@@ -227,6 +280,7 @@ function DocsPageContent() {
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
+  const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<number | null>(activeId);
@@ -392,6 +446,7 @@ function DocsPageContent() {
 
   useEffect(() => {
     clearSaveTimer();
+    setDocumentInfoOpen(false);
 
     if (authUnavailable || view !== 'documents' || !activeId) {
       activeIdRef.current = null;
@@ -632,6 +687,94 @@ function DocsPageContent() {
       okButtonProps: { danger: true },
       onOk: () => deleteDocument(document),
     });
+  };
+
+  const documentActionItems: MenuProps['items'] = [
+    {
+      key: 'copy-link',
+      label: '复制链接',
+      icon: <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'copy-markdown',
+      label: '复制 Markdown',
+      icon: <ClipboardCopy aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'download-markdown',
+      label: '下载 Markdown',
+      icon: <FileDown aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    { type: 'divider' },
+    {
+      key: 'info',
+      label: '文档信息',
+      icon: <Info aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'print',
+      label: '打印',
+      icon: <Printer aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    { type: 'divider' },
+    {
+      key: 'delete',
+      label: '移入回收站',
+      danger: true,
+      icon: <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+  ];
+
+  const runDocumentAction = async (key: string) => {
+    if (!activeDocument || !editor) return;
+
+    if (key === 'copy-link') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('view');
+      url.searchParams.delete('q');
+      url.searchParams.set('id', String(activeDocument.id));
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        message.success('文档链接已复制');
+      } catch {
+        message.error('复制链接失败，请检查浏览器权限');
+      }
+      return;
+    }
+
+    if (key === 'copy-markdown' || key === 'download-markdown') {
+      const hideLoading = message.loading('正在生成 Markdown...', 0);
+      try {
+        const title = titleRef.current.trim() || activeDocument.title;
+        const markdown = await editorMarkdown(editor, title);
+        if (key === 'copy-markdown') {
+          await navigator.clipboard.writeText(markdown);
+          message.success('Markdown 已复制');
+        } else {
+          downloadMarkdown(markdown, safeMarkdownFilename(title));
+          message.success('Markdown 已下载');
+        }
+      } catch {
+        message.error('生成 Markdown 失败');
+      } finally {
+        hideLoading();
+      }
+      return;
+    }
+
+    if (key === 'info') {
+      setDocumentInfoOpen(true);
+      return;
+    }
+
+    if (key === 'print') {
+      window.requestAnimationFrame(() => window.print());
+      return;
+    }
+
+    if (key === 'delete') {
+      requestDeleteDocument(activeDocument);
+    }
   };
 
   const restoreDocument = async (document: DocumentSummary) => {
@@ -943,6 +1086,21 @@ function DocsPageContent() {
                     重新加载
                   </Button>
                 )}
+                <Dropdown
+                  trigger={['click']}
+                  placement="bottomRight"
+                  menu={{
+                    items: documentActionItems,
+                    onClick: ({ key }) => void runDocumentAction(key),
+                  }}
+                >
+                  <Button
+                    className="swan-workspace-more"
+                    type="text"
+                    icon={<MoreVertical aria-hidden="true" size={18} strokeWidth={1.8} />}
+                    aria-label="文档操作"
+                  />
+                </Dropdown>
               </div>
             )}
         </header>
@@ -1056,6 +1214,45 @@ function DocsPageContent() {
           </div>
         )}
       </main>
+
+      {activeDocument && editor && (
+        <Modal
+          open={documentInfoOpen}
+          title="文档信息"
+          width={480}
+          centered
+          footer={null}
+          className="swan-document-info-modal"
+          onCancel={() => setDocumentInfoOpen(false)}
+        >
+          <dl className="swan-document-info-list">
+            <div>
+              <dt>标题</dt>
+              <dd>{titleRef.current.trim() || activeDocument.title}</dd>
+            </div>
+            <div>
+              <dt>所在位置</dt>
+              <dd>{activeFolderName}</dd>
+            </div>
+            <div>
+              <dt>创建时间</dt>
+              <dd>{formatDocumentDate(activeDocument.createdAt)}</dd>
+            </div>
+            <div>
+              <dt>最后更新</dt>
+              <dd>{formatDocumentDate(activeDocument.updatedAt)}</dd>
+            </div>
+            <div>
+              <dt>当前版本</dt>
+              <dd>第 {activeDocument.version} 版</dd>
+            </div>
+            <div>
+              <dt>字数</dt>
+              <dd>{editor.getText().trim().length} 字</dd>
+            </div>
+          </dl>
+        </Modal>
+      )}
 
       {folderDialog && (
         <Suspense fallback={null}>
