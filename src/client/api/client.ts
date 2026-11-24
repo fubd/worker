@@ -125,6 +125,11 @@ export const api = {
       body: JSON.stringify({ title, folderId }),
     }),
 
+  duplicateDocument: (id: PublicId) =>
+    request<DocumentRecord>(`/documents/${id}/duplicate`, {
+      method: 'POST',
+    }),
+
   updateDocument: (
     id: PublicId,
     input: {

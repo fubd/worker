@@ -8,6 +8,7 @@ import {
   Clock3,
   CloudCheck,
   CodeXml,
+  Copy,
   FileDown,
   Folder,
   Info,
@@ -739,6 +740,40 @@ function DocsPageContent() {
     }
   };
 
+  const duplicateDocument = async () => {
+    const source = activeDocumentRef.current;
+    if (!source || saveState === 'conflict') return;
+    const saved = await savePendingChanges();
+    if (!saved) {
+      message.error('当前文档保存失败，请重试后再创建副本');
+      return;
+    }
+
+    try {
+      const duplicate = await api.duplicateDocument(source.id);
+      createdDocumentIdRef.current = duplicate.id;
+      documentModesRef.current.set(duplicate.id, 'edit');
+      setDocuments((items) => [toSummary(duplicate), ...items]);
+      setFolderRevision((value) => value + 1);
+
+      const next = new URLSearchParams(searchParams);
+      next.delete('view');
+      next.delete('q');
+      next.delete('id');
+      if (duplicate.folderId) next.set('folder', duplicate.folderId);
+      else next.delete('folder');
+      navigate(docsRoute(duplicate.id, next));
+      setSearchInput('');
+      message.success('副本已创建');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '创建副本失败'));
+    }
+  };
+
   const requestDeleteDocument = (document: Pick<DocumentSummary, 'id' | 'title'>) => {
     if (deletingDocumentId !== null) return;
     modal.confirm({
@@ -810,6 +845,11 @@ function DocsPageContent() {
       icon: <Clock3 aria-hidden="true" size={15} strokeWidth={1.8} />,
     },
     {
+      key: 'duplicate',
+      label: '创建副本',
+      icon: <Copy aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
       key: 'print',
       label: '打印',
       icon: <Printer aria-hidden="true" size={15} strokeWidth={1.8} />,
@@ -868,6 +908,11 @@ function DocsPageContent() {
 
     if (key === 'history') {
       setHistoryOpen(true);
+      return;
+    }
+
+    if (key === 'duplicate') {
+      void duplicateDocument();
       return;
     }
 

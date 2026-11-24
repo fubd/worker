@@ -218,6 +218,33 @@ export async function createDocument(
   return document;
 }
 
+export async function duplicateDocument(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+): Promise<DocumentRecord | null> {
+  const source = await getDocument(db, ownerId, id);
+  if (!source) return null;
+
+  const suffix = ' 副本';
+  const title = `${source.title.slice(0, 30 - suffix.length).trimEnd()}${suffix}`;
+  const publicId = createPublicId();
+  await db
+    .prepare(
+      `INSERT INTO documents (
+         public_id, owner_id, folder_id, title,
+         content_json, content_html, content_text
+       )
+       SELECT ?, owner_id, folder_id, ?, content_json, content_html, content_text
+       FROM documents
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(publicId, title, id, ownerId)
+    .run();
+
+  return getDocument(db, ownerId, publicId);
+}
+
 export interface UpdateDocumentInput {
   title?: string;
   content?: Record<string, unknown>;

@@ -160,6 +160,15 @@ documentRoutes.post('/:id/versions/:version/restore', async (c) => {
   return c.json(result.document);
 });
 
+documentRoutes.post('/:id/duplicate', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const document = await wrapTime(c, 'db', repo.duplicateDocument(c.env.DB, c.get('user').id, id));
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+  return c.json(document, 201);
+});
+
 documentRoutes.get('/:id', async (c) => {
   const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
