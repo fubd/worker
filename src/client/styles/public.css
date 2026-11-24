@@ -703,6 +703,21 @@
     padding: 0 20px;
   }
 
+  .swan-public-brand,
+  .swan-public-header .swan-public-nav a,
+  .swan-login-back,
+  .swan-public-footer a {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .swan-login-back {
+    padding: 0 4px;
+  }
+
   .swan-public-brand small,
   .swan-public-nav > a:first-child {
     display: none;
@@ -844,6 +859,29 @@
 
   .swan-login-card h2 {
     font-size: 36px;
+  }
+
+  .swan-login-form .ant-input-suffix {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    margin-inline-end: -10px;
+  }
+
+  .swan-login-switch {
+    margin-top: 7px;
+  }
+
+  .swan-login-switch button {
+    display: inline-flex;
+    min-height: 44px;
+    padding: 0 4px;
+    align-items: center;
+    border-bottom: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }
 

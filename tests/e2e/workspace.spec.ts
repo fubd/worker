@@ -21,6 +21,22 @@ async function registerByApi(page: Page): Promise<{ username: string; password: 
   return { username, password };
 }
 
+async function expectVisibleTouchTargets(page: Page, selectors: string[]): Promise<void> {
+  for (const selector of selectors) {
+    const elements = page.locator(selector);
+    let checked = 0;
+    for (const element of await elements.all()) {
+      if (!(await element.isVisible())) continue;
+      const box = await element.boundingBox();
+      expect(box, selector).not.toBeNull();
+      expect(box?.width ?? 0, `${selector} width`).toBeGreaterThanOrEqual(44);
+      expect(box?.height ?? 0, `${selector} height`).toBeGreaterThanOrEqual(44);
+      checked += 1;
+    }
+    expect(checked, `${selector} visible matches`).toBeGreaterThan(0);
+  }
+}
+
 test('registers through the UI, edits, saves, and reloads a document', async ({ page }) => {
   const username = uniqueUsername('ui');
   const password = 'Playwright-pass-2026';
@@ -147,6 +163,27 @@ test('mobile workspace keeps the topbar readable and primary targets at least 44
     expect(Math.round(box?.width ?? 0)).toBeGreaterThanOrEqual(44);
     expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
   }
+});
+
+test('mobile public entry controls keep 44px touch targets', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '让文字 飞起来。' })).toBeVisible();
+  await expectVisibleTouchTargets(page, [
+    '.swan-public-brand',
+    '.swan-public-nav a',
+    '.swan-home-actions .swan-public-button',
+    '.swan-public-footer a',
+  ]);
+
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: '回到你的文字' })).toBeVisible();
+  await expectVisibleTouchTargets(page, [
+    '.swan-public-brand',
+    '.swan-login-back',
+    '.swan-login-form .ant-input-suffix',
+    '.swan-login-switch button',
+  ]);
 });
 
 test('permanently deletes a trashed document and its attachment metadata', async ({ page }) => {
