@@ -1,4 +1,10 @@
-import type { DocumentRecord, DocumentRow, DocumentSummary, SharedDocument } from '../types';
+import type {
+  DocumentImportInput,
+  DocumentRecord,
+  DocumentRow,
+  DocumentSummary,
+  SharedDocument,
+} from '../types';
 import type { PublicId } from '../../shared/ids';
 import { createPublicId } from './public-ids';
 import { captureVersion, captureVersionIfDue, getDocumentVersion } from './document-versions';
@@ -244,6 +250,42 @@ export async function createDocument(
     throw new Error('Failed to create document');
   }
 
+  return document;
+}
+
+export async function createImportedDocument(
+  db: D1Database,
+  ownerId: number,
+  input: DocumentImportInput,
+): Promise<DocumentRecord> {
+  const publicId = createPublicId();
+  await db
+    .prepare(
+      `INSERT INTO documents (
+         public_id, owner_id, folder_id, title, content_json, content_html, content_text
+       )
+       VALUES (
+         ?, ?, (
+           SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
+         ), ?, ?, ?, ?
+       )`,
+    )
+    .bind(
+      publicId,
+      ownerId,
+      ownerId,
+      input.folderId,
+      input.title,
+      JSON.stringify(input.content),
+      input.contentHtml,
+      input.contentText,
+    )
+    .run();
+
+  const document = await getDocument(db, ownerId, publicId);
+  if (!document) {
+    throw new Error('Failed to create imported document');
+  }
   return document;
 }
 

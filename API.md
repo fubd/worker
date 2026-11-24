@@ -43,10 +43,36 @@ M1 支持公开多用户注册。账号名和密码可以直接创建独立用�
 | GET    | `/api/documents/trash`       | 当前用户的回收站                       |
 | GET    | `/api/documents/:id`         | 获取单篇文档                           |
 | POST   | `/api/documents`             | 新建文档                               |
+| POST   | `/api/documents/import`      | 导入 Markdown、HTML 或 JSON 解析结果   |
 | PATCH  | `/api/documents/:id`         | 保存标题和正文，必须携带 `version`     |
 | DELETE | `/api/documents/:id`         | 移入回收站                             |
 | POST   | `/api/documents/:id/restore` | 从回收站恢复                           |
 | PATCH  | `/api/documents/:id/folder`  | 把文档移动到文件夹或未归档             |
+
+导入接口接收已经由浏览器 Tiptap 解析后的文档：
+
+```json
+{
+  "title": "导入的文档",
+  "content": { "type": "doc", "content": [] },
+  "contentHtml": "<p>正文</p>",
+  "contentText": "正文",
+  "folderId": null
+}
+```
+
+`contentHtml` 和 `contentText` 各自最多 1 MB。导入文件在浏览器端限制为 1 MB。
+
+### 附件
+
+| 方法   | 路径                                                    | 说明                          |
+| ------ | ------------------------------------------------------- | ----------------------------- |
+| GET    | `/api/documents/:id/attachments`                        | 当前文档的附件列表            |
+| POST   | `/api/documents/:id/attachments`                        | 以 multipart 字段 `file` 上传 |
+| GET    | `/api/documents/:id/attachments/:attachmentId/download` | 下载附件                      |
+| DELETE | `/api/documents/:id/attachments/:attachmentId`          | 删除附件                      |
+
+附件文件保存在 R2 `swan-attachments`，D1 只保存归属、文件名、类型和大小。单个文件最大 10 MB，超过限制返回 `413`。所有查询同时校验文档 owner，其他用户无法读取附件元数据或下载文件。
 
 所有查询都按服务端会话中的 `owner_id` 过滤。其他用户的文档统一返回 `404`，不会暴露文档是否存在。
 
@@ -103,6 +129,7 @@ HTTP 状态为 `409 Conflict`。
 | `401`  | 未登录或会话已过期               |
 | `404`  | 文档不存在，或不属于当前用户     |
 | `409`  | 文档版本冲突                     |
+| `413`  | 上传附件超过大小限制             |
 | `429`  | 密码登录尝试次数过多             |
 | `500`  | 未处理异常，响应只包含 `traceId` |
 

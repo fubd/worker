@@ -96,6 +96,52 @@ documentRoutes.get('/trash', async (c) => {
   return c.json(result);
 });
 
+documentRoutes.post('/import', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    title?: unknown;
+    content?: unknown;
+    contentHtml?: unknown;
+    contentText?: unknown;
+    folderId?: unknown;
+  } | null;
+  if (!body) return c.json({ error: '请求体必须是合法 JSON' }, 400);
+
+  const title = normalizeTitle(body.title);
+  if (!title) {
+    return c.json({ error: `title 长度需在 1~${DOCUMENT_TITLE_MAX_LENGTH} 之间` }, 400);
+  }
+
+  const content = normalizeContent(body.content);
+  if (!content || content.type !== 'doc') {
+    return c.json({ error: 'content 必须是有效的 Tiptap 文档' }, 400);
+  }
+
+  const contentHtml = normalizeText(body.contentHtml, 'contentHtml');
+  const contentText = normalizeText(body.contentText, 'contentText');
+  if (contentHtml === null || contentText === null) {
+    return c.json({ error: '导入内容为空或超过 1 MB 限制' }, 400);
+  }
+
+  const folderId = parseOptionalFolderId(body.folderId);
+  if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
+  if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
+    return c.json({ error: '文件夹不存在' }, 404);
+  }
+
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.createImportedDocument(c.env.DB, c.get('user').id, {
+      title,
+      content,
+      contentHtml,
+      contentText,
+      folderId,
+    }),
+  );
+  return c.json(document, 201);
+});
+
 documentRoutes.post('/batch', async (c) => {
   const body = (await c.req.json().catch(() => null)) as {
     ids?: unknown;

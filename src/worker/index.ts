@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { timing } from 'hono/timing';
+import { attachmentRoutes } from './routes/attachments';
 import { authRoutes } from './routes/auth';
 import { documentRoutes } from './routes/documents';
 import { folderRoutes } from './routes/folders';
@@ -38,6 +39,7 @@ app.get('/api/health', (c) =>
 );
 
 app.route('/api/auth', authRoutes);
+app.route('/api/documents', attachmentRoutes);
 app.route('/api/documents', documentRoutes);
 app.route('/api/folders', folderRoutes);
 app.route('/api/shares', shareRoutes);

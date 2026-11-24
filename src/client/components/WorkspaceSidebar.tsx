@@ -3,6 +3,7 @@ import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
   ChevronDown,
   Clock3,
+  FileUp,
   FileText,
   Folder,
   FolderPlus,
@@ -64,6 +65,7 @@ interface WorkspaceSidebarProps {
   view: DocumentView;
   onBindProvider: (provider: 'google' | 'github') => void;
   onBatchDelete: (ids: PublicId[]) => void;
+  onBatchExport: (ids: PublicId[]) => void;
   onBatchFavorite: (ids: PublicId[], favorite: boolean) => void;
   onBatchMove: (ids: PublicId[], folderId: PublicId | null) => void;
   onCancelFolderCreate: () => void;
@@ -74,6 +76,7 @@ interface WorkspaceSidebarProps {
   onEditFolder: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
+  onImport: () => void;
   onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
   onMoveFolder: (folder: FolderSummary, parentId: PublicId | null) => void;
   onNavigate: () => void;
@@ -154,6 +157,7 @@ export function WorkspaceSidebar({
   view,
   onBindProvider,
   onBatchDelete,
+  onBatchExport,
   onBatchFavorite,
   onBatchMove,
   onCancelFolderCreate,
@@ -164,6 +168,7 @@ export function WorkspaceSidebar({
   onEditFolder,
   onFolderDraftChange,
   onFolderSelect,
+  onImport,
   onMoveDocument,
   onMoveFolder,
   onNavigate,
@@ -630,15 +635,28 @@ export function WorkspaceSidebar({
                 </span>
               )}
               {view === 'documents' && (
-                <button
-                  type="button"
-                  className="swan-sidebar-add"
-                  aria-label="新建文档"
-                  disabled={creating || saveState === 'conflict'}
-                  onClick={onCreate}
-                >
-                  <Plus aria-hidden="true" size={15} strokeWidth={1.8} />
-                </button>
+                <>
+                  <Tooltip title="导入文档" placement="top">
+                    <button
+                      type="button"
+                      className="swan-sidebar-add"
+                      aria-label="导入文档"
+                      disabled={creating || saveState === 'conflict'}
+                      onClick={onImport}
+                    >
+                      <FileUp aria-hidden="true" size={15} strokeWidth={1.8} />
+                    </button>
+                  </Tooltip>
+                  <button
+                    type="button"
+                    className="swan-sidebar-add"
+                    aria-label="新建文档"
+                    disabled={creating || saveState === 'conflict'}
+                    onClick={onCreate}
+                  >
+                    <Plus aria-hidden="true" size={15} strokeWidth={1.8} />
+                  </button>
+                </>
               )}
               {view !== 'trash' && documents.length > 0 && (
                 <Tooltip title="批量选择">
@@ -726,6 +744,15 @@ export function WorkspaceSidebar({
               disabled={batchBusy || selectedCount === 0}
             />
           </Dropdown>
+          <Button
+            className="swan-sidebar-batch-button"
+            type="text"
+            size="small"
+            icon={<FileText aria-hidden="true" size={15} strokeWidth={1.8} />}
+            aria-label="导出所选文档"
+            disabled={batchBusy || selectedCount === 0}
+            onClick={() => onBatchExport(selectedIds)}
+          />
           <Button
             className="swan-sidebar-batch-button is-danger"
             type="text"

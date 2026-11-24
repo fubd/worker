@@ -24,6 +24,14 @@ export interface DocumentRecord extends DocumentSummary {
   contentText: string;
 }
 
+export interface DocumentImportInput {
+  title: string;
+  content: Record<string, unknown>;
+  contentHtml: string;
+  contentText: string;
+  folderId: PublicId | null;
+}
+
 export interface DocumentListResponse {
   items: DocumentSummary[];
 }
@@ -34,6 +42,18 @@ export interface DocumentBatchResponse {
   requestedCount: number;
   updatedCount: number;
   items: DocumentSummary[];
+}
+
+export interface DocumentAttachment {
+  id: PublicId;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface DocumentAttachmentListResponse {
+  items: DocumentAttachment[];
 }
 
 export interface DocumentVersionSummary {

@@ -11,9 +11,33 @@
       "!dist/vercel/static/js/async/share-page.*.mjs",
       "!dist/vercel/static/js/async/share-dompurify.*.mjs",
       "!dist/vercel/static/js/async/command-palette.*.mjs",
-      "!dist/vercel/static/js/async/command-palette-vendor.*.mjs"
+      "!dist/vercel/static/js/async/command-palette-vendor.*.mjs",
+      "!dist/vercel/static/js/async/document-import.*.mjs",
+      "!dist/vercel/static/js/async/document-import-parser.*.mjs",
+      "!dist/vercel/static/js/async/document-attachments.*.mjs",
+      "!dist/vercel/static/js/async/batch-export.*.mjs"
     ],
-    "limit": "211 kB"
+    "limit": "211.2 kB"
+  },
+  {
+    "name": "document import",
+    "path": "dist/vercel/static/js/async/document-import.*.mjs",
+    "limit": "35 kB"
+  },
+  {
+    "name": "document import parser",
+    "path": "dist/vercel/static/js/async/document-import-parser.*.mjs",
+    "limit": "30 kB"
+  },
+  {
+    "name": "document attachments",
+    "path": "dist/vercel/static/js/async/document-attachments.*.mjs",
+    "limit": "8 kB"
+  },
+  {
+    "name": "batch export",
+    "path": "dist/vercel/static/js/async/batch-export.*.mjs",
+    "limit": "2 kB"
   },
   {
     "name": "share route",

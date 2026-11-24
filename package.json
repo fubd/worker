@@ -28,6 +28,7 @@
   "dependencies": {
     "@ant-design/cssinjs": "^2.1.2",
     "@tiptap/extension-placeholder": "^3.35.0",
+    "@tiptap/html": "^3.35.0",
     "@tiptap/react": "^3.35.0",
     "@tiptap/starter-kit": "^3.35.0",
     "@vercel/speed-insights": "^2.1.0",
@@ -36,6 +37,7 @@
     "dompurify": "^3.5.0",
     "hono": "^4.13.14",
     "lucide-react": "^1.77.0",
+    "marked": "^17.0.1",
     "nanoid": "^6.0.2",
     "oauth4webapi": "3.8.9",
     "react": "^19.3.1",

@@ -26,6 +26,13 @@
     },
   ],
 
+  "r2_buckets": [
+    {
+      "binding": "ATTACHMENTS",
+      "bucket_name": "swan-attachments",
+    },
+  ],
+
   "dev": {
     "port": 8787,
   },

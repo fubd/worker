@@ -4,6 +4,8 @@
 export interface Env {
   /** D1 数据库 */
   DB: D1Database;
+  /** 文档附件对象存储 */
+  ATTACHMENTS: R2Bucket;
   /** 站点公开地址，用于 OAuth 回调和登录后跳转 */
   PUBLIC_ORIGIN?: string;
   /** Google OAuth 客户端 */
@@ -58,9 +60,24 @@ export interface FolderRow {
   updated_at: string;
 }
 
+export interface AttachmentRow {
+  id: number;
+  public_id: import('../shared/ids').PublicId;
+  owner_id: number;
+  document_id: number;
+  object_key: string;
+  file_name: string;
+  content_type: string;
+  size: number;
+  created_at: string;
+}
+
 export type {
   AuthSessionResponse,
   AuthUser,
+  DocumentAttachment,
+  DocumentAttachmentListResponse,
+  DocumentImportInput,
   DocumentListResponse,
   DocumentRecord,
   DocumentSummary,

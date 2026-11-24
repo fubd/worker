@@ -2470,6 +2470,133 @@ input {
   }
 }
 
+.swan-import-dropzone {
+  padding: 26px 20px 22px;
+  border: 1px dashed var(--swan-border-strong);
+  border-radius: 12px;
+  background: #fafbfb;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.swan-import-dropzone:hover,
+.swan-import-dropzone:focus-visible,
+.swan-import-dropzone.is-dragging {
+  border-color: var(--swan-brand);
+  background: #f5f8ff;
+  outline: none;
+}
+
+.swan-import-icon {
+  margin: 6px 0 10px;
+  color: var(--swan-brand);
+}
+
+.swan-import-title {
+  margin: 0;
+  color: var(--swan-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.swan-import-help {
+  margin: 6px 0 4px;
+  color: var(--swan-text-muted);
+  font-size: 13px;
+}
+
+.swan-import-error {
+  margin-top: 16px;
+}
+
+.swan-attachment-upload {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 16px;
+  border: 1px dashed var(--swan-border-strong);
+  border-radius: 11px;
+  background: #fafbfb;
+  color: var(--swan-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.swan-attachment-upload:hover,
+.swan-attachment-upload:focus-visible {
+  border-color: var(--swan-brand);
+  background: #f5f8ff;
+  outline: none;
+}
+
+.swan-attachment-upload:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.swan-attachment-upload > span:first-child,
+.swan-attachment-file-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: #eef3fb;
+  color: var(--swan-brand);
+}
+
+.swan-attachment-upload strong,
+.swan-attachment-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--swan-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-attachment-upload small,
+.swan-attachment-copy small {
+  display: block;
+  margin-top: 3px;
+  color: var(--swan-text-muted);
+  font-size: 12px;
+}
+
+.swan-attachment-list {
+  min-height: 86px;
+  margin-top: 18px;
+}
+
+.swan-attachment-empty {
+  display: flex;
+  min-height: 86px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--swan-text-muted);
+  font-size: 13px;
+}
+
+.swan-attachment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-top: 1px solid var(--swan-border);
+}
+
+.swan-attachment-copy {
+  min-width: 0;
+  flex: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .swan-sidebar,
   .swan-sidebar-nav a,

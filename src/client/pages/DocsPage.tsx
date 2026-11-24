@@ -63,7 +63,12 @@ import {
 import { BRAND } from '@/shared/brand';
 import { isPublicId, type PublicId } from '@/shared/ids';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/shared/limits';
-import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
+import type {
+  DocumentImportInput,
+  DocumentRecord,
+  DocumentSummary,
+  FolderSummary,
+} from '@/shared/types';
 
 const EMPTY_CONTENT: JSONContent = {
   type: 'doc',
@@ -71,6 +76,13 @@ const EMPTY_CONTENT: JSONContent = {
 };
 
 const FolderDialog = lazy(() => import('../components/FolderDialog'));
+const ImportDocumentModal = lazy(
+  () => import(/* webpackChunkName: "document-import" */ '../components/ImportDocumentModal'),
+);
+const DocumentAttachmentsModal = lazy(
+  () =>
+    import(/* webpackChunkName: "document-attachments" */ '../components/DocumentAttachmentsModal'),
+);
 const DocumentHistoryModal = lazy(() =>
   import('../components/DocumentHistoryModal').then((module) => ({
     default: module.DocumentHistoryModal,
@@ -165,12 +177,12 @@ function formatDocumentDate(value: string): string {
   }).format(date);
 }
 
-function safeMarkdownFilename(title: string): string {
+function safeExportFilename(title: string, extension: string): string {
   const filename = title
     .trim()
     .replace(/[\\/:*?"<>|]/g, '-')
     .slice(0, 80);
-  return `${filename || '无标题文档'}.md`;
+  return `${filename || '无标题文档'}.${extension}`;
 }
 
 async function editorMarkdown(editor: Editor, title: string): Promise<string> {
@@ -186,8 +198,8 @@ async function editorMarkdown(editor: Editor, title: string): Promise<string> {
   return `# ${normalizedTitle}${body ? `\n\n${body}` : ''}\n`;
 }
 
-function downloadMarkdown(content: string, filename: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+function downloadFile(content: string, filename: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = document.createElement('a');
   anchor.style.display = 'none';
   anchor.href = url;
@@ -196,6 +208,30 @@ function downloadMarkdown(content: string, filename: string): void {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function standaloneHtml(title: string, body: string): string {
+  const escapedTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapedTitle}</title>
+  <style>
+    body { max-width: 760px; margin: 56px auto; padding: 0 24px; color: #172332; font: 16px/1.8 ui-sans-serif, system-ui, sans-serif; }
+    h1, h2, h3 { line-height: 1.3; }
+    pre { overflow: auto; padding: 16px; border-radius: 10px; background: #f4f6f8; }
+    blockquote { margin-left: 0; padding-left: 18px; border-left: 3px solid #d9e1ea; color: #5f6b78; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>${escapedTitle}</h1>
+  ${body}
+</body>
+</html>
+`;
 }
 
 export function HydrateFallback() {
@@ -345,6 +381,8 @@ function DocsPageContent() {
   const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<PublicId | null>(activeId);
@@ -543,6 +581,7 @@ function DocsPageContent() {
     clearSaveTimer();
     setDocumentInfoOpen(false);
     setHistoryOpen(false);
+    setAttachmentsOpen(false);
     if (createdDocumentIdRef.current !== activeId) {
       createdDocumentIdRef.current = null;
     }
@@ -755,6 +794,39 @@ function DocsPageContent() {
         return;
       }
       message.error(errorMessage(error, '新建文档失败'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const importDocument = async (input: DocumentImportInput) => {
+    if (creating || saveState === 'conflict') return;
+    if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
+      const saved = await saveDocument();
+      if (!saved) throw new Error('当前文档保存失败，请重试后再导入');
+    }
+
+    setCreating(true);
+    try {
+      const folderId = folderScope === 'all' || folderScope === 'unfiled' ? null : folderScope;
+      const document = await api.importDocument({ ...input, folderId });
+      documentModesRef.current.set(document.id, 'edit');
+      setDocuments((items) => [toSummary(document), ...items]);
+      setFolderRevision((value) => value + 1);
+      activeIdRef.current = document.id;
+      const next = new URLSearchParams(searchParams);
+      next.delete('view');
+      next.delete('q');
+      next.delete('id');
+      navigate(docsRoute(document.id, next));
+      setSearchInput('');
+      message.success('文档已导入');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      throw error;
     } finally {
       setCreating(false);
     }
@@ -982,6 +1054,33 @@ function DocsPageContent() {
     }
   };
 
+  const batchExportDocuments = async (ids: PublicId[]) => {
+    if (batchBusy || ids.length === 0) return;
+    if (ids.length > 50) {
+      message.warning('一次最多导出 50 篇文档');
+      return;
+    }
+
+    setBatchBusy(true);
+    const hideLoading = message.loading(`正在导出 ${ids.length} 篇文档...`, 0);
+    try {
+      const { downloadDocumentBundle } = await import(
+        /* webpackChunkName: "batch-export" */ '../batch-export'
+      );
+      const count = await downloadDocumentBundle(ids, api.getDocument);
+      message.success(`已导出 ${count} 篇文档`);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '批量导出失败'));
+    } finally {
+      hideLoading();
+      setBatchBusy(false);
+    }
+  };
+
   const restoreBatchDocuments = async (ids: PublicId[]) => {
     if (batchBusy || ids.length === 0) return;
     setBatchBusy(true);
@@ -1200,15 +1299,27 @@ function DocsPageContent() {
       icon: <ClipboardCopy aria-hidden="true" size={15} strokeWidth={1.8} />,
     },
     {
-      key: 'download-markdown',
-      label: '下载 Markdown',
+      key: 'export-markdown',
+      label: '导出 Markdown',
       icon: <FileDown aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'export-html',
+      label: '导出 HTML',
+    },
+    {
+      key: 'export-json',
+      label: '导出 JSON',
     },
     { type: 'divider' },
     {
       key: 'info',
       label: '文档信息',
       icon: <Info aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'attachments',
+      label: '附件',
     },
     {
       key: 'history',
@@ -1272,7 +1383,7 @@ function DocsPageContent() {
       return;
     }
 
-    if (key === 'copy-markdown' || key === 'download-markdown') {
+    if (key === 'copy-markdown' || key === 'export-markdown') {
       const hideLoading = message.loading('正在生成 Markdown...', 0);
       try {
         const title = titleRef.current.trim() || activeDocument.title;
@@ -1281,7 +1392,7 @@ function DocsPageContent() {
           await navigator.clipboard.writeText(markdown);
           message.success('Markdown 已复制');
         } else {
-          downloadMarkdown(markdown, safeMarkdownFilename(title));
+          downloadFile(markdown, safeExportFilename(title, 'md'), 'text/markdown;charset=utf-8');
           message.success('Markdown 已下载');
         }
       } catch {
@@ -1292,8 +1403,45 @@ function DocsPageContent() {
       return;
     }
 
+    if (key === 'export-html') {
+      const title = titleRef.current.trim() || activeDocument.title;
+      downloadFile(
+        standaloneHtml(title, editor.getHTML()),
+        safeExportFilename(title, 'html'),
+        'text/html;charset=utf-8',
+      );
+      message.success('HTML 已下载');
+      return;
+    }
+
+    if (key === 'export-json') {
+      const title = titleRef.current.trim() || activeDocument.title;
+      const exported = {
+        format: 'yuyan-document',
+        version: 1,
+        document: {
+          title,
+          content: editor.getJSON(),
+          contentHtml: editor.getHTML(),
+          contentText: editor.getText(),
+        },
+      };
+      downloadFile(
+        `${JSON.stringify(exported, null, 2)}\n`,
+        safeExportFilename(title, 'json'),
+        'application/json;charset=utf-8',
+      );
+      message.success('JSON 已下载');
+      return;
+    }
+
     if (key === 'info') {
       setDocumentInfoOpen(true);
+      return;
+    }
+
+    if (key === 'attachments') {
+      setAttachmentsOpen(true);
       return;
     }
 
@@ -1660,6 +1808,7 @@ function DocsPageContent() {
         view={view}
         onBindProvider={bindProvider}
         onBatchDelete={requestBatchDelete}
+        onBatchExport={(ids) => void batchExportDocuments(ids)}
         onBatchFavorite={(ids, favorite) => void batchFavoriteDocuments(ids, favorite)}
         onBatchMove={(ids, folderId) => void batchMoveDocuments(ids, folderId)}
         onCancelFolderCreate={cancelCreateFolder}
@@ -1673,6 +1822,10 @@ function DocsPageContent() {
         onEditFolder={openEditFolder}
         onFolderDraftChange={setFolderName}
         onFolderSelect={selectFolder}
+        onImport={() => {
+          setSidebarOpen(false);
+          setImportOpen(true);
+        }}
         onMoveDocument={(document, folderId) => void moveDocument(document, folderId)}
         onMoveFolder={(folder, parentId) => void moveFolder(folder, parentId)}
         onNavigate={() => setSidebarOpen(false)}
@@ -2056,6 +2209,25 @@ function DocsPageContent() {
               setCommandPaletteOpen(false);
               void selectDocument(id);
             }}
+          />
+        </Suspense>
+      )}
+
+      {importOpen && (
+        <Suspense fallback={null}>
+          <ImportDocumentModal
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            onImport={importDocument}
+          />
+        </Suspense>
+      )}
+
+      {attachmentsOpen && (
+        <Suspense fallback={null}>
+          <DocumentAttachmentsModal
+            documentId={activeId!}
+            onClose={() => setAttachmentsOpen(false)}
           />
         </Suspense>
       )}

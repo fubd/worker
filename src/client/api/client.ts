@@ -1,7 +1,10 @@
 import type {
   AuthSessionResponse,
+  DocumentAttachment,
+  DocumentAttachmentListResponse,
   DocumentBatchAction,
   DocumentBatchResponse,
+  DocumentImportInput,
   DocumentListResponse,
   DocumentRecord,
   DocumentVersionListResponse,
@@ -29,7 +32,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   // Do not add Content-Type to GET requests: that turns a cross-origin read
   // into a CORS preflight and costs an additional round trip.
-  if (init?.body && !headers.has('Content-Type')) {
+  if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -128,6 +131,32 @@ export const api = {
     request<DocumentRecord>('/documents', {
       method: 'POST',
       body: JSON.stringify({ title, folderId }),
+    }),
+
+  importDocument: (input: DocumentImportInput) =>
+    request<DocumentRecord>('/documents/import', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  listAttachments: (documentId: PublicId, options: { signal?: AbortSignal } = {}) =>
+    request<DocumentAttachmentListResponse>(`/documents/${documentId}/attachments`, {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  uploadAttachment: (documentId: PublicId, file: File) => {
+    const body = new FormData();
+    body.set('file', file);
+    return request<DocumentAttachment>(`/documents/${documentId}/attachments`, {
+      method: 'POST',
+      body,
+    });
+  },
+
+  deleteAttachment: (documentId: PublicId, attachmentId: PublicId) =>
+    request<{ ok: boolean; id: PublicId }>(`/documents/${documentId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
     }),
 
   duplicateDocument: (id: PublicId) =>
