@@ -57,6 +57,7 @@ export interface SharedDocument {
 
 export interface FolderSummary {
   id: PublicId;
+  parentId: PublicId | null;
   name: string;
   documentCount: number;
   createdAt: string;

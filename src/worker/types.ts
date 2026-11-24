@@ -50,6 +50,8 @@ export interface FolderRow {
   id: number;
   public_id: import('../shared/ids').PublicId;
   owner_id: number;
+  parent_id: number | null;
+  parent_public_id: import('../shared/ids').PublicId | null;
   name: string;
   document_count: number;
   created_at: string;
