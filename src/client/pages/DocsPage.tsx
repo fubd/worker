@@ -295,6 +295,7 @@ function DocsPageContent() {
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
   const setSearchParamsRef = useRef(setSearchParams);
   const createdDocumentIdRef = useRef<number | null>(null);
+  const documentModesRef = useRef(new Map<number, DocumentMode>());
 
   activeIdRef.current = activeId;
   setSearchParamsRef.current = setSearchParams;
@@ -459,9 +460,14 @@ function DocsPageContent() {
     if (createdDocumentIdRef.current !== activeId) {
       createdDocumentIdRef.current = null;
     }
-    setDocumentMode('read');
+    const openInEdit =
+      activeId !== null &&
+      (createdDocumentIdRef.current === activeId ||
+        documentModesRef.current.get(activeId) === 'edit');
+    setDocumentMode(openInEdit ? 'edit' : 'read');
 
     if (authUnavailable || view !== 'documents' || !activeId) {
+      if (authUnavailable) documentModesRef.current.clear();
       activeIdRef.current = null;
       activeDocumentRef.current = null;
       setActiveDocument(null);
@@ -474,8 +480,6 @@ function DocsPageContent() {
     }
 
     const controller = new AbortController();
-    const openInEdit = createdDocumentIdRef.current === activeId;
-    if (openInEdit) setDocumentMode('edit');
     setEditorLoading(true);
     setLoadError(null);
 
@@ -648,6 +652,7 @@ function DocsPageContent() {
       const folderId = typeof folderScope === 'number' ? folderScope : null;
       const document = await api.createDocument('无标题文档', folderId);
       createdDocumentIdRef.current = document.id;
+      documentModesRef.current.set(document.id, 'edit');
       setDocuments((items) => [toSummary(document), ...items]);
       setFolderRevision((value) => value + 1);
       activeIdRef.current = document.id;
@@ -681,6 +686,7 @@ function DocsPageContent() {
     try {
       if (isActive && savePromiseRef.current) await savePromiseRef.current;
       await api.deleteDocument(document.id);
+      documentModesRef.current.delete(document.id);
       const remaining = documents.filter((item) => item.id !== document.id);
       setDocuments(remaining);
       setFolderRevision((value) => value + 1);
@@ -986,6 +992,9 @@ function DocsPageContent() {
       message.error('请先处理当前文档的保存冲突');
       return;
     }
+    if (activeDocumentRef.current) {
+      documentModesRef.current.set(activeDocumentRef.current.id, 'edit');
+    }
     setDocumentMode('edit');
   };
 
@@ -999,6 +1008,9 @@ function DocsPageContent() {
     if (!saved) {
       message.error('保存失败，暂时无法退出编辑模式');
       return;
+    }
+    if (activeDocumentRef.current) {
+      documentModesRef.current.delete(activeDocumentRef.current.id);
     }
     setDocumentMode('read');
   };
