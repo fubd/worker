@@ -58,6 +58,9 @@ export type {
   DocumentListResponse,
   DocumentRecord,
   DocumentSummary,
+  DocumentVersionListResponse,
+  DocumentVersionRecord,
+  DocumentVersionSummary,
   FolderListResponse,
   FolderSummary,
 } from '../shared/types';

@@ -2,6 +2,8 @@ import type {
   AuthSessionResponse,
   DocumentListResponse,
   DocumentRecord,
+  DocumentVersionListResponse,
+  DocumentVersionRecord,
   FolderListResponse,
   FolderSummary,
 } from '@/shared/types';
@@ -10,11 +12,13 @@ import { apiPath } from '@/shared/api-config';
 
 export class ApiError extends Error {
   status: number;
+  currentVersion?: number;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, currentVersion?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.currentVersion = currentVersion;
   }
 }
 
@@ -47,7 +51,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const message =
       (data as { error?: string } | null)?.error ?? `请求失败（HTTP ${response.status}）`;
-    throw new ApiError(message, response.status);
+    throw new ApiError(
+      message,
+      response.status,
+      (data as { currentVersion?: unknown } | null)?.currentVersion as number | undefined,
+    );
   }
 
   return data as T;
@@ -152,6 +160,28 @@ export const api = {
     request<DocumentRecord>(`/documents/${id}/favorite`, {
       method: 'PATCH',
       body: JSON.stringify({ favorite }),
+    }),
+
+  listDocumentVersions: (id: PublicId, options: { signal?: AbortSignal } = {}) =>
+    request<DocumentVersionListResponse>(`/documents/${id}/versions`, {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  getDocumentVersion: (id: PublicId, version: number) =>
+    request<DocumentVersionRecord>(`/documents/${id}/versions/${version}`, {
+      cache: 'no-store',
+    }),
+
+  createDocumentCheckpoint: (id: PublicId) =>
+    request<{ version: number }>(`/documents/${id}/versions`, {
+      method: 'POST',
+    }),
+
+  restoreDocumentVersion: (id: PublicId, version: number, expectedVersion: number) =>
+    request<DocumentRecord>(`/documents/${id}/versions/${version}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ expectedVersion }),
     }),
 
   listFolders: (options: { signal?: AbortSignal } = {}) =>

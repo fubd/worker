@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 import * as repo from '../db/documents';
+import * as versions from '../db/document-versions';
 import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
@@ -25,6 +26,11 @@ function normalizeTitle(value: unknown, fallback = ''): string | null {
 
 function parsePublicId(value: string): PublicId | null {
   return isPublicId(value) ? value : null;
+}
+
+function parseVersion(value: string): number | null {
+  const version = Number(value);
+  return Number.isInteger(version) && version > 0 ? version : null;
 }
 
 function parseFolderFilter(
@@ -79,6 +85,79 @@ documentRoutes.get('/trash', async (c) => {
     repo.listDeletedDocuments(c.env.DB, ownerId, { limit, offset }),
   );
   return c.json(result);
+});
+
+documentRoutes.get('/:id/versions', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const ownerId = c.get('user').id;
+  const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, ownerId, id));
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+
+  const items = await wrapTime(c, 'db', versions.listDocumentVersions(c.env.DB, ownerId, id));
+  return c.json({ items });
+});
+
+documentRoutes.get('/:id/versions/:version', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+  const version = parseVersion(c.req.param('version'));
+  if (!version) return c.json({ error: 'version 必须是正整数' }, 400);
+
+  const snapshot = await wrapTime(
+    c,
+    'db',
+    versions.getDocumentVersion(c.env.DB, c.get('user').id, id, version),
+  );
+  if (!snapshot) return c.json({ error: '版本不存在' }, 404);
+  return c.json(snapshot);
+});
+
+documentRoutes.post('/:id/versions', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const version = await wrapTime(
+    c,
+    'db',
+    repo.createDocumentCheckpoint(c.env.DB, c.get('user').id, id),
+  );
+  if (version === null) return c.json({ error: '文档不存在' }, 404);
+  return c.json({ version }, 201);
+});
+
+documentRoutes.post('/:id/versions/:version/restore', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+  const version = parseVersion(c.req.param('version'));
+  if (!version) return c.json({ error: 'version 必须是正整数' }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as {
+    expectedVersion?: unknown;
+  } | null;
+  const expectedVersion = Number(body?.expectedVersion);
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+    return c.json({ error: 'expectedVersion 必须是正整数' }, 400);
+  }
+
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.restoreDocumentVersion(c.env.DB, c.get('user').id, id, version, expectedVersion),
+  );
+  if (result.kind === 'not_found') return c.json({ error: '文档不存在' }, 404);
+  if (result.kind === 'version_not_found') return c.json({ error: '版本不存在' }, 404);
+  if (result.kind === 'conflict') {
+    return c.json(
+      {
+        error: '文档已在其他页面更新，请重新加载后再恢复',
+        currentVersion: result.currentVersion,
+      },
+      409,
+    );
+  }
+  return c.json(result.document);
 });
 
 documentRoutes.get('/:id', async (c) => {

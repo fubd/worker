@@ -1,6 +1,7 @@
 import type { DocumentRecord, DocumentRow, DocumentSummary } from '../types';
 import type { PublicId } from '../../shared/ids';
 import { createPublicId } from './public-ids';
+import { captureVersion, captureVersionIfDue, getDocumentVersion } from './document-versions';
 
 const LIST_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, substr(d.content_text, 1, 140) AS content_text,
@@ -18,6 +19,18 @@ const EMPTY_CONTENT_JSON = JSON.stringify({
   type: 'doc',
   content: [{ type: 'paragraph' }],
 });
+
+interface VersionSourceRow {
+  id: number;
+  owner_id: number;
+  version: number;
+  title: string;
+  content_json: string;
+  content_html: string;
+  content_text: string;
+  created_at: string;
+  updated_at: string;
+}
 
 function toIso(value: string): string {
   if (value.includes('T')) return value;
@@ -56,6 +69,23 @@ function toDocument(row: DocumentRow): DocumentRecord {
     contentHtml: row.content_html,
     contentText: row.content_text,
   };
+}
+
+async function getVersionSource(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+): Promise<VersionSourceRow | null> {
+  return db
+    .prepare(
+      `SELECT
+         id, owner_id, version, title,
+         content_json, content_html, content_text, created_at, updated_at
+       FROM documents
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(id, ownerId)
+    .first<VersionSourceRow>();
 }
 
 export async function listDocuments(
@@ -232,6 +262,12 @@ export async function updateDocument(
     return document ? { kind: 'updated', document } : { kind: 'not_found' };
   }
 
+  const current = await getVersionSource(db, ownerId, id);
+  if (!current) return { kind: 'not_found' };
+  if (current.version !== expectedVersion) {
+    return { kind: 'conflict', currentVersion: current.version };
+  }
+
   sets.push('version = version + 1');
   sets.push(`updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`);
 
@@ -246,11 +282,12 @@ export async function updateDocument(
     .first<{ public_id: PublicId }>();
 
   if (updated) {
+    await captureVersionIfDue(db, current);
     const document = await getDocument(db, ownerId, updated.public_id);
     if (document) return { kind: 'updated', document };
   }
 
-  const current = await db
+  const latest = await db
     .prepare(
       `SELECT version
        FROM documents
@@ -259,7 +296,74 @@ export async function updateDocument(
     .bind(id, ownerId)
     .first<{ version: number }>();
 
-  return current ? { kind: 'conflict', currentVersion: current.version } : { kind: 'not_found' };
+  return latest ? { kind: 'conflict', currentVersion: latest.version } : { kind: 'not_found' };
+}
+
+export async function createDocumentCheckpoint(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+): Promise<number | null> {
+  const current = await getVersionSource(db, ownerId, id);
+  if (!current) return null;
+  await captureVersion(db, current);
+  return current.version;
+}
+
+export type RestoreDocumentVersionResult =
+  | { kind: 'updated'; document: DocumentRecord }
+  | { kind: 'not_found' }
+  | { kind: 'version_not_found' }
+  | { kind: 'conflict'; currentVersion: number };
+
+export async function restoreDocumentVersion(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+  version: number,
+  expectedVersion: number,
+): Promise<RestoreDocumentVersionResult> {
+  const current = await getVersionSource(db, ownerId, id);
+  if (!current) return { kind: 'not_found' };
+  if (current.version !== expectedVersion) {
+    return { kind: 'conflict', currentVersion: current.version };
+  }
+
+  const snapshot = await getDocumentVersion(db, ownerId, id, version);
+  if (!snapshot) return { kind: 'version_not_found' };
+
+  await captureVersion(db, current);
+
+  const restored = await db
+    .prepare(
+      `UPDATE documents
+       SET title = ?,
+           content_json = ?,
+           content_html = ?,
+           content_text = ?,
+           version = version + 1,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL AND version = ?
+       RETURNING public_id`,
+    )
+    .bind(
+      snapshot.title,
+      JSON.stringify(snapshot.content),
+      snapshot.contentHtml,
+      snapshot.contentText,
+      id,
+      ownerId,
+      expectedVersion,
+    )
+    .first<{ public_id: PublicId }>();
+
+  if (!restored) {
+    const latest = await getVersionSource(db, ownerId, id);
+    return latest ? { kind: 'conflict', currentVersion: latest.version } : { kind: 'not_found' };
+  }
+
+  const document = await getDocument(db, ownerId, restored.public_id);
+  return document ? { kind: 'updated', document } : { kind: 'not_found' };
 }
 
 export async function deleteDocument(

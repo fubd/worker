@@ -61,6 +61,11 @@ const EMPTY_CONTENT: JSONContent = {
 };
 
 const FolderDialog = lazy(() => import('../components/FolderDialog'));
+const DocumentHistoryModal = lazy(() =>
+  import('../components/DocumentHistoryModal').then((module) => ({
+    default: module.DocumentHistoryModal,
+  })),
+);
 
 function parsePublicId(value: string | null | undefined): PublicId | null {
   return isPublicId(value) ? value : null;
@@ -305,6 +310,7 @@ function DocsPageContent() {
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
   const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<PublicId | null>(activeId);
@@ -477,6 +483,7 @@ function DocsPageContent() {
   useEffect(() => {
     clearSaveTimer();
     setDocumentInfoOpen(false);
+    setHistoryOpen(false);
     if (createdDocumentIdRef.current !== activeId) {
       createdDocumentIdRef.current = null;
     }
@@ -744,6 +751,37 @@ function DocsPageContent() {
     });
   };
 
+  const createCheckpoint = async () => {
+    const document = activeDocumentRef.current;
+    if (!document) throw new Error('没有打开的文档');
+    const saved = await savePendingChanges();
+    if (!saved) throw new Error('当前内容保存失败，请重试');
+    await api.createDocumentCheckpoint(document.id);
+  };
+
+  const restoreVersion = async (version: number) => {
+    const document = activeDocumentRef.current;
+    if (!document) throw new Error('没有打开的文档');
+    const saved = await savePendingChanges();
+    if (!saved) throw new Error('当前内容保存失败，请重试');
+
+    const latest = activeDocumentRef.current;
+    if (!latest) throw new Error('没有打开的文档');
+    const restored = await api.restoreDocumentVersion(latest.id, version, latest.version);
+    if (activeIdRef.current === restored.id) {
+      activeDocumentRef.current = restored;
+      setActiveDocument(restored);
+      titleRef.current = restored.title;
+      revisionRef.current = 0;
+      savedRevisionRef.current = 0;
+      setSaveState('idle');
+      editor?.commands.setContent(restored.content as JSONContent, { emitUpdate: false });
+      setDocuments((items) =>
+        items.map((item) => (item.id === restored.id ? toSummary(restored) : item)),
+      );
+    }
+  };
+
   const documentActionItems: MenuProps['items'] = [
     {
       key: 'copy-link',
@@ -765,6 +803,11 @@ function DocsPageContent() {
       key: 'info',
       label: '文档信息',
       icon: <Info aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    {
+      key: 'history',
+      label: '版本历史',
+      icon: <Clock3 aria-hidden="true" size={15} strokeWidth={1.8} />,
     },
     {
       key: 'print',
@@ -820,6 +863,11 @@ function DocsPageContent() {
 
     if (key === 'info') {
       setDocumentInfoOpen(true);
+      return;
+    }
+
+    if (key === 'history') {
+      setHistoryOpen(true);
       return;
     }
 
@@ -1399,6 +1447,19 @@ function DocsPageContent() {
             </div>
           </dl>
         </Modal>
+      )}
+
+      {activeDocument && historyOpen && (
+        <Suspense fallback={null}>
+          <DocumentHistoryModal
+            documentId={activeDocument.id}
+            currentVersion={activeDocument.version}
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            onCreateCheckpoint={createCheckpoint}
+            onRestore={restoreVersion}
+          />
+        </Suspense>
       )}
 
       {folderDialog && (

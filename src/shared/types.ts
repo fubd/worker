@@ -24,6 +24,26 @@ export interface DocumentListResponse {
   items: DocumentSummary[];
 }
 
+export interface DocumentVersionSummary {
+  version: number;
+  title: string;
+  excerpt: string;
+  createdAt: string;
+}
+
+export interface DocumentVersionListResponse {
+  items: DocumentVersionSummary[];
+}
+
+export interface DocumentVersionRecord {
+  version: number;
+  title: string;
+  content: Record<string, unknown>;
+  contentHtml: string;
+  contentText: string;
+  createdAt: string;
+}
+
 export interface FolderSummary {
   id: PublicId;
   name: string;
