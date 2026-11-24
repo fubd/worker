@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 import { requireAuth } from '../auth/session';
+import { apiRateLimit } from '../rate-limit';
 import * as repo from '../db/folders';
 import { isPublicId, type PublicId } from '../../shared/ids';
 import type { AppEnv } from '../types';
@@ -11,6 +12,7 @@ const MAX_FOLDER_NAME_LENGTH = 30;
 const INVALID_PUBLIC_ID = Symbol('invalid-public-id');
 
 folderRoutes.use('*', requireAuth);
+folderRoutes.use('*', apiRateLimit);
 
 function parseId(value: string): PublicId | null {
   return isPublicId(value) ? value : null;

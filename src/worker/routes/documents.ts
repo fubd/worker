@@ -4,8 +4,11 @@ import * as repo from '../db/documents';
 import * as versions from '../db/document-versions';
 import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
+import { checkDocumentQuota } from '../quota';
+import { apiRateLimit, documentCreateRateLimit } from '../rate-limit';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
 import { isPublicId, type PublicId } from '../../shared/ids';
+import { decodeDocumentListCursor } from '../../shared/pagination';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
@@ -16,6 +19,7 @@ const MAX_BATCH_DOCUMENTS = 200;
 const INVALID_PUBLIC_ID = Symbol('invalid-public-id');
 
 documentRoutes.use('*', requireAuth);
+documentRoutes.use('*', apiRateLimit);
 
 function normalizeTitle(value: unknown, fallback = ''): string | null {
   if (value === undefined && fallback) return fallback;
@@ -58,7 +62,7 @@ function normalizeText(value: unknown, field: string): string | null {
 }
 
 documentRoutes.get('/', async (c) => {
-  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 50) || 50, 1), 100);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
   const folderId = parseFolderFilter(c.req.query('folder'));
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folder 非法' }, 400);
@@ -68,6 +72,9 @@ documentRoutes.get('/', async (c) => {
   }
   const favoriteOnly = c.req.query('favorite') === '1';
   const recentOnly = c.req.query('recent') === '1';
+  const cursorValue = c.req.query('cursor');
+  const cursor = cursorValue ? decodeDocumentListCursor(cursorValue) : null;
+  if (cursorValue && !cursor) return c.json({ error: 'cursor 非法' }, 400);
   const ownerId = c.get('user').id;
   const result = await wrapTime(
     c,
@@ -79,24 +86,28 @@ documentRoutes.get('/', async (c) => {
       query,
       favoriteOnly,
       recentOnly,
+      cursor,
     }),
   );
   return c.json(result);
 });
 
 documentRoutes.get('/trash', async (c) => {
-  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 50) || 50, 1), 100);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
+  const cursorValue = c.req.query('cursor');
+  const cursor = cursorValue ? decodeDocumentListCursor(cursorValue) : null;
+  if (cursorValue && !cursor) return c.json({ error: 'cursor 非法' }, 400);
   const ownerId = c.get('user').id;
   const result = await wrapTime(
     c,
     'db',
-    repo.listDeletedDocuments(c.env.DB, ownerId, { limit, offset }),
+    repo.listDeletedDocuments(c.env.DB, ownerId, { limit, offset, cursor }),
   );
   return c.json(result);
 });
 
-documentRoutes.post('/import', async (c) => {
+documentRoutes.post('/import', documentCreateRateLimit, async (c) => {
   const body = (await c.req.json().catch(() => null)) as {
     title?: unknown;
     content?: unknown;
@@ -126,6 +137,18 @@ documentRoutes.post('/import', async (c) => {
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
     return c.json({ error: '文件夹不存在' }, 404);
+  }
+
+  const quota = await wrapTime(c, 'db', checkDocumentQuota(c.env.DB, c.get('user').id));
+  if (!quota.allowed) {
+    return c.json(
+      {
+        error: `每位用户最多保存 ${quota.limit} 篇文档，请先永久删除不再需要的文档`,
+        used: quota.used,
+        limit: quota.limit,
+      },
+      409,
+    );
   }
 
   const document = await wrapTime(
@@ -269,9 +292,21 @@ documentRoutes.post('/:id/versions/:version/restore', async (c) => {
   return c.json(result.document);
 });
 
-documentRoutes.post('/:id/duplicate', async (c) => {
+documentRoutes.post('/:id/duplicate', documentCreateRateLimit, async (c) => {
   const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const quota = await wrapTime(c, 'db', checkDocumentQuota(c.env.DB, c.get('user').id));
+  if (!quota.allowed) {
+    return c.json(
+      {
+        error: `每位用户最多保存 ${quota.limit} 篇文档，请先永久删除不再需要的文档`,
+        used: quota.used,
+        limit: quota.limit,
+      },
+      409,
+    );
+  }
 
   const document = await wrapTime(c, 'db', repo.duplicateDocument(c.env.DB, c.get('user').id, id));
   if (!document) return c.json({ error: '文档不存在' }, 404);
@@ -307,7 +342,7 @@ documentRoutes.get('/:id', async (c) => {
   return c.json(document);
 });
 
-documentRoutes.post('/', async (c) => {
+documentRoutes.post('/', documentCreateRateLimit, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     title?: unknown;
     folderId?: unknown;
@@ -320,6 +355,18 @@ documentRoutes.post('/', async (c) => {
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
     return c.json({ error: '文件夹不存在' }, 404);
+  }
+
+  const quota = await wrapTime(c, 'db', checkDocumentQuota(c.env.DB, c.get('user').id));
+  if (!quota.allowed) {
+    return c.json(
+      {
+        error: `每位用户最多保存 ${quota.limit} 篇文档，请先永久删除不再需要的文档`,
+        used: quota.used,
+        limit: quota.limit,
+      },
+      409,
+    );
   }
 
   const document = await wrapTime(
@@ -401,6 +448,30 @@ documentRoutes.delete('/:id', async (c) => {
   const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, c.get('user').id, id));
   if (!ok) return c.json({ error: '文档不存在' }, 404);
   return c.json({ ok: true, id });
+});
+
+documentRoutes.delete('/:id/permanent', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.permanentlyDeleteDocument(c.env.DB, c.get('user').id, id),
+  );
+  if (!result) return c.json({ error: '回收站中没有这篇文档' }, 404);
+
+  if (result.objectKeys.length > 0) {
+    await c.env.ATTACHMENTS.delete(result.objectKeys).catch((error: unknown) => {
+      console.error(`[documents] failed to delete attachments for ${id}`, error);
+    });
+  }
+
+  return c.json({
+    ok: true,
+    id,
+    deletedAttachmentCount: result.deletedAttachmentCount,
+  });
 });
 
 documentRoutes.patch('/:id/folder', async (c) => {

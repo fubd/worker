@@ -6,6 +6,7 @@ import type {
   SharedDocument,
 } from '../types';
 import type { PublicId } from '../../shared/ids';
+import { encodeDocumentListCursor, type DocumentListCursor } from '../../shared/pagination';
 import { createPublicId } from './public-ids';
 import { captureVersion, captureVersionIfDue, getDocumentVersion } from './document-versions';
 
@@ -110,6 +111,7 @@ export async function listDocuments(
     query?: string;
     favoriteOnly?: boolean;
     recentOnly?: boolean;
+    cursor?: DocumentListCursor | null;
   } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200);
@@ -135,6 +137,23 @@ export async function listDocuments(
     conditions.push('d.last_viewed_at IS NOT NULL');
   }
 
+  if (options.cursor) {
+    conditions.push(
+      `(
+         d.is_pinned,
+         d.is_favorite,
+         COALESCE(d.last_viewed_at, d.updated_at),
+         d.id
+       ) < (?, ?, ?, ?)`,
+    );
+    params.push(
+      options.cursor.pinned ? 1 : 0,
+      options.cursor.favorite ? 1 : 0,
+      options.cursor.activityAt,
+      options.cursor.id,
+    );
+  }
+
   const query = options.query?.trim();
   if (query) {
     conditions.push(
@@ -158,19 +177,40 @@ export async function listDocuments(
          d.id DESC
        LIMIT ? OFFSET ?`,
     )
-    .bind(...params, limit, offset)
+    .bind(...params, limit + 1, offset)
     .all<DocumentRow>();
 
-  return { items: (result.results ?? []).map(toSummary) };
+  const rows = result.results ?? [];
+  const pageRows = rows.slice(0, limit);
+  const last = pageRows.at(-1);
+  return {
+    items: pageRows.map(toSummary),
+    nextCursor:
+      rows.length > limit && last
+        ? encodeDocumentListCursor({
+            pinned: last.is_pinned === 1,
+            favorite: last.is_favorite === 1,
+            activityAt: last.last_viewed_at ?? last.updated_at,
+            id: last.id,
+          })
+        : null,
+  };
 }
 
 export async function listDeletedDocuments(
   db: D1Database,
   ownerId: number,
-  options: { limit?: number; offset?: number } = {},
+  options: { limit?: number; offset?: number; cursor?: DocumentListCursor | null } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200);
   const offset = Math.max(options.offset ?? 0, 0);
+
+  const conditions = ['d.owner_id = ?', 'd.deleted_at IS NOT NULL'];
+  const params: unknown[] = [ownerId];
+  if (options.cursor) {
+    conditions.push('(d.deleted_at, d.id) < (?, ?)');
+    params.push(options.cursor.activityAt, options.cursor.id);
+  }
 
   const result = await db
     .prepare(
@@ -179,14 +219,28 @@ export async function listDeletedDocuments(
        LEFT JOIN folders f
          ON f.id = d.folder_id
         AND f.owner_id = d.owner_id
-       WHERE d.owner_id = ? AND d.deleted_at IS NOT NULL
+       WHERE ${conditions.join(' AND ')}
        ORDER BY d.deleted_at DESC, d.id DESC
        LIMIT ? OFFSET ?`,
     )
-    .bind(ownerId, limit, offset)
+    .bind(...params, limit + 1, offset)
     .all<DocumentRow>();
 
-  return { items: (result.results ?? []).map(toSummary) };
+  const rows = result.results ?? [];
+  const pageRows = rows.slice(0, limit);
+  const last = pageRows.at(-1);
+  return {
+    items: pageRows.map(toSummary),
+    nextCursor:
+      rows.length > limit && last?.deleted_at
+        ? encodeDocumentListCursor({
+            pinned: false,
+            favorite: false,
+            activityAt: last.deleted_at,
+            id: last.id,
+          })
+        : null,
+  };
 }
 
 export async function getDocument(
@@ -574,6 +628,72 @@ export async function restoreDocument(
     .first<{ public_id: PublicId }>();
 
   return restored ? getDocument(db, ownerId, restored.public_id) : null;
+}
+
+export interface PermanentDeleteResult {
+  deletedAttachmentCount: number;
+  objectKeys: string[];
+}
+
+export async function permanentlyDeleteDocument(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+): Promise<PermanentDeleteResult | null> {
+  const document = await db
+    .prepare(
+      `SELECT id
+       FROM documents
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NOT NULL`,
+    )
+    .bind(id, ownerId)
+    .first<{ id: number }>();
+  if (!document) return null;
+
+  const attachmentRows = await db
+    .prepare(
+      `SELECT object_key
+       FROM document_attachments
+       WHERE owner_id = ? AND document_id = ?`,
+    )
+    .bind(ownerId, document.id)
+    .all<{ object_key: string }>();
+  const objectKeys = (attachmentRows.results ?? []).map((row) => row.object_key);
+
+  const [, attachmentResult, documentResult] = await db.batch([
+    db
+      .prepare(
+        `DELETE FROM document_versions
+         WHERE owner_id = ?
+           AND document_id = (
+             SELECT id FROM documents
+             WHERE public_id = ? AND owner_id = ? AND deleted_at IS NOT NULL
+           )`,
+      )
+      .bind(ownerId, id, ownerId),
+    db
+      .prepare(
+        `DELETE FROM document_attachments
+         WHERE owner_id = ?
+           AND document_id = (
+             SELECT id FROM documents
+             WHERE public_id = ? AND owner_id = ? AND deleted_at IS NOT NULL
+           )`,
+      )
+      .bind(ownerId, id, ownerId),
+    db
+      .prepare(
+        `DELETE FROM documents
+         WHERE public_id = ? AND owner_id = ? AND deleted_at IS NOT NULL`,
+      )
+      .bind(id, ownerId),
+  ]);
+
+  if ((documentResult.meta.changes ?? 0) === 0) return null;
+  return {
+    deletedAttachmentCount: attachmentResult.meta.changes ?? 0,
+    objectKeys,
+  };
 }
 
 export async function batchUpdateDocuments(

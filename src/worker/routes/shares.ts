@@ -2,10 +2,13 @@ import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 
 import { getSharedDocument } from '../db/documents';
+import { publicShareRateLimit } from '../rate-limit';
 import { isPublicId } from '../../shared/ids';
 import type { AppEnv } from '../types';
 
 export const shareRoutes = new Hono<AppEnv>();
+
+shareRoutes.use('*', publicShareRateLimit);
 
 shareRoutes.get('/:shareId', async (c) => {
   const shareId = c.req.param('shareId');

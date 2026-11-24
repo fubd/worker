@@ -4,6 +4,8 @@ import { requireAuth } from '../auth/session';
 import * as attachments from '../db/attachments';
 import { getDocument } from '../db/documents';
 import { createPublicId } from '../db/public-ids';
+import { checkAttachmentQuota } from '../quota';
+import { apiRateLimit, attachmentUploadRateLimit } from '../rate-limit';
 import { isPublicId, type PublicId } from '../../shared/ids';
 import type { AppEnv } from '../types';
 
@@ -12,6 +14,7 @@ export const attachmentRoutes = new Hono<AppEnv>();
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
 attachmentRoutes.use('*', requireAuth);
+attachmentRoutes.use('*', apiRateLimit);
 
 function parsePublicId(value: string): PublicId | null {
   return isPublicId(value) ? value : null;
@@ -42,7 +45,7 @@ attachmentRoutes.get('/:id/attachments', async (c) => {
   return c.json({ items });
 });
 
-attachmentRoutes.post('/:id/attachments', async (c) => {
+attachmentRoutes.post('/:id/attachments', attachmentUploadRateLimit, async (c) => {
   const documentId = parsePublicId(c.req.param('id'));
   if (!documentId) return c.json({ error: 'id 非法' }, 400);
 
@@ -55,6 +58,25 @@ attachmentRoutes.post('/:id/attachments', async (c) => {
   if (!(file instanceof File)) return c.json({ error: '请选择要上传的文件' }, 400);
   if (file.size === 0) return c.json({ error: '不能上传空文件' }, 400);
   if (file.size > MAX_ATTACHMENT_SIZE) return c.json({ error: '单个附件不能超过 10 MB' }, 413);
+
+  const quota = await wrapTime(
+    c,
+    'db',
+    checkAttachmentQuota(c.env.DB, ownerId, documentId, file.size),
+  );
+  if (!quota.allowed) {
+    return c.json(
+      {
+        error:
+          quota.limit === 200 * 1024 * 1024
+            ? '附件总容量已达到 200 MB，请先删除不再需要的附件'
+            : '每篇文档最多保存 20 个附件',
+        used: quota.used,
+        limit: quota.limit,
+      },
+      413,
+    );
+  }
 
   const attachmentId = createPublicId();
   const objectKey = `documents/${ownerId}/${documentId}/${attachmentId}`;

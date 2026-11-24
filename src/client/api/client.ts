@@ -100,6 +100,7 @@ export const api = {
       query?: string;
       favoriteOnly?: boolean;
       recentOnly?: boolean;
+      cursor?: string;
     } = {},
   ) => {
     const params = new URLSearchParams();
@@ -108,6 +109,7 @@ export const api = {
     if (options.query?.trim()) params.set('q', options.query.trim());
     if (options.favoriteOnly) params.set('favorite', '1');
     if (options.recentOnly) params.set('recent', '1');
+    if (options.cursor) params.set('cursor', options.cursor);
     const search = params.size > 0 ? `?${params}` : '';
     return request<DocumentListResponse>(`/documents${search}`, {
       cache: 'no-store',
@@ -115,11 +117,15 @@ export const api = {
     });
   },
 
-  listTrashDocuments: (options: { signal?: AbortSignal } = {}) =>
-    request<DocumentListResponse>('/documents/trash', {
+  listTrashDocuments: (options: { signal?: AbortSignal; cursor?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (options.cursor) params.set('cursor', options.cursor);
+    const search = params.size > 0 ? `?${params}` : '';
+    return request<DocumentListResponse>(`/documents/trash${search}`, {
       cache: 'no-store',
       signal: options.signal,
-    }),
+    });
+  },
 
   getDocument: (id: PublicId, options: { signal?: AbortSignal } = {}) =>
     request<DocumentRecord>(`/documents/${id}`, {
@@ -183,6 +189,14 @@ export const api = {
     request<{ ok: boolean; id: PublicId }>(`/documents/${id}`, {
       method: 'DELETE',
     }),
+
+  permanentlyDeleteDocument: (id: PublicId) =>
+    request<{ ok: boolean; id: PublicId; deletedAttachmentCount: number }>(
+      `/documents/${id}/permanent`,
+      {
+        method: 'DELETE',
+      },
+    ),
 
   restoreDocument: (id: PublicId) =>
     request<DocumentRecord>(`/documents/${id}/restore`, {

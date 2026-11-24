@@ -34,6 +34,7 @@ export interface DocumentImportInput {
 
 export interface DocumentListResponse {
   items: DocumentSummary[];
+  nextCursor: string | null;
 }
 
 export type DocumentBatchAction = 'move' | 'favorite' | 'delete' | 'restore';

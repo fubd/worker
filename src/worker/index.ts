@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
-import { timing } from 'hono/timing';
+import { timing, wrapTime } from 'hono/timing';
 import { attachmentRoutes } from './routes/attachments';
 import { authRoutes } from './routes/auth';
 import { documentRoutes } from './routes/documents';
@@ -37,6 +37,15 @@ app.get('/api/health', (c) =>
     time: new Date().toISOString(),
   }),
 );
+
+app.get('/api/health/db', async (c) => {
+  const result = await wrapTime(
+    c,
+    'db',
+    c.env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>(),
+  );
+  return c.json({ ok: result?.ok === 1 });
+});
 
 app.route('/api/auth', authRoutes);
 app.route('/api/documents', attachmentRoutes);
