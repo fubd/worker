@@ -4,6 +4,7 @@ import * as repo from '../db/documents';
 import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
+import { isDocumentId, isFolderId, type DocumentId, type FolderId } from '../../shared/ids';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
@@ -21,22 +22,19 @@ function normalizeTitle(value: unknown, fallback = ''): string | null {
   return title;
 }
 
-function parseId(value: string): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+function parseDocumentId(value: string): DocumentId | null {
+  return isDocumentId(value) ? value : null;
 }
 
-function parseFolderFilter(value: string | undefined): number | null | undefined | 'invalid' {
+function parseFolderFilter(value: string | undefined): FolderId | null | undefined | 'invalid' {
   if (value === undefined || value === '') return undefined;
   if (value === 'unfiled') return null;
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : 'invalid';
+  return isFolderId(value) ? value : 'invalid';
 }
 
-function parseOptionalFolderId(value: unknown): number | null | 'invalid' {
+function parseOptionalFolderId(value: unknown): FolderId | null | 'invalid' {
   if (value === null || value === undefined) return null;
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : 'invalid';
+  return isFolderId(value) ? value : 'invalid';
 }
 
 function normalizeContent(value: unknown): Record<string, unknown> | null {
@@ -81,7 +79,7 @@ documentRoutes.get('/trash', async (c) => {
 });
 
 documentRoutes.get('/:id', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, id));
@@ -113,7 +111,7 @@ documentRoutes.post('/', async (c) => {
 });
 
 documentRoutes.patch('/:id', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as {
@@ -177,7 +175,7 @@ documentRoutes.patch('/:id', async (c) => {
 });
 
 documentRoutes.delete('/:id', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, c.get('user').id, id));
@@ -186,7 +184,7 @@ documentRoutes.delete('/:id', async (c) => {
 });
 
 documentRoutes.patch('/:id/folder', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as { folderId?: unknown } | null;
@@ -209,7 +207,7 @@ documentRoutes.patch('/:id/folder', async (c) => {
 });
 
 documentRoutes.patch('/:id/favorite', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as { favorite?: unknown } | null;
@@ -227,7 +225,7 @@ documentRoutes.patch('/:id/favorite', async (c) => {
 });
 
 documentRoutes.post('/:id/restore', async (c) => {
-  const id = parseId(c.req.param('id'));
+  const id = parseDocumentId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const document = await wrapTime(c, 'db', repo.restoreDocument(c.env.DB, c.get('user').id, id));

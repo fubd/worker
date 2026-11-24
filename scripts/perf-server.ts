@@ -21,9 +21,10 @@ const MIME: Record<string, string> = {
 
 const DOCUMENTS = [
   {
-    id: 1,
+    id: 'd_PerformanceFixture01',
     title: '雨燕编辑器验证',
     excerpt: '这是用于性能审计的文档快照。',
+    folderId: null,
     version: 3,
     createdAt: '2026-11-21T00:00:00.000Z',
     updatedAt: '2026-11-21T00:03:00.000Z',
@@ -64,7 +65,7 @@ const server = Bun.serve({
     if (url.pathname === '/api/documents/trash') {
       return Response.json({ items: [] }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    if (url.pathname === '/api/documents/1') {
+    if (url.pathname === '/api/documents/d_PerformanceFixture01') {
       return Response.json(
         {
           ...DOCUMENTS[0],
@@ -92,7 +93,7 @@ const server = Bun.serve({
         ? '/index.html'
         : url.pathname === '/login'
           ? '/login.html'
-          : url.pathname === '/docs'
+          : url.pathname === '/docs' || url.pathname.startsWith('/docs/')
             ? '/docs.html'
             : url.pathname;
     const file = safeFile(pathname);

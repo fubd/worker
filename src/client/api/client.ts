@@ -5,6 +5,7 @@ import type {
   FolderListResponse,
   FolderSummary,
 } from '@/shared/types';
+import type { DocumentId, FolderId } from '@/shared/ids';
 import { apiPath } from '@/shared/api-config';
 
 export class ApiError extends Error {
@@ -81,14 +82,14 @@ export const api = {
   listDocuments: (
     options: {
       signal?: AbortSignal;
-      folderId?: number | null;
+      folderId?: FolderId | null;
       query?: string;
       favoriteOnly?: boolean;
     } = {},
   ) => {
     const params = new URLSearchParams();
     if (options.folderId === null) params.set('folder', 'unfiled');
-    if (typeof options.folderId === 'number') params.set('folder', String(options.folderId));
+    if (options.folderId) params.set('folder', options.folderId);
     if (options.query?.trim()) params.set('q', options.query.trim());
     if (options.favoriteOnly) params.set('favorite', '1');
     const search = params.size > 0 ? `?${params}` : '';
@@ -104,20 +105,20 @@ export const api = {
       signal: options.signal,
     }),
 
-  getDocument: (id: number, options: { signal?: AbortSignal } = {}) =>
+  getDocument: (id: DocumentId, options: { signal?: AbortSignal } = {}) =>
     request<DocumentRecord>(`/documents/${id}`, {
       cache: 'no-store',
       signal: options.signal,
     }),
 
-  createDocument: (title = '无标题文档', folderId: number | null = null) =>
+  createDocument: (title = '无标题文档', folderId: FolderId | null = null) =>
     request<DocumentRecord>('/documents', {
       method: 'POST',
       body: JSON.stringify({ title, folderId }),
     }),
 
   updateDocument: (
-    id: number,
+    id: DocumentId,
     input: {
       title?: string;
       content?: Record<string, unknown>;
@@ -131,23 +132,23 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
-  deleteDocument: (id: number) =>
-    request<{ ok: boolean; id: number }>(`/documents/${id}`, {
+  deleteDocument: (id: DocumentId) =>
+    request<{ ok: boolean; id: DocumentId }>(`/documents/${id}`, {
       method: 'DELETE',
     }),
 
-  restoreDocument: (id: number) =>
+  restoreDocument: (id: DocumentId) =>
     request<DocumentRecord>(`/documents/${id}/restore`, {
       method: 'POST',
     }),
 
-  moveDocument: (id: number, folderId: number | null) =>
+  moveDocument: (id: DocumentId, folderId: FolderId | null) =>
     request<DocumentRecord>(`/documents/${id}/folder`, {
       method: 'PATCH',
       body: JSON.stringify({ folderId }),
     }),
 
-  setDocumentFavorite: (id: number, favorite: boolean) =>
+  setDocumentFavorite: (id: DocumentId, favorite: boolean) =>
     request<DocumentRecord>(`/documents/${id}/favorite`, {
       method: 'PATCH',
       body: JSON.stringify({ favorite }),
@@ -165,14 +166,14 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  renameFolder: (id: number, name: string) =>
+  renameFolder: (id: FolderId, name: string) =>
     request<FolderSummary>(`/folders/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
 
-  deleteFolder: (id: number) =>
-    request<{ ok: boolean; id: number }>(`/folders/${id}`, {
+  deleteFolder: (id: FolderId) =>
+    request<{ ok: boolean; id: FolderId }>(`/folders/${id}`, {
       method: 'DELETE',
     }),
 };

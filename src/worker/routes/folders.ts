@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { wrapTime } from 'hono/timing';
 import { requireAuth } from '../auth/session';
 import * as repo from '../db/folders';
+import { isFolderId, type FolderId } from '../../shared/ids';
 import type { AppEnv } from '../types';
 
 export const folderRoutes = new Hono<AppEnv>();
@@ -10,9 +11,8 @@ const MAX_FOLDER_NAME_LENGTH = 30;
 
 folderRoutes.use('*', requireAuth);
 
-function parseId(value: string): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+function parseId(value: string): FolderId | null {
+  return isFolderId(value) ? value : null;
 }
 
 function normalizeName(value: unknown): string | null {

@@ -20,6 +20,7 @@ import {
 import { Link } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
+import { isFolderId, type DocumentId, type FolderId } from '@/shared/ids';
 import type { AuthUser, DocumentSummary, FolderSummary } from '@/shared/types';
 import { BrandMark } from './BrandMark';
 import { OverflowText } from './OverflowText';
@@ -31,10 +32,10 @@ import {
 } from '../workspace-utils';
 
 interface WorkspaceSidebarProps {
-  activeId: number | null;
+  activeId: DocumentId | null;
   creating: boolean;
   creatingFolder: boolean;
-  deletingDocumentId: number | null;
+  deletingDocumentId: DocumentId | null;
   documents: DocumentSummary[];
   folderDraft: string;
   folderScope: FolderScope;
@@ -42,7 +43,7 @@ interface WorkspaceSidebarProps {
   folders: FolderSummary[];
   isOpen: boolean;
   listLoading: boolean;
-  restoringId: number | null;
+  restoringId: DocumentId | null;
   saveState: SaveState;
   searchValue: string;
   user: AuthUser;
@@ -55,12 +56,12 @@ interface WorkspaceSidebarProps {
   onEditFolder: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
-  onMoveDocument: (document: DocumentSummary, folderId: number | null) => void;
+  onMoveDocument: (document: DocumentSummary, folderId: FolderId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
   onRestore: (document: DocumentSummary) => void;
   onSearchChange: (value: string) => void;
-  onSelect: (id: number) => void;
+  onSelect: (id: DocumentId) => void;
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
@@ -427,7 +428,11 @@ export function WorkspaceSidebar({
                       }
                       if (!key.startsWith('move:')) return;
                       const target = key.slice('move:'.length);
-                      onMoveDocument(document, target === 'none' ? null : Number(target));
+                      if (target === 'none') {
+                        onMoveDocument(document, null);
+                      } else if (isFolderId(target)) {
+                        onMoveDocument(document, target);
+                      }
                     },
                   }}
                 >

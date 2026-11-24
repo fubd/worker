@@ -1,4 +1,6 @@
 import type { FolderRow, FolderSummary } from '../types';
+import type { FolderId } from '../../shared/ids';
+import { createFolderId } from './public-ids';
 
 function toIso(value: string): string {
   if (value.includes('T')) return value;
@@ -7,7 +9,7 @@ function toIso(value: string): string {
 
 function toFolder(row: FolderRow): FolderSummary {
   return {
-    id: row.id,
+    id: row.public_id,
     name: row.name,
     documentCount: Number(row.document_count ?? 0),
     createdAt: toIso(row.created_at),
@@ -20,6 +22,7 @@ export async function listFolders(db: D1Database, ownerId: number) {
     .prepare(
       `SELECT
          f.id,
+         f.public_id,
          f.owner_id,
          f.name,
          f.created_at,
@@ -43,10 +46,10 @@ export async function listFolders(db: D1Database, ownerId: number) {
 export async function folderExists(
   db: D1Database,
   ownerId: number,
-  folderId: number,
+  folderId: FolderId,
 ): Promise<boolean> {
   const row = await db
-    .prepare('SELECT 1 AS found FROM folders WHERE id = ? AND owner_id = ?')
+    .prepare('SELECT 1 AS found FROM folders WHERE public_id = ? AND owner_id = ?')
     .bind(folderId, ownerId)
     .first<{ found: number }>();
   return Boolean(row?.found);
@@ -57,14 +60,15 @@ export async function createFolder(
   ownerId: number,
   name: string,
 ): Promise<FolderSummary | null> {
+  const publicId = createFolderId();
   const row = await db
     .prepare(
-      `INSERT INTO folders (owner_id, name)
-       VALUES (?, ?)
+      `INSERT INTO folders (public_id, owner_id, name)
+       VALUES (?, ?, ?)
        ON CONFLICT (owner_id, name) DO NOTHING
-       RETURNING id, owner_id, name, created_at, updated_at, 0 AS document_count`,
+       RETURNING id, public_id, owner_id, name, created_at, updated_at, 0 AS document_count`,
     )
-    .bind(ownerId, name)
+    .bind(publicId, ownerId, name)
     .first<FolderRow>();
 
   return row ? toFolder(row) : null;
@@ -76,7 +80,7 @@ export type RenameFolderResult =
 export async function renameFolder(
   db: D1Database,
   ownerId: number,
-  id: number,
+  id: FolderId,
   name: string,
 ): Promise<RenameFolderResult> {
   const row = await db
@@ -84,8 +88,8 @@ export async function renameFolder(
       `UPDATE OR IGNORE folders
        SET name = ?,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE id = ? AND owner_id = ?
-       RETURNING id, owner_id, name, created_at, updated_at, 0 AS document_count`,
+       WHERE public_id = ? AND owner_id = ?
+       RETURNING id, public_id, owner_id, name, created_at, updated_at, 0 AS document_count`,
     )
     .bind(name, id, ownerId)
     .first<FolderRow>();
@@ -98,25 +102,36 @@ export async function renameFolder(
          FROM documents
          WHERE owner_id = ? AND folder_id = ? AND deleted_at IS NULL`,
       )
-      .bind(ownerId, id)
+      .bind(ownerId, row.id)
       .first<{ count: number }>();
     folder.documentCount = Number(count?.count ?? 0);
     return { kind: 'renamed', folder };
   }
 
   const existing = await db
-    .prepare('SELECT 1 AS found FROM folders WHERE id = ? AND owner_id = ?')
+    .prepare('SELECT 1 AS found FROM folders WHERE public_id = ? AND owner_id = ?')
     .bind(id, ownerId)
     .first<{ found: number }>();
   return existing ? { kind: 'conflict' } : { kind: 'not_found' };
 }
 
-export async function deleteFolder(db: D1Database, ownerId: number, id: number): Promise<boolean> {
+export async function deleteFolder(
+  db: D1Database,
+  ownerId: number,
+  id: FolderId,
+): Promise<boolean> {
   const [movedDocuments, deletedFolder] = await db.batch([
     db
-      .prepare('UPDATE documents SET folder_id = NULL WHERE folder_id = ? AND owner_id = ?')
-      .bind(id, ownerId),
-    db.prepare('DELETE FROM folders WHERE id = ? AND owner_id = ?').bind(id, ownerId),
+      .prepare(
+        `UPDATE documents
+         SET folder_id = NULL
+         WHERE owner_id = ?
+           AND folder_id = (
+             SELECT id FROM folders WHERE public_id = ? AND owner_id = ?
+           )`,
+      )
+      .bind(ownerId, id, ownerId),
+    db.prepare('DELETE FROM folders WHERE public_id = ? AND owner_id = ?').bind(id, ownerId),
   ]);
 
   return Boolean((deletedFolder.meta.changes ?? 0) > 0 && (movedDocuments.meta.changes ?? 0) >= 0);

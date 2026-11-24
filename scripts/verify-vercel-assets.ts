@@ -55,6 +55,7 @@ if (!config.redirects?.some((item) => item.source === '/about' && item.destinati
 for (const [source, destination] of [
   ['/login', '/login.html'],
   ['/docs', '/docs.html'],
+  ['/docs/:path*', '/docs.html'],
 ]) {
   if (
     !config.rewrites?.some((item) => item.source === source && item.destination === destination)

@@ -63,6 +63,7 @@ const config = {
     { source: '/api/:path*', destination: `${API_ORIGIN}/api/:path*` },
     { source: '/login', destination: '/login.html' },
     { source: '/docs', destination: '/docs.html' },
+    { source: '/docs/:path*', destination: '/docs.html' },
   ],
   headers: [
     {
@@ -92,6 +93,13 @@ const config = {
     },
     {
       source: '/docs',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+      ],
+    },
+    {
+      source: '/docs/:path*',
       headers: [
         { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
         { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },

@@ -27,12 +27,14 @@ export type AppEnv = {
 
 export interface DocumentRow {
   id: number;
+  public_id: import('../shared/ids').DocumentId;
   owner_id: number | null;
   title: string;
   content_json: string;
   content_html: string;
   content_text: string;
   folder_id: number | null;
+  folder_public_id: import('../shared/ids').FolderId | null;
   is_favorite: number;
   version: number;
   created_at: string;
@@ -42,6 +44,7 @@ export interface DocumentRow {
 
 export interface FolderRow {
   id: number;
+  public_id: import('../shared/ids').FolderId;
   owner_id: number;
   name: string;
   document_count: number;

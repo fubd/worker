@@ -36,7 +36,7 @@ import {
   type JSONContent,
 } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Navigate, useOutletContext, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
@@ -51,6 +51,7 @@ import {
   type SaveState,
 } from '../workspace-utils';
 import { BRAND } from '@/shared/brand';
+import { isDocumentId, isFolderId, type DocumentId, type FolderId } from '@/shared/ids';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/shared/limits';
 import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
 
@@ -61,9 +62,8 @@ const EMPTY_CONTENT: JSONContent = {
 
 const FolderDialog = lazy(() => import('../components/FolderDialog'));
 
-function parseDocumentId(value: string | null): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+function parseDocumentId(value: string | null | undefined): DocumentId | null {
+  return isDocumentId(value) ? value : null;
 }
 
 function toSummary(document: DocumentRecord): DocumentSummary {
@@ -85,14 +85,21 @@ function sortDocumentSummaries(items: DocumentSummary[]): DocumentSummary[] {
     (left, right) =>
       Number(right.favorite) - Number(left.favorite) ||
       Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
-      right.id - left.id,
+      right.id.localeCompare(left.id),
   );
 }
 
 function parseFolderScope(value: string | null): FolderScope {
   if (value === 'unfiled') return 'unfiled';
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : 'all';
+  return isFolderId(value) ? value : 'all';
+}
+
+function docsRoute(id: DocumentId | null, search: URLSearchParams) {
+  const query = search.toString();
+  return {
+    pathname: id ? `/docs/${id}` : '/docs',
+    search: query ? `?${query}` : '',
+  };
 }
 
 type FolderDialogState = { folder: FolderSummary } | null;
@@ -264,11 +271,13 @@ function DocsPageContent() {
   const { status, markUnauthenticated } = useAuth();
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { documentId } = useParams<{ documentId?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const requestedView = searchParams.get('view');
   const view: DocumentView =
     requestedView === 'trash' ? 'trash' : requestedView === 'favorites' ? 'favorites' : 'documents';
-  const activeId = view !== 'trash' ? parseDocumentId(searchParams.get('id')) : null;
+  const activeId = view !== 'trash' ? parseDocumentId(documentId) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
@@ -283,9 +292,9 @@ function DocsPageContent() {
   const [editorLoading, setEditorLoading] = useState(false);
   const [showDocumentLoading, setShowDocumentLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [deletingDocumentId, setDeletingDocumentId] = useState<number | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<DocumentId | null>(null);
   const [moving, setMoving] = useState(false);
-  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [restoringId, setRestoringId] = useState<DocumentId | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -298,7 +307,7 @@ function DocsPageContent() {
   const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
-  const activeIdRef = useRef<number | null>(activeId);
+  const activeIdRef = useRef<DocumentId | null>(activeId);
   const editorRef = useRef<Editor | null>(null);
   const titleRef = useRef('');
   const revisionRef = useRef(0);
@@ -306,12 +315,12 @@ function DocsPageContent() {
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
-  const setSearchParamsRef = useRef(setSearchParams);
-  const createdDocumentIdRef = useRef<number | null>(null);
-  const documentModesRef = useRef(new Map<number, DocumentMode>());
+  const navigateRef = useRef(navigate);
+  const createdDocumentIdRef = useRef<DocumentId | null>(null);
+  const documentModesRef = useRef(new Map<DocumentId, DocumentMode>());
 
   activeIdRef.current = activeId;
-  setSearchParamsRef.current = setSearchParams;
+  navigateRef.current = navigate;
 
   const clearSaveTimer = useCallback(() => {
     if (saveTimerRef.current === null) return;
@@ -375,20 +384,15 @@ function DocsPageContent() {
     if (normalized === searchQuery) return;
 
     const timer = window.setTimeout(() => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          if (normalized) next.set('q', normalized);
-          else next.delete('q');
-          next.delete('id');
-          return next;
-        },
-        { replace: true },
-      );
+      const next = new URLSearchParams(searchParams);
+      if (normalized) next.set('q', normalized);
+      else next.delete('q');
+      next.delete('id');
+      navigate(docsRoute(null, next), { replace: true });
     }, 240);
 
     return () => window.clearTimeout(timer);
-  }, [searchInput, searchQuery, setSearchParams]);
+  }, [navigate, searchInput, searchParams, searchQuery]);
 
   useEffect(() => {
     if (authUnavailable) {
@@ -441,17 +445,11 @@ function DocsPageContent() {
         if (view === 'trash') return;
         if (searchQuery) return;
 
-        setSearchParamsRef.current(
-          (current) => {
-            const requestedId = parseDocumentId(current.get('id'));
-            if (requestedId && items.some((item) => item.id === requestedId)) return current;
-            const next = new URLSearchParams(current);
-            if (items[0]) next.set('id', String(items[0].id));
-            else next.delete('id');
-            return next;
-          },
-          { replace: true },
-        );
+        const requestedId = activeIdRef.current;
+        if (requestedId && items.some((item) => item.id === requestedId)) return;
+        const next = new URLSearchParams(searchParams);
+        next.delete('id');
+        navigateRef.current(docsRoute(items[0]?.id ?? null, next), { replace: true });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
@@ -466,7 +464,15 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [authUnavailable, folderScope, listRevision, markUnauthenticated, searchQuery, view]);
+  }, [
+    authUnavailable,
+    folderScope,
+    listRevision,
+    markUnauthenticated,
+    searchParams,
+    searchQuery,
+    view,
+  ]);
 
   useEffect(() => {
     clearSaveTimer();
@@ -630,7 +636,7 @@ function DocsPageContent() {
     }
   };
 
-  const selectDocument = async (id: number) => {
+  const selectDocument = async (id: DocumentId) => {
     if (id === activeId) return;
     if (saveState === 'conflict') {
       message.error('请先处理当前文档的保存冲突');
@@ -647,8 +653,8 @@ function DocsPageContent() {
     activeIdRef.current = id;
     const next = new URLSearchParams(searchParams);
     if (view !== 'favorites') next.delete('view');
-    next.set('id', String(id));
-    setSearchParams(next);
+    next.delete('id');
+    navigate(docsRoute(id, next));
   };
 
   const createDocument = async () => {
@@ -663,7 +669,7 @@ function DocsPageContent() {
 
     setCreating(true);
     try {
-      const folderId = typeof folderScope === 'number' ? folderScope : null;
+      const folderId = isFolderId(folderScope) ? folderScope : null;
       const document = await api.createDocument('无标题文档', folderId);
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
@@ -673,8 +679,8 @@ function DocsPageContent() {
       const next = new URLSearchParams(searchParams);
       next.delete('view');
       next.delete('q');
-      next.set('id', String(document.id));
-      setSearchParams(next);
+      next.delete('id');
+      navigate(docsRoute(document.id, next));
       setSearchInput('');
       message.success('已新建文档');
     } catch (error) {
@@ -711,9 +717,8 @@ function DocsPageContent() {
         setActiveDocument(null);
 
         const next = new URLSearchParams(searchParams);
-        if (remaining[0]) next.set('id', String(remaining[0].id));
-        else next.delete('id');
-        setSearchParams(next, { replace: true });
+        next.delete('id');
+        navigate(docsRoute(remaining[0]?.id ?? null, next), { replace: true });
       }
       message.success('文档已移入回收站');
     } catch (error) {
@@ -782,7 +787,8 @@ function DocsPageContent() {
       const url = new URL(window.location.href);
       url.searchParams.delete('view');
       url.searchParams.delete('q');
-      url.searchParams.set('id', String(activeDocument.id));
+      url.searchParams.delete('id');
+      url.pathname = `/docs/${activeDocument.id}`;
       try {
         await navigator.clipboard.writeText(url.toString());
         message.success('文档链接已复制');
@@ -850,15 +856,13 @@ function DocsPageContent() {
     setSidebarOpen(false);
     setCreatingFolder(false);
     setSearchInput('');
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      next.delete('view');
-      next.delete('q');
-      next.delete('id');
-      if (scope === 'all') next.delete('folder');
-      else next.set('folder', String(scope));
-      return next;
-    });
+    const next = new URLSearchParams(searchParams);
+    next.delete('view');
+    next.delete('q');
+    next.delete('id');
+    if (scope === 'all') next.delete('folder');
+    else next.set('folder', scope);
+    navigate(docsRoute(null, next));
   };
 
   const openCreateFolder = () => {
@@ -943,13 +947,11 @@ function DocsPageContent() {
       setFolderRevision((value) => value + 1);
       setListRevision((value) => value + 1);
       if (folderScope === folder.id) {
-        setSearchParams((current) => {
-          const next = new URLSearchParams(current);
-          next.delete('folder');
-          next.delete('id');
-          next.delete('q');
-          return next;
-        });
+        const next = new URLSearchParams(searchParams);
+        next.delete('folder');
+        next.delete('id');
+        next.delete('q');
+        navigate(docsRoute(null, next));
       }
       message.success('文件夹已删除，文档已移到未归档');
     } catch (error) {
@@ -965,7 +967,7 @@ function DocsPageContent() {
 
   const moveDocument = async (
     document: Pick<DocumentSummary, 'id' | 'folderId'>,
-    folderId: number | null,
+    folderId: FolderId | null,
   ) => {
     if (moving || document.folderId === folderId) return;
 
@@ -1070,10 +1072,9 @@ function DocsPageContent() {
   if (status === 'loading') return <HydrateFallback />;
   if (status === 'unauthenticated' || !user) return <Navigate to="/login" replace />;
 
-  const selectedFolder =
-    typeof folderScope === 'number'
-      ? folders.find((folder) => folder.id === folderScope)
-      : undefined;
+  const selectedFolder = isFolderId(folderScope)
+    ? folders.find((folder) => folder.id === folderScope)
+    : undefined;
   const breadcrumbFolder = searchQuery
     ? `搜索：${searchQuery}`
     : (selectedFolder?.name ?? (folderScope === 'unfiled' ? '未归档' : '私人笔记'));
@@ -1122,11 +1123,10 @@ function DocsPageContent() {
         onSearchChange={(value) => {
           setSearchInput(value);
           if (view === 'trash' && value.trim()) {
-            setSearchParams((current) => {
-              const next = new URLSearchParams(current);
-              next.delete('view');
-              return next;
-            });
+            const next = new URLSearchParams(searchParams);
+            next.delete('view');
+            next.delete('id');
+            navigate(docsRoute(null, next));
           }
         }}
         onSelect={(id) => {
@@ -1308,7 +1308,6 @@ function DocsPageContent() {
             <div className="swan-editor-stage">
               <aside className="swan-editor-margin">
                 <span>DOCUMENT</span>
-                <strong>{String(activeDocument.id).padStart(2, '0')}</strong>
                 <span>{formatUpdatedAt(activeDocument.updatedAt)}</span>
                 <span>第 {activeDocument.version} 版</span>
                 <span>
@@ -1370,6 +1369,12 @@ function DocsPageContent() {
             <div>
               <dt>标题</dt>
               <dd>{titleRef.current.trim() || activeDocument.title}</dd>
+            </div>
+            <div>
+              <dt>文档 ID</dt>
+              <dd>
+                <code>{activeDocument.id}</code>
+              </dd>
             </div>
             <div>
               <dt>所在位置</dt>

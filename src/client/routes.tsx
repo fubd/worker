@@ -44,7 +44,7 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
 
   const docsRoute: RouteObject = {
     id: 'docs',
-    path: 'docs',
+    path: 'docs/:documentId?',
     handle: { title: '全部文档' },
     ...(initial.docs
       ? {
@@ -90,6 +90,6 @@ export async function loadInitialRouteModules(pathname: string): Promise<Initial
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return { home: await loadHomeRoute() };
   if (path === '/login') return { login: await loadLoginRoute() };
-  if (path === '/docs') return { docs: await loadDocsRoute() };
+  if (path === '/docs' || path.startsWith('/docs/')) return { docs: await loadDocsRoute() };
   return {};
 }
