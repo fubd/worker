@@ -350,9 +350,11 @@ function DocsPageContent() {
   const navigateRef = useRef(navigate);
   const createdDocumentIdRef = useRef<PublicId | null>(null);
   const documentModesRef = useRef(new Map<PublicId, DocumentMode>());
+  const listIdentityRef = useRef<string | null>(null);
 
   activeIdRef.current = activeId;
   navigateRef.current = navigate;
+  const listIdentity = `${view}:${folderScope}:${searchQuery}`;
 
   const clearSaveTimer = useCallback(() => {
     if (saveTimerRef.current === null) return;
@@ -463,8 +465,21 @@ function DocsPageContent() {
     }
 
     setFolders(loaderData.folders);
-    setDocuments(loaderData.documents);
-    setNextCursor(loaderData.nextCursor);
+    if (listIdentityRef.current !== listIdentity) {
+      listIdentityRef.current = listIdentity;
+      setDocuments(loaderData.documents);
+      setNextCursor(loaderData.nextCursor);
+    } else {
+      setDocuments((current) => {
+        if (current.length <= loaderData.documents.length) return loaderData.documents;
+        const freshIds = new Set(loaderData.documents.map((document) => document.id));
+        return [
+          ...loaderData.documents,
+          ...current.filter((document) => !freshIds.has(document.id)),
+        ];
+      });
+      setNextCursor((current) => (loaderData.nextCursor === null ? null : current));
+    }
     setListLoading(false);
     setLoadError(loaderData.error);
 
@@ -474,7 +489,7 @@ function DocsPageContent() {
     const next = new URLSearchParams(searchParams);
     next.delete('id');
     navigateRef.current(docsRoute(firstDocument.id, next), { replace: true });
-  }, [loaderData, markUnauthenticated, navigate, searchParams, searchQuery]);
+  }, [listIdentity, loaderData, markUnauthenticated, navigate, searchParams, searchQuery]);
 
   const loadMoreDocuments = async () => {
     if (!nextCursor || listLoading || loadingMore) return;
