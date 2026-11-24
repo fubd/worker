@@ -14,6 +14,7 @@ import {
   Info,
   Italic,
   Link2,
+  Link2Off,
   List,
   ListOrdered,
   LoaderCircle,
@@ -23,6 +24,7 @@ import {
   Printer,
   Redo2,
   RefreshCw,
+  Share2,
   Star,
   Trash2,
   TriangleAlert,
@@ -79,6 +81,8 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     excerpt: document.contentText.trim().slice(0, 140),
     folderId: document.folderId,
     favorite: document.favorite,
+    shareId: document.shareId,
+    sharedAt: document.sharedAt,
     version: document.version,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
@@ -817,12 +821,100 @@ function DocsPageContent() {
     }
   };
 
+  const copyShareLink = async (shareId: PublicId) => {
+    const url = new URL(window.location.origin);
+    url.pathname = `/share/${shareId}`;
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      message.success('只读分享链接已复制');
+    } catch {
+      message.error('复制分享链接失败，请检查浏览器权限');
+    }
+  };
+
+  const updateSharedDocument = (updated: DocumentRecord) => {
+    if (activeDocumentRef.current?.id === updated.id) {
+      activeDocumentRef.current = updated;
+      setActiveDocument(updated);
+    }
+    setDocuments((items) =>
+      items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
+    );
+  };
+
+  const createShareLink = async () => {
+    const document = activeDocumentRef.current;
+    if (!document || saveState === 'conflict') return;
+    const saved = await savePendingChanges();
+    if (!saved) {
+      message.error('当前文档保存失败，请重试后再分享');
+      return;
+    }
+
+    try {
+      const updated = await api.setDocumentSharing(document.id, true);
+      updateSharedDocument(updated);
+      if (updated.shareId) await copyShareLink(updated.shareId);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '创建分享链接失败'));
+    }
+  };
+
+  const revokeShareLink = () => {
+    const document = activeDocumentRef.current;
+    if (!document?.shareId) return;
+    modal.confirm({
+      title: '停止分享这篇文档？',
+      content: '现有链接会立即失效。再次分享时会生成一个新链接。',
+      okText: '停止分享',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const updated = await api.setDocumentSharing(document.id, false);
+          updateSharedDocument(updated);
+          message.success('已停止分享');
+        } catch (error) {
+          if (isUnauthorized(error)) {
+            markUnauthenticated();
+            return;
+          }
+          message.error(errorMessage(error, '停止分享失败'));
+        }
+      },
+    });
+  };
+
   const documentActionItems: MenuProps['items'] = [
     {
       key: 'copy-link',
-      label: '复制链接',
+      label: '复制文档链接',
       icon: <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />,
     },
+    ...(activeDocument?.shareId
+      ? [
+          {
+            key: 'copy-share',
+            label: '复制只读分享链接',
+            icon: <Share2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+          },
+          {
+            key: 'revoke-share',
+            label: '停止分享',
+            icon: <Link2Off aria-hidden="true" size={15} strokeWidth={1.8} />,
+          },
+        ]
+      : [
+          {
+            key: 'create-share',
+            label: '创建只读分享',
+            icon: <Share2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+          },
+        ]),
     {
       key: 'copy-markdown',
       label: '复制 Markdown',
@@ -878,6 +970,21 @@ function DocsPageContent() {
       } catch {
         message.error('复制链接失败，请检查浏览器权限');
       }
+      return;
+    }
+
+    if (key === 'create-share') {
+      void createShareLink();
+      return;
+    }
+
+    if (key === 'copy-share' && activeDocument.shareId) {
+      void copyShareLink(activeDocument.shareId);
+      return;
+    }
+
+    if (key === 'revoke-share') {
+      revokeShareLink();
       return;
     }
 

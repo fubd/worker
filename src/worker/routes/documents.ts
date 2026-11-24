@@ -169,6 +169,24 @@ documentRoutes.post('/:id/duplicate', async (c) => {
   return c.json(document, 201);
 });
 
+documentRoutes.patch('/:id/share', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as { shared?: unknown } | null;
+  if (!body || typeof body.shared !== 'boolean') {
+    return c.json({ error: 'shared 必须是布尔值' }, 400);
+  }
+
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.setDocumentSharing(c.env.DB, c.get('user').id, id, body.shared),
+  );
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+  return c.json(document);
+});
+
 documentRoutes.get('/:id', async (c) => {
   const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);

@@ -58,6 +58,12 @@ export default defineConfig(({ command }) => ({
             chunks: 'initial',
             priority: 10,
           },
+          'share-dompurify': {
+            name: 'share-dompurify',
+            test: /node_modules[\\/]dompurify[\\/]/,
+            chunks: 'async',
+            priority: 20,
+          },
         },
       },
 

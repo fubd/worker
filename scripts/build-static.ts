@@ -50,6 +50,7 @@ const pages = [
   { path: '/', output: 'index.html' },
   { path: '/login', output: 'login.html' },
   { path: '/docs', output: 'docs.html' },
+  { path: '/share/preview', output: 'share.html' },
 ] as const;
 
 for (const page of pages) {

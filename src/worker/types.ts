@@ -36,6 +36,8 @@ export interface DocumentRow {
   folder_id: number | null;
   folder_public_id: import('../shared/ids').PublicId | null;
   is_favorite: number;
+  share_id: import('../shared/ids').PublicId | null;
+  shared_at: string | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -63,4 +65,5 @@ export type {
   DocumentVersionSummary,
   FolderListResponse,
   FolderSummary,
+  SharedDocument,
 } from '../shared/types';

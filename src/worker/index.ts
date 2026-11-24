@@ -5,6 +5,7 @@ import { timing } from 'hono/timing';
 import { authRoutes } from './routes/auth';
 import { documentRoutes } from './routes/documents';
 import { folderRoutes } from './routes/folders';
+import { shareRoutes } from './routes/shares';
 import type { AppEnv } from './types';
 
 /**
@@ -39,6 +40,7 @@ app.get('/api/health', (c) =>
 app.route('/api/auth', authRoutes);
 app.route('/api/documents', documentRoutes);
 app.route('/api/folders', folderRoutes);
+app.route('/api/shares', shareRoutes);
 
 /** 直接访问 API 域名根路径时回到主站 */
 app.get('/', (c) => c.redirect('https://deephos.com/', 301));

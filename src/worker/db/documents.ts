@@ -1,4 +1,4 @@
-import type { DocumentRecord, DocumentRow, DocumentSummary } from '../types';
+import type { DocumentRecord, DocumentRow, DocumentSummary, SharedDocument } from '../types';
 import type { PublicId } from '../../shared/ids';
 import { createPublicId } from './public-ids';
 import { captureVersion, captureVersionIfDue, getDocumentVersion } from './document-versions';
@@ -6,13 +6,15 @@ import { captureVersion, captureVersionIfDue, getDocumentVersion } from './docum
 const LIST_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, substr(d.content_text, 1, 140) AS content_text,
   d.folder_id, f.public_id AS folder_public_id,
-  d.is_favorite, d.version, d.created_at, d.updated_at, d.deleted_at
+  d.is_favorite, d.share_id, d.shared_at,
+  d.version, d.created_at, d.updated_at, d.deleted_at
 `;
 
 const FULL_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, d.content_json, d.content_html, d.content_text,
   d.folder_id, f.public_id AS folder_public_id,
-  d.is_favorite, d.version, d.created_at, d.updated_at, d.deleted_at
+  d.is_favorite, d.share_id, d.shared_at,
+  d.version, d.created_at, d.updated_at, d.deleted_at
 `;
 
 const EMPTY_CONTENT_JSON = JSON.stringify({
@@ -55,6 +57,8 @@ function toSummary(row: DocumentRow): DocumentSummary {
     excerpt: row.content_text.trim(),
     folderId: row.folder_public_id,
     favorite: row.is_favorite === 1,
+    shareId: row.share_id,
+    sharedAt: row.shared_at ? toIso(row.shared_at) : null,
     version: row.version,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
@@ -243,6 +247,60 @@ export async function duplicateDocument(
     .run();
 
   return getDocument(db, ownerId, publicId);
+}
+
+export async function setDocumentSharing(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+  shared: boolean,
+): Promise<DocumentRecord | null> {
+  const shareId = shared ? createPublicId() : null;
+  const updated = await db
+    .prepare(
+      `UPDATE documents
+       SET share_id = CASE
+             WHEN ? = 1 THEN COALESCE(share_id, ?)
+             ELSE NULL
+           END,
+           shared_at = CASE
+             WHEN ? = 1 THEN COALESCE(shared_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+             ELSE NULL
+           END
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL
+       RETURNING public_id`,
+    )
+    .bind(shared ? 1 : 0, shareId, shared ? 1 : 0, id, ownerId)
+    .first<{ public_id: PublicId }>();
+
+  return updated ? getDocument(db, ownerId, updated.public_id) : null;
+}
+
+export async function getSharedDocument(
+  db: D1Database,
+  shareId: PublicId,
+): Promise<SharedDocument | null> {
+  const row = await db
+    .prepare(
+      `SELECT title, content_html, content_text, updated_at
+       FROM documents
+       WHERE share_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(shareId)
+    .first<{
+      title: string;
+      content_html: string;
+      content_text: string;
+      updated_at: string;
+    }>();
+
+  if (!row) return null;
+  return {
+    title: row.title,
+    contentHtml: row.content_html,
+    contentText: row.content_text,
+    updatedAt: toIso(row.updated_at),
+  };
 }
 
 export interface UpdateDocumentInput {

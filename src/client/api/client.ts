@@ -6,6 +6,7 @@ import type {
   DocumentVersionRecord,
   FolderListResponse,
   FolderSummary,
+  SharedDocument,
 } from '@/shared/types';
 import type { PublicId } from '@/shared/ids';
 import { apiPath } from '@/shared/api-config';
@@ -165,6 +166,18 @@ export const api = {
     request<DocumentRecord>(`/documents/${id}/favorite`, {
       method: 'PATCH',
       body: JSON.stringify({ favorite }),
+    }),
+
+  setDocumentSharing: (id: PublicId, shared: boolean) =>
+    request<DocumentRecord>(`/documents/${id}/share`, {
+      method: 'PATCH',
+      body: JSON.stringify({ shared }),
+    }),
+
+  getSharedDocument: (shareId: PublicId, options: { signal?: AbortSignal } = {}) =>
+    request<SharedDocument>(`/shares/${shareId}`, {
+      cache: 'no-store',
+      signal: options.signal,
     }),
 
   listDocumentVersions: (id: PublicId, options: { signal?: AbortSignal } = {}) =>

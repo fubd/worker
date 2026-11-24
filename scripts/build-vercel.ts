@@ -15,6 +15,7 @@ const required = [
   'index.html',
   'login.html',
   'docs.html',
+  'share.html',
   'favicon.svg',
   'favicon.ico',
   'apple-touch-icon.png',
@@ -34,6 +35,7 @@ for (const file of [
   'index.html',
   'login.html',
   'docs.html',
+  'share.html',
   'favicon.svg',
   'favicon.ico',
   'apple-touch-icon.png',
@@ -53,6 +55,9 @@ if (!readFileSync(`${OUT}/login.html`, 'utf8').includes('swan-login-card')) {
 if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-workspace-is-loading')) {
   throw new Error('/docs is missing its authentication shell');
 }
+if (!readFileSync(`${OUT}/share.html`, 'utf8').includes('swan-share-shell')) {
+  throw new Error('/share is missing its public document shell');
+}
 
 const config = {
   redirects: [
@@ -64,6 +69,7 @@ const config = {
     { source: '/login', destination: '/login.html' },
     { source: '/docs', destination: '/docs.html' },
     { source: '/docs/:path*', destination: '/docs.html' },
+    { source: '/share/:path*', destination: '/share.html' },
   ],
   headers: [
     {
@@ -112,6 +118,14 @@ const config = {
         { key: 'CDN-Cache-Control', value: 'no-store' },
       ],
     },
+    {
+      source: '/share/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        { key: 'CDN-Cache-Control', value: APP_SHELL_EDGE_CACHE },
+        { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+      ],
+    },
   ],
 };
 writeFileSync(`${OUT}/vercel.json`, `${JSON.stringify(config, null, 2)}\n`);
@@ -130,4 +144,4 @@ writeFileSync(
 `,
 );
 
-console.log('[vercel] wrote public, login, and docs entry pages');
+console.log('[vercel] wrote public, login, docs, and share entry pages');

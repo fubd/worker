@@ -3,16 +3,18 @@ import type { RouteObject } from 'react-router';
 import RootLayout from './layouts/RootLayout';
 import ErrorPage from './pages/ErrorPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { loadDocsRoute, loadHomeRoute, loadLoginRoute } from './route-loaders';
+import { loadDocsRoute, loadHomeRoute, loadLoginRoute, loadShareRoute } from './route-loaders';
 
 type HomeModule = typeof import('./pages/HomePage');
 type LoginModule = typeof import('./pages/LoginPage');
 type DocsModule = typeof import('./pages/DocsPage');
+type ShareModule = typeof import('./pages/SharePage');
 
 export interface InitialRouteModules {
   home?: HomeModule;
   login?: LoginModule;
   docs?: DocsModule;
+  share?: ShareModule;
 }
 
 function RouteFallback() {
@@ -62,6 +64,17 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
         }),
   };
 
+  const shareRoute: RouteObject = {
+    id: 'share',
+    path: 'share/:shareId',
+    handle: { title: '只读分享 · 雨燕' },
+    ...(initial.share
+      ? { Component: initial.share.default }
+      : {
+          lazy: async () => ({ Component: (await loadShareRoute()).default }),
+        }),
+  };
+
   return [
     {
       id: 'root',
@@ -70,6 +83,7 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
       children: [
         homeRoute,
         loginRoute,
+        shareRoute,
         {
           id: 'app',
           element: <RootLayout />,
@@ -90,6 +104,7 @@ export async function loadInitialRouteModules(pathname: string): Promise<Initial
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path === '/') return { home: await loadHomeRoute() };
   if (path === '/login') return { login: await loadLoginRoute() };
+  if (path.startsWith('/share/')) return { share: await loadShareRoute() };
   if (path === '/docs' || path.startsWith('/docs/')) return { docs: await loadDocsRoute() };
   return {};
 }

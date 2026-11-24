@@ -8,6 +8,8 @@ export interface DocumentSummary {
   excerpt: string;
   folderId: PublicId | null;
   favorite: boolean;
+  shareId: PublicId | null;
+  sharedAt: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +44,13 @@ export interface DocumentVersionRecord {
   contentHtml: string;
   contentText: string;
   createdAt: string;
+}
+
+export interface SharedDocument {
+  title: string;
+  contentHtml: string;
+  contentText: string;
+  updatedAt: string;
 }
 
 export interface FolderSummary {
