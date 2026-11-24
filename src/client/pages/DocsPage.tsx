@@ -69,6 +69,13 @@ const DocumentHistoryModal = lazy(() =>
     default: module.DocumentHistoryModal,
   })),
 );
+const CommandPalette = lazy(() =>
+  import(/* webpackChunkName: "command-palette" */ '../components/CommandPalette').then(
+    (module) => ({
+      default: module.CommandPalette,
+    }),
+  ),
+);
 
 function parsePublicId(value: string | null | undefined): PublicId | null {
   return isPublicId(value) ? value : null;
@@ -316,6 +323,7 @@ function DocsPageContent() {
   const [folderDeleting, setFolderDeleting] = useState(false);
   const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
   const activeIdRef = useRef<PublicId | null>(activeId);
@@ -385,6 +393,17 @@ function DocsPageContent() {
   }, [documentMode, editor]);
 
   useEffect(() => clearSaveTimer, [clearSaveTimer]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   useEffect(() => {
     setSearchInput(searchQuery);
@@ -1065,6 +1084,22 @@ function DocsPageContent() {
     navigate(docsRoute(null, next));
   };
 
+  const navigateFromCommandPalette = async (path: string) => {
+    if (saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return;
+    }
+    if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
+      const saved = await saveDocument();
+      if (!saved) {
+        message.error('当前文档保存失败，请重试后再切换');
+        return;
+      }
+    }
+    setCommandPaletteOpen(false);
+    navigate(path);
+  };
+
   const openCreateFolder = () => {
     setFolderDialog(null);
     setFolderName('');
@@ -1610,6 +1645,24 @@ function DocsPageContent() {
             onClose={() => setHistoryOpen(false)}
             onCreateCheckpoint={createCheckpoint}
             onRestore={restoreVersion}
+          />
+        </Suspense>
+      )}
+
+      {commandPaletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={commandPaletteOpen}
+            onClose={() => setCommandPaletteOpen(false)}
+            onCreateDocument={() => {
+              setCommandPaletteOpen(false);
+              void createDocument();
+            }}
+            onNavigate={(path) => void navigateFromCommandPalette(path)}
+            onOpenDocument={(id) => {
+              setCommandPaletteOpen(false);
+              void selectDocument(id);
+            }}
           />
         </Suspense>
       )}

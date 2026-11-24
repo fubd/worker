@@ -64,6 +64,12 @@ export default defineConfig(({ command }) => ({
             chunks: 'async',
             priority: 20,
           },
+          'command-palette-vendor': {
+            name: 'command-palette-vendor',
+            test: /node_modules[\\/](?:cmdk|@radix-ui|@floating-ui)[\\/]/,
+            chunks: 'async',
+            priority: 20,
+          },
         },
       },
 

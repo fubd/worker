@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
   Check,
@@ -116,7 +115,6 @@ export function WorkspaceSidebar({
   onToggleFavorite,
 }: WorkspaceSidebarProps) {
   const linkedProviders = user.linkedProviders;
-  const searchRef = useRef<HTMLInputElement>(null);
   const hasSearch = searchValue.trim().length > 0;
   const sectionTitle =
     view === 'trash'
@@ -165,18 +163,6 @@ export function WorkspaceSidebar({
     ];
   };
 
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-      }
-    };
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
-  }, []);
-
   return (
     <aside className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}>
       <div className="swan-sidebar-brand">
@@ -192,7 +178,6 @@ export function WorkspaceSidebar({
       <div className="swan-sidebar-search">
         <Search aria-hidden="true" size={15} strokeWidth={1.8} />
         <input
-          ref={searchRef}
           type="search"
           value={searchValue}
           aria-label="搜索文档"

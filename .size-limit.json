@@ -9,15 +9,25 @@
     "path": [
       "dist/vercel/static/js/async/*.mjs",
       "!dist/vercel/static/js/async/share-page.*.mjs",
-      "!dist/vercel/static/js/async/share-dompurify.*.mjs"
+      "!dist/vercel/static/js/async/share-dompurify.*.mjs",
+      "!dist/vercel/static/js/async/command-palette.*.mjs",
+      "!dist/vercel/static/js/async/command-palette-vendor.*.mjs"
     ],
-    "limit": "205 kB"
+    "limit": "209 kB"
   },
   {
     "name": "share route",
     "path": [
       "dist/vercel/static/js/async/share-page.*.mjs",
       "dist/vercel/static/js/async/share-dompurify.*.mjs"
+    ],
+    "limit": "20 kB"
+  },
+  {
+    "name": "command palette",
+    "path": [
+      "dist/vercel/static/js/async/command-palette.*.mjs",
+      "dist/vercel/static/js/async/command-palette-vendor.*.mjs"
     ],
     "limit": "20 kB"
   },

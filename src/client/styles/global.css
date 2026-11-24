@@ -1057,6 +1057,152 @@ input {
   flex: 1;
 }
 
+.swan-command-modal .ant-modal-content {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(32, 45, 58, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 28px 80px rgba(22, 35, 48, 0.22);
+}
+
+.swan-command-search {
+  display: flex;
+  height: 58px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 16px;
+  border-bottom: 1px solid #eceeed;
+  color: var(--swan-text-muted);
+}
+
+.swan-command-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--swan-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.swan-command-search input::placeholder {
+  color: #a1a9b0;
+}
+
+.swan-command-search kbd,
+.swan-command-footer kbd {
+  padding: 2px 5px;
+  border: 1px solid #dfe3e6;
+  border-radius: 4px;
+  background: #f7f8f8;
+  color: #8a949c;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.swan-command-list {
+  max-height: min(58vh, 440px);
+  padding: 8px;
+  overflow: auto;
+}
+
+.swan-command-list [cmdk-group-heading] {
+  padding: 10px 10px 6px;
+  color: #929ba2;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.swan-command-list [cmdk-item] {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #4f5a64;
+  cursor: pointer;
+  font-size: 12px;
+  outline: 0;
+}
+
+.swan-command-list [cmdk-item][data-selected='true'] {
+  background: #f0f4f8;
+  color: #202c37;
+}
+
+.swan-command-list [cmdk-item] > svg {
+  flex: none;
+  color: #7c8790;
+}
+
+.swan-command-list [cmdk-item] > small,
+.swan-command-document-copy small {
+  overflow: hidden;
+  margin-left: auto;
+  color: #939ca3;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-command-document-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.swan-command-document-copy strong,
+.swan-command-document-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swan-command-document-copy strong {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.swan-command-document-copy small {
+  margin-left: 0;
+}
+
+.swan-command-favorite {
+  flex: none;
+  color: #a17625;
+}
+
+.swan-command-empty {
+  padding: 54px 20px;
+  color: var(--swan-text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.swan-command-footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 9px 16px;
+  border-top: 1px solid #eceeed;
+  background: #fafbfb;
+  color: #939ca3;
+  font-size: 10px;
+}
+
+.swan-command-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .swan-topbar-skeleton {
   display: flex;
   width: 100%;
