@@ -11,7 +11,11 @@ const baseUrl = (process.env.API_BASE_URL ?? 'https://api.deephos.com').replace(
 const runsFlag = process.argv.indexOf('--runs');
 const requestedRuns = runsFlag >= 0 ? Number(process.argv[runsFlag + 1]) : DEFAULT_RUNS;
 const runs = Number.isInteger(requestedRuns) && requestedRuns > 0 ? requestedRuns : DEFAULT_RUNS;
-const paths = ['/api/health'];
+const paths = [
+  '/api/health',
+  '/api/health/db',
+  ...(process.env.PERF_COOKIE ? ['/api/auth/me', '/api/folders', '/api/documents?limit=20'] : []),
+];
 
 interface Sample {
   totalMs: number;
@@ -49,7 +53,10 @@ async function probe(path: string): Promise<Sample[]> {
   for (let index = 0; index < runs; index += 1) {
     const startedAt = performance.now();
     const response = await fetch(`${baseUrl}${path}`, {
-      headers: { accept: 'application/json' },
+      headers: {
+        accept: 'application/json',
+        ...(process.env.PERF_COOKIE ? { cookie: process.env.PERF_COOKIE } : {}),
+      },
     });
     await response.arrayBuffer();
     samples.push({
@@ -63,9 +70,11 @@ async function probe(path: string): Promise<Sample[]> {
 }
 
 console.log(`[perf] ${baseUrl}, ${runs} requests per endpoint`);
+let failed = false;
 for (const path of paths) {
   const samples = await probe(path);
   const failures = samples.filter((sample) => sample.status !== 200).length;
+  if (failures > 0) failed = true;
   const workerSamples = samples.flatMap((sample) =>
     sample.workerMs === null ? [] : [sample.workerMs],
   );
@@ -80,3 +89,5 @@ for (const path of paths) {
     }),
   );
 }
+
+if (failed) process.exitCode = 1;

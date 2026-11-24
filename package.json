@@ -18,10 +18,14 @@
     "preview": "bun run build && wrangler dev",
     "deploy": "bun run build && wrangler deploy",
     "check": "bun check",
+    "test": "bun test tests/unit",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "fmt": "bun fmt --no-script",
     "fmt:check": "bun fmt --check --no-script",
     "db:create": "wrangler d1 create swan-worker-db",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:reset:e2e": "wrangler d1 execute DB --local --command=\"DELETE FROM auth_rate_limits\"",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "db:studio": "wrangler d1 execute DB --local --command=\"select id,title,owner_id,version,deleted_at from documents order by updated_at desc\""
   },
@@ -48,6 +52,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261028.1",
     "@lhci/cli": "^0.16.1",
+    "@playwright/test": "^1.56.0",
     "@rsbuild/core": "^2.3.2",
     "@rsbuild/plugin-react": "^2.1.1",
     "@size-limit/file": "^14.3.0",

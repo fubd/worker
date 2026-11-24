@@ -2,17 +2,18 @@
 
 **让文字飞起来。**
 
-雨燕是一个轻量的知识库。M1 先把“私人、安全、可恢复”做完整，M2 继续解决“可整理、可找到”：
+雨燕是一个轻量的知识库。M1 先把“私人、安全、可恢复”做完整，M2 继续解决“可整理、可找到”，M5 进入稳定性与公开 Beta 准备：
 
 - Google、GitHub、账号密码三种登录方式
 - 账号名和密码可以直接注册，不要求先提供邮箱
 - 邮箱可以稍后通过 Google/GitHub 的可信邮箱绑定
 - Google、GitHub 也可以直接注册或登录独立账号
 - 文档按 owner 隔离
-- 单层文件夹、未归档和文档移动
+- 多层文件夹、未归档和文档移动
 - 标题与正文全文检索，支持 `⌘K` / `Ctrl+K`
 - 自动保存版本冲突检测
-- 软删除、回收站与恢复
+- 软删除、回收站、恢复和不可逆永久删除
+- 文档游标分页、账号配额和普通 API 限流
 - 未登录、会话过期和保存失败的明确状态
 
 `deephos.com` 是公开首页，`/login` 是独立登录页，`/docs` 是登录后的私人文档工作区。未登录访问 `/docs` 会跳转到 `/login`；旧 `/todos` 会跳转到 `/docs`，`/about` 会跳转到首页。
@@ -83,6 +84,8 @@ bun run build                # 构建 Vercel 产物
 bun run fmt                  # 格式化
 bun run fmt:check            # 格式检查
 bun run check                # 类型检查
+bun run test                 # 单元测试
+bun run test:e2e             # Playwright 关键流程测试
 bun run perf:budget          # JS 体积预算
 bun run perf:lighthouse      # Lighthouse
 bun run perf:api             # 线上 API 探针
@@ -108,10 +111,14 @@ Browser
 src/client/auth/AuthProvider.tsx    前端登录状态
 src/client/pages/HomePage.tsx       公开首页
 src/client/pages/LoginPage.tsx      独立登录页
-src/client/pages/DocsPage.tsx       文档列表、编辑器、冲突和回收站
+src/client/pages/DocsPage.tsx       工作区交互与数据变更
+src/client/docs-loader.ts           React Router Data Mode loader
+src/client/components/docs/         编辑器展示组件
 src/worker/auth/session.ts          服务端会话 Cookie
 src/worker/routes/auth.ts           三种登录方式与 OAuth
 src/worker/routes/documents.ts      文档 API 与 owner 校验
+src/worker/quota.ts                 文档与附件配额
+src/worker/rate-limit.ts            普通 API 和上传限流
 src/worker/auth/password.ts         PBKDF2 密码哈希与限流键
 src/worker/db/auth.ts               用户与会话数据访问
 src/worker/db/documents.ts          文档数据访问
@@ -125,6 +132,10 @@ migrations/0008_folders.sql
 migrations/0009_document_favorites.sql
 migrations/0010_public_resource_ids.sql
 migrations/0011_opaque_public_ids.sql
+migrations/0017_m5_public_beta.sql
+tests/unit/                         Bun 单元测试
+tests/e2e/                          Playwright 关键流程测试
+docs/API.md                         API、分页、配额与恢复限制
 ```
 
 ## 数据安全
@@ -140,11 +151,14 @@ migrations/0011_opaque_public_ids.sql
 - 密码凭证按 `user_id` 绑定到现有账号，三种登录方式签发相同结构的服务端会话。
 - 修改已有密码时必须验证当前密码，成功后撤销该账号的其他会话。
 - 密码登录失败按客户端 IP 和账号双重限流，错误响应不会暴露账号是否存在。
+- 普通读、普通写、文档创建、附件上传和公开分享都有独立限流。
 - 文档的读取、更新、删除和恢复都同时匹配公开 ID、`owner_id` 和软删除状态；文档与文件夹共用 24 位不透明公开 ID，内部整数主键不对外暴露。
+- 文档列表使用稳定游标分页，默认每页 50 条，最大 100 条。
 - 文件夹的创建、改名、删除和文档移动都按 `owner_id` 隔离。
 - 删除文件夹只把文档移回“未归档”，不会删除文档。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。
 - 其他用户的文档统一返回 `404`。
+- 永久删除只接受回收站文档，并清理历史版本、附件元数据和 R2 对象。
 - 迁移前已有文档的 `owner_id` 为空，由 `OWNER_EMAIL` 对应的历史所有者首次登录时接管。
 
 ## 免费多用户策略
@@ -153,8 +167,11 @@ migrations/0011_opaque_public_ids.sql
 - 账号名和密码是公开注册的默认入口，不需要发送验证邮件。
 - 邮箱是后续恢复和跨设备登录的可信身份，OAuth 提供的邮箱必须经过服务商验证。
 - 同一邮箱通过不同登录方式进入同一个账号，文档始终按用户 ID 隔离。
+- 账号名和密码没有邮件验证码或邮件重置入口；绑定 Google 或 GitHub 后，使用可信服务商重新登录。
+- 未绑定可信身份且忘记密码的账号无法自动证明所有权，因此不支持自动恢复。
 - 邮箱验证码属于可选能力，只能在第三方邮件服务的免费额度内启用；额度耗尽时关闭验证码入口，不允许自动升级或产生账单。
 - 后续如需启用验证码，使用 Resend 免费额度并配置邮箱、IP、每日发送上限和 Cloudflare Turnstile。
+- 每用户最多 1,000 篇文档、200 MB 附件；每篇文档最多 20 个附件。回收站文档仍占用文档配额。
 
 ## 构建与部署
 
@@ -165,11 +182,12 @@ migrations/0011_opaque_public_ids.sql
 3. 组装 `dist/vercel/`，包含同源 API rewrite 和旧路径跳转。
 4. 校验本地静态引用和禁止使用外部静态源。
 
-GitHub Actions 在推送到 `main` 后执行格式、类型、构建和体积预算，然后按以下顺序发布：
+GitHub Actions 在推送到 `main` 后执行格式、类型、单元测试、Playwright、构建和体积预算，然后按以下顺序发布：
 
 1. 应用远端 D1 迁移。
 2. 部署 Worker。
 3. 部署 Vercel 页面。
+4. 对线上 API 和 D1 健康接口执行探针。
 
 这个顺序保证数据库规则先于新页面和 API 生效。
 
@@ -212,3 +230,12 @@ M4 是“内容进出”，当前进度如下：
 - 导入解析器、附件面板均按需加载，不进入 `/docs` 首屏关键路径。
 
 M4 已完成。实时协作仍属于后续里程碑，不把当前的版本冲突保护描述成实时协作。
+
+M5 是“稳定性与公开 Beta 准备”，当前进度如下：
+
+- P0 已完成：移动端顶部栏、主要触控区域和格式工具栏完成触控适配。
+- P1 已完成：文档稳定游标分页、每用户文档配额、附件配额、普通 API 限流和公开分享限流。
+- P1 已完成：Playwright 覆盖注册、保存、刷新、分页、限流、所有权隔离、移动端触控和永久删除；D1 健康探针进入部署流水线。
+- P1 已完成：`DocsPage` 的编辑器展示组件已拆分，私有工作区数据由 React Router Data Mode loader 和 revalidation 统一加载。
+- P1 已完成：回收站永久删除会清理历史版本、附件元数据和 R2 对象。
+- P1 已完成：登录页明确说明账号恢复边界，完整接口与配额说明见 `docs/API.md`。
