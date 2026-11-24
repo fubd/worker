@@ -83,12 +83,14 @@ export const api = {
       signal?: AbortSignal;
       folderId?: number | null;
       query?: string;
+      favoriteOnly?: boolean;
     } = {},
   ) => {
     const params = new URLSearchParams();
     if (options.folderId === null) params.set('folder', 'unfiled');
     if (typeof options.folderId === 'number') params.set('folder', String(options.folderId));
     if (options.query?.trim()) params.set('q', options.query.trim());
+    if (options.favoriteOnly) params.set('favorite', '1');
     const search = params.size > 0 ? `?${params}` : '';
     return request<DocumentListResponse>(`/documents${search}`, {
       cache: 'no-store',
@@ -143,6 +145,12 @@ export const api = {
     request<DocumentRecord>(`/documents/${id}/folder`, {
       method: 'PATCH',
       body: JSON.stringify({ folderId }),
+    }),
+
+  setDocumentFavorite: (id: number, favorite: boolean) =>
+    request<DocumentRecord>(`/documents/${id}/favorite`, {
+      method: 'PATCH',
+      body: JSON.stringify({ favorite }),
     }),
 
   listFolders: (options: { signal?: AbortSignal } = {}) =>

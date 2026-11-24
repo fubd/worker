@@ -58,11 +58,12 @@ documentRoutes.get('/', async (c) => {
   if (query.length > MAX_SEARCH_LENGTH) {
     return c.json({ error: `搜索词不能超过 ${MAX_SEARCH_LENGTH} 个字符` }, 400);
   }
+  const favoriteOnly = c.req.query('favorite') === '1';
   const ownerId = c.get('user').id;
   const result = await wrapTime(
     c,
     'db',
-    repo.listDocuments(c.env.DB, ownerId, { limit, offset, folderId, query }),
+    repo.listDocuments(c.env.DB, ownerId, { limit, offset, folderId, query, favoriteOnly }),
   );
   return c.json(result);
 });
@@ -202,6 +203,24 @@ documentRoutes.patch('/:id/folder', async (c) => {
     c,
     'db',
     repo.moveDocument(c.env.DB, c.get('user').id, id, folderId),
+  );
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+  return c.json(document);
+});
+
+documentRoutes.patch('/:id/favorite', async (c) => {
+  const id = parseId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as { favorite?: unknown } | null;
+  if (!body || typeof body.favorite !== 'boolean') {
+    return c.json({ error: 'favorite 必须是布尔值' }, 400);
+  }
+
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.setDocumentFavorite(c.env.DB, c.get('user').id, id, body.favorite),
   );
   if (!document) return c.json({ error: '文档不存在' }, 404);
   return c.json(document);

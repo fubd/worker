@@ -1,5 +1,5 @@
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
-export type DocumentView = 'documents' | 'trash';
+export type DocumentView = 'documents' | 'favorites' | 'trash';
 export type FolderScope = 'all' | 'unfiled' | number;
 
 export function formatUpdatedAt(value: string): string {

@@ -13,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Star,
   Trash2,
   X,
 } from 'lucide-react';
@@ -62,6 +63,7 @@ interface WorkspaceSidebarProps {
   onSelect: (id: number) => void;
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
+  onToggleFavorite: (document: DocumentSummary) => void;
 }
 
 function DocumentListSkeleton() {
@@ -110,6 +112,7 @@ export function WorkspaceSidebar({
   onSelect,
   onSignOut,
   onSubmitFolderCreate,
+  onToggleFavorite,
 }: WorkspaceSidebarProps) {
   const linkedProviders = user.linkedProviders;
   const searchRef = useRef<HTMLInputElement>(null);
@@ -117,13 +120,15 @@ export function WorkspaceSidebar({
   const sectionTitle =
     view === 'trash'
       ? '已删除'
-      : hasSearch
-        ? '搜索结果'
-        : folderScope === 'all'
-          ? '最近编辑'
-          : folderScope === 'unfiled'
-            ? '未归档'
-            : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
+      : view === 'favorites'
+        ? '收藏'
+        : hasSearch
+          ? '搜索结果'
+          : folderScope === 'all'
+            ? '最近编辑'
+            : folderScope === 'unfiled'
+              ? '未归档'
+              : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
 
   const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
     const moveTargets = [
@@ -134,6 +139,11 @@ export function WorkspaceSidebar({
     ];
 
     return [
+      {
+        key: 'favorite',
+        label: document.favorite ? '取消收藏' : '收藏',
+        icon: <Star aria-hidden="true" size={15} strokeWidth={1.8} />,
+      },
       ...(moveTargets.length
         ? [
             {
@@ -211,6 +221,14 @@ export function WorkspaceSidebar({
         >
           <FileText aria-hidden="true" size={16} strokeWidth={1.8} />
           <span>全部文档</span>
+        </Link>
+        <Link
+          className={view === 'favorites' ? 'is-selected' : undefined}
+          to="/docs?view=favorites"
+          onClick={onNavigate}
+        >
+          <Star aria-hidden="true" size={16} strokeWidth={1.8} />
+          <span>收藏</span>
         </Link>
         <Link
           className={view === 'trash' ? 'is-selected' : undefined}
@@ -340,7 +358,15 @@ export function WorkspaceSidebar({
           <DocumentListSkeleton />
         ) : documents.length === 0 ? (
           <div className="swan-sidebar-empty">
-            {view === 'trash' ? '回收站是空的' : hasSearch ? '没有匹配的文档' : '这里还没有文档'}
+            {view === 'trash'
+              ? '回收站是空的'
+              : view === 'favorites'
+                ? hasSearch
+                  ? '收藏中没有匹配的文档'
+                  : '还没有收藏文档'
+                : hasSearch
+                  ? '没有匹配的文档'
+                  : '这里还没有文档'}
           </div>
         ) : (
           documents.map((document) =>
@@ -371,6 +397,15 @@ export function WorkspaceSidebar({
                   onClick={() => onSelect(document.id)}
                 >
                   <span className="swan-sidebar-doc-title-row">
+                    {document.favorite && (
+                      <Star
+                        className="swan-sidebar-doc-favorite"
+                        aria-label="已收藏"
+                        size={12}
+                        strokeWidth={1.8}
+                        fill="currentColor"
+                      />
+                    )}
                     <OverflowText text={document.title} className="swan-sidebar-doc-title" />
                     <time>{formatUpdatedAt(document.updatedAt)}</time>
                   </span>
@@ -382,6 +417,10 @@ export function WorkspaceSidebar({
                   menu={{
                     items: getDocumentMenuItems(document),
                     onClick: ({ key }) => {
+                      if (key === 'favorite') {
+                        onToggleFavorite(document);
+                        return;
+                      }
                       if (key === 'delete') {
                         onDeleteDocument(document);
                         return;

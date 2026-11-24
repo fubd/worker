@@ -22,6 +22,7 @@ import {
   Printer,
   Redo2,
   RefreshCw,
+  Star,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -71,11 +72,21 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     title: document.title,
     excerpt: document.contentText.trim().slice(0, 140),
     folderId: document.folderId,
+    favorite: document.favorite,
     version: document.version,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
     deletedAt: document.deletedAt,
   };
+}
+
+function sortDocumentSummaries(items: DocumentSummary[]): DocumentSummary[] {
+  return [...items].sort(
+    (left, right) =>
+      Number(right.favorite) - Number(left.favorite) ||
+      Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
+      right.id - left.id,
+  );
 }
 
 function parseFolderScope(value: string | null): FolderScope {
@@ -254,8 +265,10 @@ function DocsPageContent() {
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const view: DocumentView = searchParams.get('view') === 'trash' ? 'trash' : 'documents';
-  const activeId = view === 'documents' ? parseDocumentId(searchParams.get('id')) : null;
+  const requestedView = searchParams.get('view');
+  const view: DocumentView =
+    requestedView === 'trash' ? 'trash' : requestedView === 'favorites' ? 'favorites' : 'documents';
+  const activeId = view !== 'trash' ? parseDocumentId(searchParams.get('id')) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
@@ -417,14 +430,15 @@ function DocsPageContent() {
         ? api.listTrashDocuments({ signal: controller.signal })
         : api.listDocuments({
             signal: controller.signal,
-            folderId,
+            folderId: view === 'favorites' ? undefined : folderId,
             query: searchQuery,
+            favoriteOnly: view === 'favorites',
           });
 
     request
       .then(({ items }) => {
         setDocuments(items);
-        if (view !== 'documents') return;
+        if (view === 'trash') return;
         if (searchQuery) return;
 
         setSearchParamsRef.current(
@@ -466,7 +480,7 @@ function DocsPageContent() {
         documentModesRef.current.get(activeId) === 'edit');
     setDocumentMode(openInEdit ? 'edit' : 'read');
 
-    if (authUnavailable || view !== 'documents' || !activeId) {
+    if (authUnavailable || view === 'trash' || !activeId) {
       if (authUnavailable) documentModesRef.current.clear();
       activeIdRef.current = null;
       activeDocumentRef.current = null;
@@ -632,7 +646,7 @@ function DocsPageContent() {
 
     activeIdRef.current = id;
     const next = new URLSearchParams(searchParams);
-    next.delete('view');
+    if (view !== 'favorites') next.delete('view');
     next.set('id', String(id));
     setSearchParams(next);
   };
@@ -979,6 +993,28 @@ function DocsPageContent() {
     }
   };
 
+  const toggleFavorite = async (document: Pick<DocumentSummary, 'id' | 'favorite'>) => {
+    try {
+      const updated = await api.setDocumentFavorite(document.id, !document.favorite);
+      if (activeDocumentRef.current?.id === updated.id) {
+        activeDocumentRef.current = updated;
+        setActiveDocument(updated);
+      }
+      setDocuments((items) => {
+        const next = items.filter((item) => item.id !== updated.id);
+        if (updated.favorite || view !== 'favorites') next.push(toSummary(updated));
+        return sortDocumentSummaries(next);
+      });
+      message.success('已更新');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, document.favorite ? '取消收藏失败' : '收藏失败'));
+    }
+  };
+
   const handleTitleChange = useCallback(
     (value: string) => {
       titleRef.current = value;
@@ -1099,6 +1135,7 @@ function DocsPageContent() {
         }}
         onSignOut={() => void signOut()}
         onSubmitFolderCreate={() => void createFolder()}
+        onToggleFavorite={(document) => void toggleFavorite(document)}
       />
 
       {sidebarOpen && (
@@ -1123,7 +1160,7 @@ function DocsPageContent() {
             </button>
             <nav className="swan-editor-breadcrumb" aria-label="当前位置">
               <span className="swan-editor-breadcrumb-root">
-                {view === 'trash' ? '回收站' : '全部文档'}
+                {view === 'trash' ? '回收站' : view === 'favorites' ? '收藏' : '全部文档'}
               </span>
               {view === 'documents' && (
                 <>
@@ -1134,50 +1171,66 @@ function DocsPageContent() {
             </nav>
           </div>
 
-          {view === 'documents' &&
-            activeDocument &&
-            !documentPending &&
-            !reloadingActiveDocument && (
-              <div className="swan-workspace-actions">
-                <SaveStatus state={saveState} updatedAt={activeDocument.updatedAt} />
-                {saveState === 'error' && (
-                  <Button size="small" type="link" onClick={() => void saveDocument()}>
-                    重试
-                  </Button>
-                )}
-                {saveState === 'conflict' && (
-                  <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
-                    重新加载
-                  </Button>
-                )}
-                <Button
-                  className={
-                    documentMode === 'edit'
-                      ? 'swan-document-mode-button is-completing'
-                      : 'swan-document-mode-button'
-                  }
-                  type="text"
-                  onClick={() => (documentMode === 'edit' ? void finishEditing() : enterEditMode())}
-                >
-                  {documentMode === 'edit' ? '完成' : '编辑'}
+          {view !== 'trash' && activeDocument && !documentPending && !reloadingActiveDocument && (
+            <div className="swan-workspace-actions">
+              <SaveStatus state={saveState} updatedAt={activeDocument.updatedAt} />
+              {saveState === 'error' && (
+                <Button size="small" type="link" onClick={() => void saveDocument()}>
+                  重试
                 </Button>
-                <Dropdown
-                  trigger={['click']}
-                  placement="bottomRight"
-                  menu={{
-                    items: documentActionItems,
-                    onClick: ({ key }) => void runDocumentAction(key),
-                  }}
-                >
-                  <Button
-                    className="swan-workspace-more"
-                    type="text"
-                    icon={<MoreVertical aria-hidden="true" size={18} strokeWidth={1.8} />}
-                    aria-label="文档操作"
+              )}
+              {saveState === 'conflict' && (
+                <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
+                  重新加载
+                </Button>
+              )}
+              <Button
+                className={
+                  activeDocument.favorite
+                    ? 'swan-document-favorite-button is-active'
+                    : 'swan-document-favorite-button'
+                }
+                type="text"
+                icon={
+                  <Star
+                    aria-hidden="true"
+                    size={17}
+                    strokeWidth={1.8}
+                    fill={activeDocument.favorite ? 'currentColor' : 'none'}
                   />
-                </Dropdown>
-              </div>
-            )}
+                }
+                aria-label={activeDocument.favorite ? '取消收藏' : '收藏'}
+                aria-pressed={activeDocument.favorite}
+                onClick={() => void toggleFavorite(activeDocument)}
+              />
+              <Button
+                className={
+                  documentMode === 'edit'
+                    ? 'swan-document-mode-button is-completing'
+                    : 'swan-document-mode-button'
+                }
+                type="text"
+                onClick={() => (documentMode === 'edit' ? void finishEditing() : enterEditMode())}
+              >
+                {documentMode === 'edit' ? '完成' : '编辑'}
+              </Button>
+              <Dropdown
+                trigger={['click']}
+                placement="bottomRight"
+                menu={{
+                  items: documentActionItems,
+                  onClick: ({ key }) => void runDocumentAction(key),
+                }}
+              >
+                <Button
+                  className="swan-workspace-more"
+                  type="text"
+                  icon={<MoreVertical aria-hidden="true" size={18} strokeWidth={1.8} />}
+                  aria-label="文档操作"
+                />
+              </Dropdown>
+            </div>
+          )}
         </header>
 
         {(loadError || saveState === 'conflict') && (
@@ -1223,15 +1276,24 @@ function DocsPageContent() {
         ) : !activeDocument ? (
           <div className="swan-workspace-empty">
             <div className="swan-empty-state">
-              <strong>从一张空白纸开始</strong>
-              <span>新建一篇文档，开始让文字飞起来。</span>
-              <Button
-                type="primary"
-                icon={<Plus aria-hidden="true" size={16} strokeWidth={1.8} />}
-                onClick={() => void createDocument()}
-              >
-                新建文档
-              </Button>
+              {view === 'favorites' ? (
+                <>
+                  <strong>还没有收藏</strong>
+                  <span>在文档右上角点击星标，收藏的文档会置顶并集中显示在这里。</span>
+                </>
+              ) : (
+                <>
+                  <strong>从一张空白纸开始</strong>
+                  <span>新建一篇文档，开始让文字飞起来。</span>
+                  <Button
+                    type="primary"
+                    icon={<Plus aria-hidden="true" size={16} strokeWidth={1.8} />}
+                    onClick={() => void createDocument()}
+                  >
+                    新建文档
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -1288,7 +1350,7 @@ function DocsPageContent() {
                 </div>
               </article>
 
-              <aside className="swan-editor-margin is-right" aria-hidden="true" />
+              <DocumentOutline editor={editor} />
             </div>
           </div>
         )}
@@ -1439,6 +1501,80 @@ function EditorCharacterCount({ editor }: { editor: Editor }) {
   });
 
   return count;
+}
+
+function DocumentOutline({ editor }: { editor: Editor }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const headings = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      const items: Array<{ level: number; pos: number; text: string }> = [];
+      currentEditor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== 'heading') return;
+        const level = Number(node.attrs.level);
+        const text = node.textContent.trim();
+        if (level >= 1 && level <= 3 && text) {
+          items.push({ level, pos, text });
+        }
+      });
+      return items;
+    },
+  });
+
+  if (headings.length === 0) {
+    return <aside className="swan-editor-margin is-right" aria-hidden="true" />;
+  }
+
+  const jumpToHeading = (pos: number) => {
+    const node = editor.view.nodeDOM(pos);
+    if (!(node instanceof HTMLElement)) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    node.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    if (editor.isEditable) {
+      editor
+        .chain()
+        .setTextSelection(pos + 1)
+        .focus()
+        .run();
+    }
+  };
+
+  return (
+    <aside className="swan-editor-margin is-right swan-document-outline" aria-label="文档大纲">
+      <div className="swan-document-outline-head">
+        {!collapsed && <span>大纲</span>}
+        <button
+          type="button"
+          aria-label={collapsed ? '展开文档大纲' : '收起文档大纲'}
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          <ChevronRight
+            className={collapsed ? undefined : 'is-expanded'}
+            aria-hidden="true"
+            size={14}
+            strokeWidth={1.8}
+          />
+        </button>
+      </div>
+      {!collapsed && (
+        <nav className="swan-document-outline-list">
+          {headings.map((heading) => (
+            <button
+              type="button"
+              className={`swan-document-outline-item is-h${heading.level}`}
+              key={`${heading.pos}-${heading.text}`}
+              title={heading.text}
+              onClick={() => jumpToHeading(heading.pos)}
+            >
+              {heading.text}
+            </button>
+          ))}
+        </nav>
+      )}
+    </aside>
+  );
 }
 
 function EditorToolbar({ editor }: { editor: Editor }) {

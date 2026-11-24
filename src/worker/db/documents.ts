@@ -2,12 +2,12 @@ import type { DocumentRecord, DocumentRow, DocumentSummary } from '../types';
 
 const LIST_COLUMNS = `
   id, owner_id, title, substr(content_text, 1, 140) AS content_text,
-  folder_id, version, created_at, updated_at, deleted_at
+  folder_id, is_favorite, version, created_at, updated_at, deleted_at
 `;
 
 const FULL_COLUMNS = `
   id, owner_id, title, content_json, content_html, content_text,
-  folder_id, version, created_at, updated_at, deleted_at
+  folder_id, is_favorite, version, created_at, updated_at, deleted_at
 `;
 
 const EMPTY_CONTENT_JSON = JSON.stringify({
@@ -37,6 +37,7 @@ function toSummary(row: DocumentRow): DocumentSummary {
     title: row.title,
     excerpt: row.content_text.trim(),
     folderId: row.folder_id,
+    favorite: row.is_favorite === 1,
     version: row.version,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
@@ -61,6 +62,7 @@ export async function listDocuments(
     offset?: number;
     folderId?: number | null;
     query?: string;
+    favoriteOnly?: boolean;
   } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200);
@@ -73,6 +75,10 @@ export async function listDocuments(
   } else if (typeof options.folderId === 'number') {
     conditions.push('folder_id = ?');
     params.push(options.folderId);
+  }
+
+  if (options.favoriteOnly) {
+    conditions.push('is_favorite = 1');
   }
 
   const query = options.query?.trim();
@@ -88,7 +94,7 @@ export async function listDocuments(
       `SELECT ${LIST_COLUMNS}
        FROM documents
        WHERE ${conditions.join(' AND ')}
-       ORDER BY updated_at DESC, id DESC
+       ORDER BY is_favorite DESC, updated_at DESC, id DESC
        LIMIT ? OFFSET ?`,
     )
     .bind(...params, limit, offset)
@@ -284,6 +290,25 @@ export async function moveDocument(
        RETURNING ${FULL_COLUMNS}`,
     )
     .bind(folderId, id, ownerId)
+    .first<DocumentRow>();
+
+  return row ? toDocument(row) : null;
+}
+
+export async function setDocumentFavorite(
+  db: D1Database,
+  ownerId: number,
+  id: number,
+  favorite: boolean,
+): Promise<DocumentRecord | null> {
+  const row = await db
+    .prepare(
+      `UPDATE documents
+       SET is_favorite = ?
+       WHERE id = ? AND owner_id = ? AND deleted_at IS NULL
+       RETURNING ${FULL_COLUMNS}`,
+    )
+    .bind(favorite ? 1 : 0, id, ownerId)
     .first<DocumentRow>();
 
   return row ? toDocument(row) : null;

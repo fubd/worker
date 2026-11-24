@@ -576,6 +576,12 @@ input {
   gap: 10px;
 }
 
+.swan-sidebar-doc-favorite {
+  flex: 0 0 auto;
+  align-self: center;
+  color: #a17625;
+}
+
 .swan-sidebar-doc-title {
   flex: 1;
   color: #27313c;
@@ -847,6 +853,23 @@ input {
   color: var(--swan-text);
 }
 
+.swan-document-favorite-button.ant-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--swan-text-muted);
+}
+
+.swan-document-favorite-button.ant-btn:hover {
+  background: var(--swan-list-hover);
+  color: #9a7022;
+}
+
+.swan-document-favorite-button.ant-btn.is-active {
+  color: #a17625;
+}
+
 .swan-document-info-list {
   display: grid;
   margin: 22px 0 4px;
@@ -1069,7 +1092,7 @@ input {
 .swan-editor-stage {
   display: grid;
   min-height: 100%;
-  grid-template-columns: 128px minmax(0, 760px) 128px;
+  grid-template-columns: 128px minmax(0, 760px) 172px;
   justify-content: center;
   padding: 82px 24px 90px;
 }
@@ -1099,6 +1122,104 @@ input {
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.1em;
+}
+
+.swan-document-outline {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 104px);
+  align-self: start;
+  padding-right: 8px;
+  overflow: hidden;
+}
+
+.swan-document-outline-head {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  gap: 6px;
+  color: var(--swan-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.swan-document-outline-head > span {
+  flex: 1;
+}
+
+.swan-document-outline-head button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+}
+
+.swan-document-outline-head button:hover {
+  background: var(--swan-list-hover);
+  color: var(--swan-text);
+}
+
+.swan-document-outline-head button svg {
+  transition: transform 0.16s ease;
+}
+
+.swan-document-outline-head button svg.is-expanded {
+  transform: rotate(180deg);
+}
+
+.swan-document-outline:has(.swan-document-outline-head > button:only-child) {
+  align-items: flex-end;
+}
+
+.swan-document-outline-list {
+  display: grid;
+  max-height: calc(100vh - 142px);
+  padding: 4px 0 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
+}
+
+.swan-document-outline-item {
+  width: 100%;
+  padding: 5px 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #66717a;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.45;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.swan-document-outline-item.is-h2 {
+  padding-left: 15px;
+  color: var(--swan-text-muted);
+}
+
+.swan-document-outline-item.is-h3 {
+  padding-left: 23px;
+  color: var(--swan-text-muted);
+}
+
+.swan-document-outline-item:hover,
+.swan-document-outline-item:focus-visible {
+  background: var(--swan-list-hover);
+  color: var(--swan-text);
 }
 
 .swan-editor-page {
@@ -1524,6 +1645,8 @@ input {
 .swan-sidebar-user:focus-visible,
 .swan-workspace-menu-button:focus-visible,
 .swan-workspace-more:focus-visible,
+.swan-document-favorite-button:focus-visible,
+.swan-document-outline button:focus-visible,
 .swan-sidebar-doc:focus-visible {
   outline: 2px solid rgba(47, 111, 232, 0.4);
   outline-offset: 2px;
@@ -1531,7 +1654,7 @@ input {
 
 @media (max-width: 1180px) {
   .swan-editor-stage {
-    grid-template-columns: 104px minmax(0, 760px) 104px;
+    grid-template-columns: 104px minmax(0, 760px) 136px;
     padding-right: 16px;
     padding-left: 16px;
   }

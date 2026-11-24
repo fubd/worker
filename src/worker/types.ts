@@ -33,6 +33,7 @@ export interface DocumentRow {
   content_html: string;
   content_text: string;
   folder_id: number | null;
+  is_favorite: number;
   version: number;
   created_at: string;
   updated_at: string;

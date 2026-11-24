@@ -5,6 +5,7 @@ export interface DocumentSummary {
   title: string;
   excerpt: string;
   folderId: number | null;
+  favorite: boolean;
   version: number;
   createdAt: string;
   updatedAt: string;

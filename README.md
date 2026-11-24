@@ -122,6 +122,7 @@ migrations/0005_multi_provider_auth.sql
 migrations/0006_password_auth.sql
 migrations/0007_username_accounts.sql
 migrations/0008_folders.sql
+migrations/0009_document_favorites.sql
 ```
 
 ## 数据安全
