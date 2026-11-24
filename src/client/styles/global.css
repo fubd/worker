@@ -804,6 +804,36 @@ input {
   gap: 8px;
 }
 
+.swan-document-mode-button.ant-btn {
+  min-width: 52px;
+  height: 30px;
+  padding-inline: 10px;
+  border: 1px solid #dfe3e6;
+  border-radius: 6px;
+  background: #fff;
+  color: #303941;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.swan-document-mode-button.ant-btn:hover {
+  border-color: #cdd3d8;
+  background: #f4f5f5;
+  color: #1f262d;
+}
+
+.swan-document-mode-button.ant-btn.is-completing {
+  border-color: #252c33;
+  background: #252c33;
+  color: #fff;
+}
+
+.swan-document-mode-button.ant-btn.is-completing:hover {
+  border-color: #11171c;
+  background: #11171c;
+  color: #fff;
+}
+
 .swan-workspace-more.ant-btn {
   width: 30px;
   height: 30px;
@@ -1097,6 +1127,17 @@ input {
   letter-spacing: -0.045em;
 }
 
+.swan-doc-title-display {
+  margin: 20px 0 0;
+  color: #20252a;
+  font-family: var(--swan-serif);
+  font-size: clamp(44px, 3.8vw, 56px);
+  font-weight: 600;
+  line-height: 1.13;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+
 .swan-editor-submeta {
   display: flex;
   margin-top: 18px;
@@ -1177,6 +1218,10 @@ input {
   padding: 30px 0 48px;
 }
 
+.swan-editor-page.is-read-mode .swan-tiptap {
+  padding-top: 38px;
+}
+
 .swan-prosemirror {
   min-height: 360px;
   outline: none;
@@ -1185,6 +1230,10 @@ input {
   font-size: 18px;
   line-height: 2.05;
   letter-spacing: 0.002em;
+}
+
+.swan-editor-page.is-read-mode .swan-prosemirror {
+  cursor: default;
 }
 
 .swan-prosemirror > *:first-child {
@@ -1248,6 +1297,10 @@ input {
   height: 0;
   color: #9ba3ab;
   pointer-events: none;
+}
+
+.swan-editor-page.is-read-mode .swan-prosemirror p.is-editor-empty:first-child::before {
+  content: none;
 }
 
 .swan-editor-meta {
@@ -1560,6 +1613,10 @@ input {
     font-size: 40px;
   }
 
+  .swan-doc-title-display {
+    font-size: 40px;
+  }
+
   .swan-editor-submeta {
     flex-wrap: wrap;
     row-gap: 5px;
@@ -1593,11 +1650,22 @@ input {
     padding-inline: 6px;
   }
 
+  .swan-workspace-actions .swan-document-mode-button.ant-btn {
+    width: auto;
+    min-width: 42px;
+    padding-inline: 7px;
+  }
+
   .swan-editor-stage {
     padding: 38px 18px 64px;
   }
 
   .swan-doc-title-input.ant-input {
+    margin-top: 16px;
+    font-size: 36px;
+  }
+
+  .swan-doc-title-display {
     margin-top: 16px;
     font-size: 36px;
   }
@@ -1608,6 +1676,10 @@ input {
 
   .swan-tiptap {
     padding-top: 24px;
+  }
+
+  .swan-editor-page.is-read-mode .swan-tiptap {
+    padding-top: 30px;
   }
 
   .swan-prosemirror {
@@ -1679,6 +1751,12 @@ input {
   .swan-doc-title-input.ant-input {
     margin-top: 0;
     border: 0;
+    color: #111;
+    font-size: 30pt;
+  }
+
+  .swan-doc-title-display {
+    margin-top: 0;
     color: #111;
     font-size: 30pt;
   }

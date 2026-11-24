@@ -85,6 +85,7 @@ function parseFolderScope(value: string | null): FolderScope {
 }
 
 type FolderDialogState = { folder: FolderSummary } | null;
+type DocumentMode = 'read' | 'edit';
 
 function formatLastEditedAt(value: string, now: number): string {
   const date = new Date(value);
@@ -262,6 +263,7 @@ function DocsPageContent() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
+  const [documentMode, setDocumentMode] = useState<DocumentMode>('read');
   const [listLoading, setListLoading] = useState(true);
   const [listRevision, setListRevision] = useState(0);
   const [folderRevision, setFolderRevision] = useState(0);
@@ -292,6 +294,7 @@ function DocsPageContent() {
   const saveTimerRef = useRef<number | null>(null);
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
   const setSearchParamsRef = useRef(setSearchParams);
+  const createdDocumentIdRef = useRef<number | null>(null);
 
   activeIdRef.current = activeId;
   setSearchParamsRef.current = setSearchParams;
@@ -340,6 +343,12 @@ function DocsPageContent() {
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(documentMode === 'edit');
+    editor.view.dom.setAttribute('aria-readonly', String(documentMode !== 'edit'));
+  }, [documentMode, editor]);
 
   useEffect(() => clearSaveTimer, [clearSaveTimer]);
 
@@ -447,6 +456,10 @@ function DocsPageContent() {
   useEffect(() => {
     clearSaveTimer();
     setDocumentInfoOpen(false);
+    if (createdDocumentIdRef.current !== activeId) {
+      createdDocumentIdRef.current = null;
+    }
+    setDocumentMode('read');
 
     if (authUnavailable || view !== 'documents' || !activeId) {
       activeIdRef.current = null;
@@ -461,6 +474,8 @@ function DocsPageContent() {
     }
 
     const controller = new AbortController();
+    const openInEdit = createdDocumentIdRef.current === activeId;
+    if (openInEdit) setDocumentMode('edit');
     setEditorLoading(true);
     setLoadError(null);
 
@@ -475,9 +490,15 @@ function DocsPageContent() {
         savedRevisionRef.current = 0;
         setSaveState('idle');
         editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
+        if (editor && createdDocumentIdRef.current === activeId) {
+          createdDocumentIdRef.current = null;
+        }
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted || activeIdRef.current !== activeId) return;
+        if (createdDocumentIdRef.current === activeId) {
+          createdDocumentIdRef.current = null;
+        }
         if (isUnauthorized(error)) {
           markUnauthenticated();
           return;
@@ -559,6 +580,14 @@ function DocsPageContent() {
 
   saveDocumentRef.current = saveDocument;
 
+  const savePendingChanges = async (): Promise<boolean> => {
+    while (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
+      const saved = await saveDocument();
+      if (!saved) return false;
+    }
+    return true;
+  };
+
   const reloadActiveDocument = async () => {
     if (!activeId) return;
     setEditorLoading(true);
@@ -618,6 +647,7 @@ function DocsPageContent() {
     try {
       const folderId = typeof folderScope === 'number' ? folderScope : null;
       const document = await api.createDocument('无标题文档', folderId);
+      createdDocumentIdRef.current = document.id;
       setDocuments((items) => [toSummary(document), ...items]);
       setFolderRevision((value) => value + 1);
       activeIdRef.current = document.id;
@@ -951,6 +981,28 @@ function DocsPageContent() {
     [markDirty],
   );
 
+  const enterEditMode = () => {
+    if (saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return;
+    }
+    setDocumentMode('edit');
+  };
+
+  const finishEditing = async () => {
+    if (saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return;
+    }
+
+    const saved = await savePendingChanges();
+    if (!saved) {
+      message.error('保存失败，暂时无法退出编辑模式');
+      return;
+    }
+    setDocumentMode('read');
+  };
+
   const documentPending =
     !loadError &&
     (activeId === null
@@ -1086,6 +1138,17 @@ function DocsPageContent() {
                     重新加载
                   </Button>
                 )}
+                <Button
+                  className={
+                    documentMode === 'edit'
+                      ? 'swan-document-mode-button is-completing'
+                      : 'swan-document-mode-button'
+                  }
+                  type="text"
+                  onClick={() => (documentMode === 'edit' ? void finishEditing() : enterEditMode())}
+                >
+                  {documentMode === 'edit' ? '完成' : '编辑'}
+                </Button>
                 <Dropdown
                   trigger={['click']}
                   placement="bottomRight"
@@ -1179,16 +1242,20 @@ function DocsPageContent() {
                 </span>
               </aside>
 
-              <article className="swan-editor-page">
+              <article className={`swan-editor-page is-${documentMode}-mode`}>
                 <span className="swan-editor-kicker">私人笔记 · 写作</span>
                 <DocumentTitleInput
                   key={activeDocument.id}
                   initialValue={activeDocument.title}
+                  mode={documentMode}
                   onChange={handleTitleChange}
                 />
                 <div className="swan-editor-submeta">
-                  <span>更改会自动保存</span>
-                  <span>最近保存 {formatUpdatedAt(activeDocument.updatedAt)}</span>
+                  <span>{documentMode === 'edit' ? '更改会自动保存' : '最近更新'}</span>
+                  <span>
+                    {documentMode === 'edit' ? '最近保存 ' : ''}
+                    {formatUpdatedAt(activeDocument.updatedAt)}
+                  </span>
                   <span className="swan-doc-folder">
                     <Folder aria-hidden="true" size={13} strokeWidth={1.8} />
                     <span className="swan-doc-folder-value">
@@ -1197,7 +1264,7 @@ function DocsPageContent() {
                   </span>
                 </div>
 
-                <EditorToolbar editor={editor} />
+                {documentMode === 'edit' && <EditorToolbar editor={editor} />}
                 <div className="swan-tiptap">
                   <EditorContent editor={editor} />
                 </div>
@@ -1321,12 +1388,18 @@ function SaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: string 
 
 function DocumentTitleInput({
   initialValue,
+  mode,
   onChange,
 }: {
   initialValue: string;
+  mode: DocumentMode;
   onChange: (value: string) => void;
 }) {
   const [value, setValue] = useState(initialValue);
+
+  if (mode === 'read') {
+    return <h1 className="swan-doc-title-display">{value.trim() || '无标题文档'}</h1>;
+  }
 
   return (
     <Input.TextArea
