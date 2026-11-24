@@ -765,6 +765,11 @@ function DocsPageContent() {
     activeDocument?.folderId == null
       ? '未归档'
       : (folders.find((folder) => folder.id === activeDocument.folderId)?.name ?? '文件夹');
+  const documentPending =
+    !loadError &&
+    (activeId === null
+      ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
+      : activeDocument?.id !== activeId);
 
   return (
     <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
@@ -906,7 +911,7 @@ function DocsPageContent() {
               <span>恢复后会重新出现在全部文档中。</span>
             </div>
           </div>
-        ) : editorLoading || !editor ? (
+        ) : editorLoading || !editor || documentPending ? (
           <div className="swan-workspace-empty">
             <Spin />
           </div>
