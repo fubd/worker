@@ -346,7 +346,7 @@ function DocsPageContent() {
 
   useEffect(() => {
     if (!editor) return;
-    editor.setEditable(documentMode === 'edit');
+    editor.setEditable(documentMode === 'edit', false);
     editor.view.dom.setAttribute('aria-readonly', String(documentMode !== 'edit'));
   }, [documentMode, editor]);
 
