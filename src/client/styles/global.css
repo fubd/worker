@@ -1127,10 +1127,13 @@ input {
 .swan-document-outline {
   position: sticky;
   top: 12px;
+  width: 100%;
+  min-width: 0;
   max-height: calc(100vh - 104px);
   align-self: start;
   padding-right: 8px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .swan-document-outline-head {
@@ -1181,16 +1184,26 @@ input {
 }
 
 .swan-document-outline-list {
-  display: grid;
+  display: flex;
+  width: 100%;
+  min-width: 0;
   max-height: calc(100vh - 142px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
   padding: 4px 0 12px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
 }
 
 .swan-document-outline-item {
+  display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 0 auto;
   padding: 5px 7px;
   overflow: hidden;
   border: 0;
@@ -1203,6 +1216,8 @@ input {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  word-break: normal;
+  box-sizing: border-box;
   cursor: pointer;
 }
 
