@@ -51,7 +51,7 @@ import {
   type SaveState,
 } from '../workspace-utils';
 import { BRAND } from '@/shared/brand';
-import { isDocumentId, isFolderId, type DocumentId, type FolderId } from '@/shared/ids';
+import { isPublicId, type PublicId } from '@/shared/ids';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '@/shared/limits';
 import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
 
@@ -62,8 +62,8 @@ const EMPTY_CONTENT: JSONContent = {
 
 const FolderDialog = lazy(() => import('../components/FolderDialog'));
 
-function parseDocumentId(value: string | null | undefined): DocumentId | null {
-  return isDocumentId(value) ? value : null;
+function parsePublicId(value: string | null | undefined): PublicId | null {
+  return isPublicId(value) ? value : null;
 }
 
 function toSummary(document: DocumentRecord): DocumentSummary {
@@ -91,10 +91,10 @@ function sortDocumentSummaries(items: DocumentSummary[]): DocumentSummary[] {
 
 function parseFolderScope(value: string | null): FolderScope {
   if (value === 'unfiled') return 'unfiled';
-  return isFolderId(value) ? value : 'all';
+  return isPublicId(value) ? value : 'all';
 }
 
-function docsRoute(id: DocumentId | null, search: URLSearchParams) {
+function docsRoute(id: PublicId | null, search: URLSearchParams) {
   const query = search.toString();
   return {
     pathname: id ? `/docs/${id}` : '/docs',
@@ -277,7 +277,7 @@ function DocsPageContent() {
   const requestedView = searchParams.get('view');
   const view: DocumentView =
     requestedView === 'trash' ? 'trash' : requestedView === 'favorites' ? 'favorites' : 'documents';
-  const activeId = view !== 'trash' ? parseDocumentId(documentId) : null;
+  const activeId = view !== 'trash' ? parsePublicId(documentId) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
@@ -292,9 +292,9 @@ function DocsPageContent() {
   const [editorLoading, setEditorLoading] = useState(false);
   const [showDocumentLoading, setShowDocumentLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [deletingDocumentId, setDeletingDocumentId] = useState<DocumentId | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<PublicId | null>(null);
   const [moving, setMoving] = useState(false);
-  const [restoringId, setRestoringId] = useState<DocumentId | null>(null);
+  const [restoringId, setRestoringId] = useState<PublicId | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -307,7 +307,7 @@ function DocsPageContent() {
   const [documentInfoOpen, setDocumentInfoOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
-  const activeIdRef = useRef<DocumentId | null>(activeId);
+  const activeIdRef = useRef<PublicId | null>(activeId);
   const editorRef = useRef<Editor | null>(null);
   const titleRef = useRef('');
   const revisionRef = useRef(0);
@@ -316,8 +316,8 @@ function DocsPageContent() {
   const saveTimerRef = useRef<number | null>(null);
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
   const navigateRef = useRef(navigate);
-  const createdDocumentIdRef = useRef<DocumentId | null>(null);
-  const documentModesRef = useRef(new Map<DocumentId, DocumentMode>());
+  const createdDocumentIdRef = useRef<PublicId | null>(null);
+  const documentModesRef = useRef(new Map<PublicId, DocumentMode>());
 
   activeIdRef.current = activeId;
   navigateRef.current = navigate;
@@ -636,7 +636,7 @@ function DocsPageContent() {
     }
   };
 
-  const selectDocument = async (id: DocumentId) => {
+  const selectDocument = async (id: PublicId) => {
     if (id === activeId) return;
     if (saveState === 'conflict') {
       message.error('请先处理当前文档的保存冲突');
@@ -669,7 +669,7 @@ function DocsPageContent() {
 
     setCreating(true);
     try {
-      const folderId = isFolderId(folderScope) ? folderScope : null;
+      const folderId = folderScope === 'all' || folderScope === 'unfiled' ? null : folderScope;
       const document = await api.createDocument('无标题文档', folderId);
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
@@ -967,7 +967,7 @@ function DocsPageContent() {
 
   const moveDocument = async (
     document: Pick<DocumentSummary, 'id' | 'folderId'>,
-    folderId: FolderId | null,
+    folderId: PublicId | null,
   ) => {
     if (moving || document.folderId === folderId) return;
 
@@ -1072,9 +1072,10 @@ function DocsPageContent() {
   if (status === 'loading') return <HydrateFallback />;
   if (status === 'unauthenticated' || !user) return <Navigate to="/login" replace />;
 
-  const selectedFolder = isFolderId(folderScope)
-    ? folders.find((folder) => folder.id === folderScope)
-    : undefined;
+  const selectedFolder =
+    folderScope === 'all' || folderScope === 'unfiled'
+      ? undefined
+      : folders.find((folder) => folder.id === folderScope);
   const breadcrumbFolder = searchQuery
     ? `搜索：${searchQuery}`
     : (selectedFolder?.name ?? (folderScope === 'unfiled' ? '未归档' : '私人笔记'));

@@ -1,12 +1,12 @@
 /** 前后端共享的类型定义 */
 
-import type { DocumentId, FolderId } from './ids';
+import type { PublicId } from './ids';
 
 export interface DocumentSummary {
-  id: DocumentId;
+  id: PublicId;
   title: string;
   excerpt: string;
-  folderId: FolderId | null;
+  folderId: PublicId | null;
   favorite: boolean;
   version: number;
   createdAt: string;
@@ -25,7 +25,7 @@ export interface DocumentListResponse {
 }
 
 export interface FolderSummary {
-  id: FolderId;
+  id: PublicId;
   name: string;
   documentCount: number;
   createdAt: string;

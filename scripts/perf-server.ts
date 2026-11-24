@@ -21,7 +21,7 @@ const MIME: Record<string, string> = {
 
 const DOCUMENTS = [
   {
-    id: 'd_PerformanceFixture01',
+    id: 'PerformanceFixture000001',
     title: '雨燕编辑器验证',
     excerpt: '这是用于性能审计的文档快照。',
     folderId: null,
@@ -65,7 +65,7 @@ const server = Bun.serve({
     if (url.pathname === '/api/documents/trash') {
       return Response.json({ items: [] }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    if (url.pathname === '/api/documents/d_PerformanceFixture01') {
+    if (url.pathname === '/api/documents/PerformanceFixture000001') {
       return Response.json(
         {
           ...DOCUMENTS[0],

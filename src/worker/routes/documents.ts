@@ -4,13 +4,14 @@ import * as repo from '../db/documents';
 import { folderExists } from '../db/folders';
 import { requireAuth } from '../auth/session';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
-import { isDocumentId, isFolderId, type DocumentId, type FolderId } from '../../shared/ids';
+import { isPublicId, type PublicId } from '../../shared/ids';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
 
 const MAX_CONTENT_LENGTH = 1_000_000;
 const MAX_SEARCH_LENGTH = 100;
+const INVALID_PUBLIC_ID = Symbol('invalid-public-id');
 
 documentRoutes.use('*', requireAuth);
 
@@ -22,19 +23,21 @@ function normalizeTitle(value: unknown, fallback = ''): string | null {
   return title;
 }
 
-function parseDocumentId(value: string): DocumentId | null {
-  return isDocumentId(value) ? value : null;
+function parsePublicId(value: string): PublicId | null {
+  return isPublicId(value) ? value : null;
 }
 
-function parseFolderFilter(value: string | undefined): FolderId | null | undefined | 'invalid' {
+function parseFolderFilter(
+  value: string | undefined,
+): PublicId | null | undefined | typeof INVALID_PUBLIC_ID {
   if (value === undefined || value === '') return undefined;
   if (value === 'unfiled') return null;
-  return isFolderId(value) ? value : 'invalid';
+  return isPublicId(value) ? value : INVALID_PUBLIC_ID;
 }
 
-function parseOptionalFolderId(value: unknown): FolderId | null | 'invalid' {
+function parseOptionalFolderId(value: unknown): PublicId | null | typeof INVALID_PUBLIC_ID {
   if (value === null || value === undefined) return null;
-  return isFolderId(value) ? value : 'invalid';
+  return isPublicId(value) ? value : INVALID_PUBLIC_ID;
 }
 
 function normalizeContent(value: unknown): Record<string, unknown> | null {
@@ -51,7 +54,7 @@ documentRoutes.get('/', async (c) => {
   const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 200);
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0);
   const folderId = parseFolderFilter(c.req.query('folder'));
-  if (folderId === 'invalid') return c.json({ error: 'folder 非法' }, 400);
+  if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folder 非法' }, 400);
   const query = (c.req.query('q') ?? '').trim();
   if (query.length > MAX_SEARCH_LENGTH) {
     return c.json({ error: `搜索词不能超过 ${MAX_SEARCH_LENGTH} 个字符` }, 400);
@@ -79,7 +82,7 @@ documentRoutes.get('/trash', async (c) => {
 });
 
 documentRoutes.get('/:id', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, id));
@@ -97,7 +100,7 @@ documentRoutes.post('/', async (c) => {
     return c.json({ error: `title 长度需在 1~${DOCUMENT_TITLE_MAX_LENGTH} 之间` }, 400);
   }
   const folderId = parseOptionalFolderId(body.folderId);
-  if (folderId === 'invalid') return c.json({ error: 'folderId 非法' }, 400);
+  if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
     return c.json({ error: '文件夹不存在' }, 404);
   }
@@ -111,7 +114,7 @@ documentRoutes.post('/', async (c) => {
 });
 
 documentRoutes.patch('/:id', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as {
@@ -175,7 +178,7 @@ documentRoutes.patch('/:id', async (c) => {
 });
 
 documentRoutes.delete('/:id', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const ok = await wrapTime(c, 'db', repo.deleteDocument(c.env.DB, c.get('user').id, id));
@@ -184,7 +187,7 @@ documentRoutes.delete('/:id', async (c) => {
 });
 
 documentRoutes.patch('/:id/folder', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as { folderId?: unknown } | null;
@@ -192,7 +195,7 @@ documentRoutes.patch('/:id/folder', async (c) => {
     return c.json({ error: '请求体必须包含 folderId' }, 400);
   }
   const folderId = parseOptionalFolderId(body.folderId);
-  if (folderId === 'invalid') return c.json({ error: 'folderId 非法' }, 400);
+  if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
     return c.json({ error: '文件夹不存在' }, 404);
   }
@@ -207,7 +210,7 @@ documentRoutes.patch('/:id/folder', async (c) => {
 });
 
 documentRoutes.patch('/:id/favorite', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const body = (await c.req.json().catch(() => null)) as { favorite?: unknown } | null;
@@ -225,7 +228,7 @@ documentRoutes.patch('/:id/favorite', async (c) => {
 });
 
 documentRoutes.post('/:id/restore', async (c) => {
-  const id = parseDocumentId(c.req.param('id'));
+  const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const document = await wrapTime(c, 'db', repo.restoreDocument(c.env.DB, c.get('user').id, id));

@@ -123,6 +123,8 @@ migrations/0006_password_auth.sql
 migrations/0007_username_accounts.sql
 migrations/0008_folders.sql
 migrations/0009_document_favorites.sql
+migrations/0010_public_resource_ids.sql
+migrations/0011_opaque_public_ids.sql
 ```
 
 ## 数据安全
@@ -138,7 +140,7 @@ migrations/0009_document_favorites.sql
 - 密码凭证按 `user_id` 绑定到现有账号，三种登录方式签发相同结构的服务端会话。
 - 修改已有密码时必须验证当前密码，成功后撤销该账号的其他会话。
 - 密码登录失败按客户端 IP 和账号双重限流，错误响应不会暴露账号是否存在。
-- 文档的读取、更新、删除和恢复都同时匹配公开 ID、`owner_id` 和软删除状态；公开 ID 使用 `d_...` / `f_...`，内部整数主键不对外暴露。
+- 文档的读取、更新、删除和恢复都同时匹配公开 ID、`owner_id` 和软删除状态；文档与文件夹共用 24 位不透明公开 ID，内部整数主键不对外暴露。
 - 文件夹的创建、改名、删除和文档移动都按 `owner_id` 隔离。
 - 删除文件夹只把文档移回“未归档”，不会删除文档。
 - 自动保存使用 `version` 条件更新，版本不一致返回 `409`。

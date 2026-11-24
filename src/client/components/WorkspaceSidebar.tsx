@@ -20,7 +20,7 @@ import {
 import { Link } from 'react-router';
 
 import { BRAND } from '@/shared/brand';
-import { isFolderId, type DocumentId, type FolderId } from '@/shared/ids';
+import { isPublicId, type PublicId } from '@/shared/ids';
 import type { AuthUser, DocumentSummary, FolderSummary } from '@/shared/types';
 import { BrandMark } from './BrandMark';
 import { OverflowText } from './OverflowText';
@@ -32,10 +32,10 @@ import {
 } from '../workspace-utils';
 
 interface WorkspaceSidebarProps {
-  activeId: DocumentId | null;
+  activeId: PublicId | null;
   creating: boolean;
   creatingFolder: boolean;
-  deletingDocumentId: DocumentId | null;
+  deletingDocumentId: PublicId | null;
   documents: DocumentSummary[];
   folderDraft: string;
   folderScope: FolderScope;
@@ -43,7 +43,7 @@ interface WorkspaceSidebarProps {
   folders: FolderSummary[];
   isOpen: boolean;
   listLoading: boolean;
-  restoringId: DocumentId | null;
+  restoringId: PublicId | null;
   saveState: SaveState;
   searchValue: string;
   user: AuthUser;
@@ -56,12 +56,12 @@ interface WorkspaceSidebarProps {
   onEditFolder: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
-  onMoveDocument: (document: DocumentSummary, folderId: FolderId | null) => void;
+  onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
   onRestore: (document: DocumentSummary) => void;
   onSearchChange: (value: string) => void;
-  onSelect: (id: DocumentId) => void;
+  onSelect: (id: PublicId) => void;
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
@@ -430,7 +430,7 @@ export function WorkspaceSidebar({
                       const target = key.slice('move:'.length);
                       if (target === 'none') {
                         onMoveDocument(document, null);
-                      } else if (isFolderId(target)) {
+                      } else if (isPublicId(target)) {
                         onMoveDocument(document, target);
                       }
                     },

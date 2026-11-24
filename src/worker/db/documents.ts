@@ -1,6 +1,6 @@
 import type { DocumentRecord, DocumentRow, DocumentSummary } from '../types';
-import type { DocumentId, FolderId } from '../../shared/ids';
-import { createDocumentId } from './public-ids';
+import type { PublicId } from '../../shared/ids';
+import { createPublicId } from './public-ids';
 
 const LIST_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, substr(d.content_text, 1, 140) AS content_text,
@@ -64,7 +64,7 @@ export async function listDocuments(
   options: {
     limit?: number;
     offset?: number;
-    folderId?: FolderId | null;
+    folderId?: PublicId | null;
     query?: string;
     favoriteOnly?: boolean;
   } = {},
@@ -142,7 +142,7 @@ export async function listDeletedDocuments(
 export async function getDocument(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
+  id: PublicId,
 ): Promise<DocumentRecord | null> {
   const row = await db
     .prepare(
@@ -163,9 +163,9 @@ export async function createDocument(
   db: D1Database,
   ownerId: number,
   title: string,
-  folderId: FolderId | null = null,
+  folderId: PublicId | null = null,
 ): Promise<DocumentRecord> {
-  const publicId = createDocumentId();
+  const publicId = createPublicId();
   await db
     .prepare(
       `INSERT INTO documents (
@@ -203,7 +203,7 @@ export type UpdateDocumentResult =
 export async function updateDocument(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
+  id: PublicId,
   expectedVersion: number,
   input: UpdateDocumentInput,
 ): Promise<UpdateDocumentResult> {
@@ -243,7 +243,7 @@ export async function updateDocument(
        RETURNING public_id`,
     )
     .bind(...params, id, ownerId, expectedVersion)
-    .first<{ public_id: DocumentId }>();
+    .first<{ public_id: PublicId }>();
 
   if (updated) {
     const document = await getDocument(db, ownerId, updated.public_id);
@@ -265,7 +265,7 @@ export async function updateDocument(
 export async function deleteDocument(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
+  id: PublicId,
 ): Promise<boolean> {
   const result = await db
     .prepare(
@@ -284,7 +284,7 @@ export async function deleteDocument(
 export async function restoreDocument(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
+  id: PublicId,
 ): Promise<DocumentRecord | null> {
   const restored = await db
     .prepare(
@@ -296,7 +296,7 @@ export async function restoreDocument(
        RETURNING public_id`,
     )
     .bind(id, ownerId)
-    .first<{ public_id: DocumentId }>();
+    .first<{ public_id: PublicId }>();
 
   return restored ? getDocument(db, ownerId, restored.public_id) : null;
 }
@@ -304,8 +304,8 @@ export async function restoreDocument(
 export async function moveDocument(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
-  folderId: FolderId | null,
+  id: PublicId,
+  folderId: PublicId | null,
 ): Promise<DocumentRecord | null> {
   const moved = await db
     .prepare(
@@ -317,7 +317,7 @@ export async function moveDocument(
        RETURNING public_id`,
     )
     .bind(ownerId, folderId, id, ownerId)
-    .first<{ public_id: DocumentId }>();
+    .first<{ public_id: PublicId }>();
 
   return moved ? getDocument(db, ownerId, moved.public_id) : null;
 }
@@ -325,7 +325,7 @@ export async function moveDocument(
 export async function setDocumentFavorite(
   db: D1Database,
   ownerId: number,
-  id: DocumentId,
+  id: PublicId,
   favorite: boolean,
 ): Promise<DocumentRecord | null> {
   const updated = await db
@@ -336,7 +336,7 @@ export async function setDocumentFavorite(
        RETURNING public_id`,
     )
     .bind(favorite ? 1 : 0, id, ownerId)
-    .first<{ public_id: DocumentId }>();
+    .first<{ public_id: PublicId }>();
 
   return updated ? getDocument(db, ownerId, updated.public_id) : null;
 }

@@ -1,6 +1,6 @@
 import type { FolderRow, FolderSummary } from '../types';
-import type { FolderId } from '../../shared/ids';
-import { createFolderId } from './public-ids';
+import type { PublicId } from '../../shared/ids';
+import { createPublicId } from './public-ids';
 
 function toIso(value: string): string {
   if (value.includes('T')) return value;
@@ -46,7 +46,7 @@ export async function listFolders(db: D1Database, ownerId: number) {
 export async function folderExists(
   db: D1Database,
   ownerId: number,
-  folderId: FolderId,
+  folderId: PublicId,
 ): Promise<boolean> {
   const row = await db
     .prepare('SELECT 1 AS found FROM folders WHERE public_id = ? AND owner_id = ?')
@@ -60,7 +60,7 @@ export async function createFolder(
   ownerId: number,
   name: string,
 ): Promise<FolderSummary | null> {
-  const publicId = createFolderId();
+  const publicId = createPublicId();
   const row = await db
     .prepare(
       `INSERT INTO folders (public_id, owner_id, name)
@@ -80,7 +80,7 @@ export type RenameFolderResult =
 export async function renameFolder(
   db: D1Database,
   ownerId: number,
-  id: FolderId,
+  id: PublicId,
   name: string,
 ): Promise<RenameFolderResult> {
   const row = await db
@@ -118,7 +118,7 @@ export async function renameFolder(
 export async function deleteFolder(
   db: D1Database,
   ownerId: number,
-  id: FolderId,
+  id: PublicId,
 ): Promise<boolean> {
   const [movedDocuments, deletedFolder] = await db.batch([
     db
