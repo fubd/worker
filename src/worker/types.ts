@@ -36,6 +36,8 @@ export interface DocumentRow {
   folder_id: number | null;
   folder_public_id: import('../shared/ids').PublicId | null;
   is_favorite: number;
+  is_pinned: number;
+  last_viewed_at: string | null;
   share_id: import('../shared/ids').PublicId | null;
   shared_at: string | null;
   version: number;

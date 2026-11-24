@@ -6,14 +6,14 @@ import { captureVersion, captureVersionIfDue, getDocumentVersion } from './docum
 const LIST_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, substr(d.content_text, 1, 140) AS content_text,
   d.folder_id, f.public_id AS folder_public_id,
-  d.is_favorite, d.share_id, d.shared_at,
+  d.is_favorite, d.is_pinned, d.last_viewed_at, d.share_id, d.shared_at,
   d.version, d.created_at, d.updated_at, d.deleted_at
 `;
 
 const FULL_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, d.content_json, d.content_html, d.content_text,
   d.folder_id, f.public_id AS folder_public_id,
-  d.is_favorite, d.share_id, d.shared_at,
+  d.is_favorite, d.is_pinned, d.last_viewed_at, d.share_id, d.shared_at,
   d.version, d.created_at, d.updated_at, d.deleted_at
 `;
 
@@ -57,6 +57,8 @@ function toSummary(row: DocumentRow): DocumentSummary {
     excerpt: row.content_text.trim(),
     folderId: row.folder_public_id,
     favorite: row.is_favorite === 1,
+    pinned: row.is_pinned === 1,
+    lastViewedAt: row.last_viewed_at ? toIso(row.last_viewed_at) : null,
     shareId: row.share_id,
     sharedAt: row.shared_at ? toIso(row.shared_at) : null,
     version: row.version,
@@ -101,6 +103,7 @@ export async function listDocuments(
     folderId?: PublicId | null;
     query?: string;
     favoriteOnly?: boolean;
+    recentOnly?: boolean;
   } = {},
 ) {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 200);
@@ -122,6 +125,9 @@ export async function listDocuments(
   if (options.favoriteOnly) {
     conditions.push('d.is_favorite = 1');
   }
+  if (options.recentOnly) {
+    conditions.push('d.last_viewed_at IS NOT NULL');
+  }
 
   const query = options.query?.trim();
   if (query) {
@@ -139,7 +145,11 @@ export async function listDocuments(
          ON f.id = d.folder_id
         AND f.owner_id = d.owner_id
        WHERE ${conditions.join(' AND ')}
-       ORDER BY d.is_favorite DESC, d.updated_at DESC, d.id DESC
+       ORDER BY
+         d.is_pinned DESC,
+         d.is_favorite DESC,
+         COALESCE(d.last_viewed_at, d.updated_at) DESC,
+         d.id DESC
        LIMIT ? OFFSET ?`,
     )
     .bind(...params, limit, offset)
@@ -191,6 +201,21 @@ export async function getDocument(
     .first<DocumentRow>();
 
   return row ? toDocument(row) : null;
+}
+
+export async function touchDocumentViewed(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE documents
+       SET last_viewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(id, ownerId)
+    .run();
 }
 
 export async function createDocument(
@@ -271,6 +296,25 @@ export async function setDocumentSharing(
        RETURNING public_id`,
     )
     .bind(shared ? 1 : 0, shareId, shared ? 1 : 0, id, ownerId)
+    .first<{ public_id: PublicId }>();
+
+  return updated ? getDocument(db, ownerId, updated.public_id) : null;
+}
+
+export async function setDocumentPinned(
+  db: D1Database,
+  ownerId: number,
+  id: PublicId,
+  pinned: boolean,
+): Promise<DocumentRecord | null> {
+  const updated = await db
+    .prepare(
+      `UPDATE documents
+       SET is_pinned = ?
+       WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL
+       RETURNING public_id`,
+    )
+    .bind(pinned ? 1 : 0, id, ownerId)
     .first<{ public_id: PublicId }>();
 
   return updated ? getDocument(db, ownerId, updated.public_id) : null;

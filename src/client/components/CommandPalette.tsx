@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Modal } from 'antd';
 import { Command } from 'cmdk';
-import { FilePlus2, FileText, Folder, LoaderCircle, Search, Star, Trash2 } from 'lucide-react';
+import {
+  Clock3,
+  FilePlus2,
+  FileText,
+  Folder,
+  LoaderCircle,
+  Search,
+  Star,
+  Trash2,
+} from 'lucide-react';
 
 import type { PublicId } from '@/shared/ids';
 import type { DocumentSummary, FolderSummary } from '@/shared/types';
@@ -79,6 +88,7 @@ export function CommandPalette({
   );
   const navigationItems = [
     { value: 'navigate-all', label: '全部文档', path: '/docs', icon: FileText },
+    { value: 'navigate-recent', label: '最近浏览', path: '/docs?view=recent', icon: Clock3 },
     { value: 'navigate-favorites', label: '收藏', path: '/docs?view=favorites', icon: Star },
     { value: 'navigate-trash', label: '回收站', path: '/docs?view=trash', icon: Trash2 },
   ].filter((item) => matches(item.label));

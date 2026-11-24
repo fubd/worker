@@ -94,6 +94,7 @@ export const api = {
       folderId?: PublicId | null;
       query?: string;
       favoriteOnly?: boolean;
+      recentOnly?: boolean;
     } = {},
   ) => {
     const params = new URLSearchParams();
@@ -101,6 +102,7 @@ export const api = {
     if (options.folderId) params.set('folder', options.folderId);
     if (options.query?.trim()) params.set('q', options.query.trim());
     if (options.favoriteOnly) params.set('favorite', '1');
+    if (options.recentOnly) params.set('recent', '1');
     const search = params.size > 0 ? `?${params}` : '';
     return request<DocumentListResponse>(`/documents${search}`, {
       cache: 'no-store',
@@ -172,6 +174,12 @@ export const api = {
     request<DocumentRecord>(`/documents/${id}/share`, {
       method: 'PATCH',
       body: JSON.stringify({ shared }),
+    }),
+
+  setDocumentPinned: (id: PublicId, pinned: boolean) =>
+    request<DocumentRecord>(`/documents/${id}/pin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pinned }),
     }),
 
   getSharedDocument: (shareId: PublicId, options: { signal?: AbortSignal } = {}) =>

@@ -8,6 +8,8 @@ export interface DocumentSummary {
   excerpt: string;
   folderId: PublicId | null;
   favorite: boolean;
+  pinned: boolean;
+  lastViewedAt: string | null;
   shareId: PublicId | null;
   sharedAt: string | null;
   version: number;

@@ -2,6 +2,7 @@ import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
   Check,
   ChevronDown,
+  Clock3,
   FileText,
   Folder,
   FolderPlus,
@@ -9,6 +10,7 @@ import {
   LockKeyhole,
   LogOut,
   MoreHorizontal,
+  Pin,
   Plus,
   RotateCcw,
   Search,
@@ -64,6 +66,7 @@ interface WorkspaceSidebarProps {
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
+  onTogglePinned: (document: DocumentSummary) => void;
 }
 
 function DocumentListSkeleton() {
@@ -113,6 +116,7 @@ export function WorkspaceSidebar({
   onSignOut,
   onSubmitFolderCreate,
   onToggleFavorite,
+  onTogglePinned,
 }: WorkspaceSidebarProps) {
   const linkedProviders = user.linkedProviders;
   const hasSearch = searchValue.trim().length > 0;
@@ -121,13 +125,15 @@ export function WorkspaceSidebar({
       ? '已删除'
       : view === 'favorites'
         ? '收藏'
-        : hasSearch
-          ? '搜索结果'
-          : folderScope === 'all'
-            ? '最近编辑'
-            : folderScope === 'unfiled'
-              ? '未归档'
-              : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
+        : view === 'recent'
+          ? '最近浏览'
+          : hasSearch
+            ? '搜索结果'
+            : folderScope === 'all'
+              ? '最近编辑'
+              : folderScope === 'unfiled'
+                ? '未归档'
+                : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
 
   const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
     const moveTargets = [
@@ -138,6 +144,18 @@ export function WorkspaceSidebar({
     ];
 
     return [
+      {
+        key: 'pin',
+        label: document.pinned ? '取消置顶' : '置顶文档',
+        icon: (
+          <Pin
+            aria-hidden="true"
+            size={15}
+            strokeWidth={1.8}
+            fill={document.pinned ? 'currentColor' : 'none'}
+          />
+        ),
+      },
       {
         key: 'favorite',
         label: document.favorite ? '取消收藏' : '收藏',
@@ -207,6 +225,14 @@ export function WorkspaceSidebar({
         >
           <FileText aria-hidden="true" size={16} strokeWidth={1.8} />
           <span>全部文档</span>
+        </Link>
+        <Link
+          className={view === 'recent' ? 'is-selected' : undefined}
+          to="/docs?view=recent"
+          onClick={onNavigate}
+        >
+          <Clock3 aria-hidden="true" size={16} strokeWidth={1.8} />
+          <span>最近浏览</span>
         </Link>
         <Link
           className={view === 'favorites' ? 'is-selected' : undefined}
@@ -350,9 +376,13 @@ export function WorkspaceSidebar({
                 ? hasSearch
                   ? '收藏中没有匹配的文档'
                   : '还没有收藏文档'
-                : hasSearch
-                  ? '没有匹配的文档'
-                  : '这里还没有文档'}
+                : view === 'recent'
+                  ? hasSearch
+                    ? '最近浏览中没有匹配的文档'
+                    : '还没有浏览记录'
+                  : hasSearch
+                    ? '没有匹配的文档'
+                    : '这里还没有文档'}
           </div>
         ) : (
           documents.map((document) =>
@@ -392,6 +422,15 @@ export function WorkspaceSidebar({
                         fill="currentColor"
                       />
                     )}
+                    {document.pinned && (
+                      <Pin
+                        className="swan-sidebar-doc-pinned"
+                        aria-label="已置顶"
+                        size={11}
+                        strokeWidth={1.8}
+                        fill="currentColor"
+                      />
+                    )}
                     <OverflowText text={document.title} className="swan-sidebar-doc-title" />
                     <time>{formatUpdatedAt(document.updatedAt)}</time>
                   </span>
@@ -403,6 +442,10 @@ export function WorkspaceSidebar({
                   menu={{
                     items: getDocumentMenuItems(document),
                     onClick: ({ key }) => {
+                      if (key === 'pin') {
+                        onTogglePinned(document);
+                        return;
+                      }
                       if (key === 'favorite') {
                         onToggleFavorite(document);
                         return;

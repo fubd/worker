@@ -1,7 +1,7 @@
 import type { PublicId } from '@/shared/ids';
 
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
-export type DocumentView = 'documents' | 'favorites' | 'trash';
+export type DocumentView = 'documents' | 'recent' | 'favorites' | 'trash';
 export type FolderScope = 'all' | 'unfiled' | PublicId;
 
 export function formatUpdatedAt(value: string): string {

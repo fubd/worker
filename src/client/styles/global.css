@@ -582,6 +582,12 @@ input {
   color: #a17625;
 }
 
+.swan-sidebar-doc-pinned {
+  flex: 0 0 auto;
+  align-self: center;
+  color: #4c6f9d;
+}
+
 .swan-sidebar-doc-title {
   flex: 1;
   color: #27313c;
@@ -868,6 +874,23 @@ input {
 
 .swan-document-favorite-button.ant-btn.is-active {
   color: #a17625;
+}
+
+.swan-document-pin-button.ant-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--swan-text-muted);
+}
+
+.swan-document-pin-button.ant-btn:hover {
+  background: var(--swan-list-hover);
+  color: #4c6f9d;
+}
+
+.swan-document-pin-button.ant-btn.is-active {
+  color: #3e6594;
 }
 
 .swan-document-info-list {
@@ -1962,6 +1985,7 @@ input {
 .swan-workspace-menu-button:focus-visible,
 .swan-workspace-more:focus-visible,
 .swan-document-favorite-button:focus-visible,
+.swan-document-pin-button:focus-visible,
 .swan-document-outline button:focus-visible,
 .swan-sidebar-doc:focus-visible {
   outline: 2px solid rgba(47, 111, 232, 0.4);

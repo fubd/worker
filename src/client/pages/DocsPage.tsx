@@ -20,6 +20,7 @@ import {
   LoaderCircle,
   Menu,
   MoreVertical,
+  Pin,
   Plus,
   Printer,
   Redo2,
@@ -88,6 +89,8 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     excerpt: document.contentText.trim().slice(0, 140),
     folderId: document.folderId,
     favorite: document.favorite,
+    pinned: document.pinned,
+    lastViewedAt: document.lastViewedAt,
     shareId: document.shareId,
     sharedAt: document.sharedAt,
     version: document.version,
@@ -100,8 +103,10 @@ function toSummary(document: DocumentRecord): DocumentSummary {
 function sortDocumentSummaries(items: DocumentSummary[]): DocumentSummary[] {
   return [...items].sort(
     (left, right) =>
+      Number(right.pinned) - Number(left.pinned) ||
       Number(right.favorite) - Number(left.favorite) ||
-      Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
+      Date.parse(right.lastViewedAt ?? right.updatedAt) -
+        Date.parse(left.lastViewedAt ?? left.updatedAt) ||
       right.id.localeCompare(left.id),
   );
 }
@@ -293,7 +298,13 @@ function DocsPageContent() {
   const navigate = useNavigate();
   const requestedView = searchParams.get('view');
   const view: DocumentView =
-    requestedView === 'trash' ? 'trash' : requestedView === 'favorites' ? 'favorites' : 'documents';
+    requestedView === 'trash'
+      ? 'trash'
+      : requestedView === 'favorites'
+        ? 'favorites'
+        : requestedView === 'recent'
+          ? 'recent'
+          : 'documents';
   const activeId = view !== 'trash' ? parsePublicId(documentId) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
@@ -464,9 +475,10 @@ function DocsPageContent() {
         ? api.listTrashDocuments({ signal: controller.signal })
         : api.listDocuments({
             signal: controller.signal,
-            folderId: view === 'favorites' ? undefined : folderId,
+            folderId: view === 'documents' ? folderId : undefined,
             query: searchQuery,
             favoriteOnly: view === 'favorites',
+            recentOnly: view === 'recent',
           });
 
     request
@@ -683,7 +695,7 @@ function DocsPageContent() {
 
     activeIdRef.current = id;
     const next = new URLSearchParams(searchParams);
-    if (view !== 'favorites') next.delete('view');
+    if (view === 'documents') next.delete('view');
     next.delete('id');
     navigate(docsRoute(id, next));
   };
@@ -910,6 +922,18 @@ function DocsPageContent() {
 
   const documentActionItems: MenuProps['items'] = [
     {
+      key: 'pin',
+      label: activeDocument?.pinned ? '取消置顶' : '置顶文档',
+      icon: (
+        <Pin
+          aria-hidden="true"
+          size={15}
+          strokeWidth={1.8}
+          fill={activeDocument?.pinned ? 'currentColor' : 'none'}
+        />
+      ),
+    },
+    {
       key: 'copy-link',
       label: '复制文档链接',
       icon: <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />,
@@ -989,6 +1013,11 @@ function DocsPageContent() {
       } catch {
         message.error('复制链接失败，请检查浏览器权限');
       }
+      return;
+    }
+
+    if (key === 'pin') {
+      void togglePinned(activeDocument);
       return;
     }
 
@@ -1252,6 +1281,28 @@ function DocsPageContent() {
     }
   };
 
+  const togglePinned = async (document: Pick<DocumentSummary, 'id' | 'pinned'>) => {
+    try {
+      const updated = await api.setDocumentPinned(document.id, !document.pinned);
+      if (activeDocumentRef.current?.id === updated.id) {
+        activeDocumentRef.current = updated;
+        setActiveDocument(updated);
+      }
+      setDocuments((items) =>
+        sortDocumentSummaries(
+          items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
+        ),
+      );
+      message.success(updated.pinned ? '文档已置顶' : '已取消置顶');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, document.pinned ? '取消置顶失败' : '置顶失败'));
+    }
+  };
+
   const handleTitleChange = useCallback(
     (value: string) => {
       titleRef.current = value;
@@ -1372,6 +1423,7 @@ function DocsPageContent() {
         onSignOut={() => void signOut()}
         onSubmitFolderCreate={() => void createFolder()}
         onToggleFavorite={(document) => void toggleFavorite(document)}
+        onTogglePinned={(document) => void togglePinned(document)}
       />
 
       {sidebarOpen && (
@@ -1396,7 +1448,13 @@ function DocsPageContent() {
             </button>
             <nav className="swan-editor-breadcrumb" aria-label="当前位置">
               <span className="swan-editor-breadcrumb-root">
-                {view === 'trash' ? '回收站' : view === 'favorites' ? '收藏' : '全部文档'}
+                {view === 'trash'
+                  ? '回收站'
+                  : view === 'favorites'
+                    ? '收藏'
+                    : view === 'recent'
+                      ? '最近浏览'
+                      : '全部文档'}
               </span>
               {view === 'documents' && (
                 <>
@@ -1420,6 +1478,25 @@ function DocsPageContent() {
                   重新加载
                 </Button>
               )}
+              <Button
+                className={
+                  activeDocument.pinned
+                    ? 'swan-document-pin-button is-active'
+                    : 'swan-document-pin-button'
+                }
+                type="text"
+                icon={
+                  <Pin
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.8}
+                    fill={activeDocument.pinned ? 'currentColor' : 'none'}
+                  />
+                }
+                aria-label={activeDocument.pinned ? '取消置顶' : '置顶文档'}
+                aria-pressed={activeDocument.pinned}
+                onClick={() => void togglePinned(activeDocument)}
+              />
               <Button
                 className={
                   activeDocument.favorite
@@ -1516,6 +1593,11 @@ function DocsPageContent() {
                 <>
                   <strong>还没有收藏</strong>
                   <span>在文档右上角点击星标，收藏的文档会置顶并集中显示在这里。</span>
+                </>
+              ) : view === 'recent' ? (
+                <>
+                  <strong>还没有浏览记录</strong>
+                  <span>打开一篇文档后，它会出现在这里。</span>
                 </>
               ) : (
                 <>

@@ -66,11 +66,19 @@ documentRoutes.get('/', async (c) => {
     return c.json({ error: `搜索词不能超过 ${MAX_SEARCH_LENGTH} 个字符` }, 400);
   }
   const favoriteOnly = c.req.query('favorite') === '1';
+  const recentOnly = c.req.query('recent') === '1';
   const ownerId = c.get('user').id;
   const result = await wrapTime(
     c,
     'db',
-    repo.listDocuments(c.env.DB, ownerId, { limit, offset, folderId, query, favoriteOnly }),
+    repo.listDocuments(c.env.DB, ownerId, {
+      limit,
+      offset,
+      folderId,
+      query,
+      favoriteOnly,
+      recentOnly,
+    }),
   );
   return c.json(result);
 });
@@ -193,6 +201,7 @@ documentRoutes.get('/:id', async (c) => {
 
   const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, id));
   if (!document) return c.json({ error: '文档不存在' }, 404);
+  await wrapTime(c, 'db', repo.touchDocumentViewed(c.env.DB, c.get('user').id, id));
   return c.json(document);
 });
 
@@ -328,6 +337,24 @@ documentRoutes.patch('/:id/favorite', async (c) => {
     c,
     'db',
     repo.setDocumentFavorite(c.env.DB, c.get('user').id, id, body.favorite),
+  );
+  if (!document) return c.json({ error: '文档不存在' }, 404);
+  return c.json(document);
+});
+
+documentRoutes.patch('/:id/pin', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+
+  const body = (await c.req.json().catch(() => null)) as { pinned?: unknown } | null;
+  if (!body || typeof body.pinned !== 'boolean') {
+    return c.json({ error: 'pinned 必须是布尔值' }, 400);
+  }
+
+  const document = await wrapTime(
+    c,
+    'db',
+    repo.setDocumentPinned(c.env.DB, c.get('user').id, id, body.pinned),
   );
   if (!document) return c.json({ error: '文档不存在' }, 404);
   return c.json(document);
