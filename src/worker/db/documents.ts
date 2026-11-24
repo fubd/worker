@@ -534,6 +534,94 @@ export async function restoreDocument(
   return restored ? getDocument(db, ownerId, restored.public_id) : null;
 }
 
+export async function batchUpdateDocuments(
+  db: D1Database,
+  ownerId: number,
+  ids: PublicId[],
+  action:
+    | { kind: 'move'; folderId: PublicId | null }
+    | { kind: 'favorite'; favorite: boolean }
+    | { kind: 'delete' }
+    | { kind: 'restore' },
+): Promise<{ requestedCount: number; updatedCount: number; items: DocumentSummary[] }> {
+  const placeholders = ids.map(() => '?').join(', ');
+  let statement: D1PreparedStatement;
+
+  if (action.kind === 'move') {
+    statement = db
+      .prepare(
+        `UPDATE documents
+         SET folder_id = (
+           SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
+         )
+         WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})
+         RETURNING public_id`,
+      )
+      .bind(ownerId, action.folderId, ownerId, ...ids);
+  } else if (action.kind === 'favorite') {
+    statement = db
+      .prepare(
+        `UPDATE documents
+         SET is_favorite = ?
+         WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})
+         RETURNING public_id`,
+      )
+      .bind(action.favorite ? 1 : 0, ownerId, ...ids);
+  } else if (action.kind === 'delete') {
+    statement = db
+      .prepare(
+        `UPDATE documents
+         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+             version = version + 1,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})
+         RETURNING public_id`,
+      )
+      .bind(ownerId, ...ids);
+  } else {
+    statement = db
+      .prepare(
+        `UPDATE documents
+         SET deleted_at = NULL,
+             version = version + 1,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND deleted_at IS NOT NULL AND public_id IN (${placeholders})
+         RETURNING public_id`,
+      )
+      .bind(ownerId, ...ids);
+  }
+
+  const result = await statement.all<{ public_id: PublicId }>();
+  const updatedIds = (result.results ?? []).map((row) => row.public_id);
+  if (updatedIds.length === 0 || action.kind === 'delete') {
+    return {
+      requestedCount: ids.length,
+      updatedCount: updatedIds.length,
+      items: [],
+    };
+  }
+
+  const summaryPlaceholders = updatedIds.map(() => '?').join(', ');
+  const summaries = await db
+    .prepare(
+      `SELECT ${LIST_COLUMNS}
+       FROM documents d
+       LEFT JOIN folders f
+         ON f.id = d.folder_id
+        AND f.owner_id = d.owner_id
+       WHERE d.owner_id = ? AND d.deleted_at IS NULL AND d.public_id IN (${summaryPlaceholders})
+       ORDER BY d.id ASC`,
+    )
+    .bind(ownerId, ...updatedIds)
+    .all<DocumentRow>();
+
+  return {
+    requestedCount: ids.length,
+    updatedCount: updatedIds.length,
+    items: (summaries.results ?? []).map(toSummary),
+  };
+}
+
 export async function moveDocument(
   db: D1Database,
   ownerId: number,

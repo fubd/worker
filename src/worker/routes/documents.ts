@@ -12,6 +12,7 @@ export const documentRoutes = new Hono<AppEnv>();
 
 const MAX_CONTENT_LENGTH = 1_000_000;
 const MAX_SEARCH_LENGTH = 100;
+const MAX_BATCH_DOCUMENTS = 200;
 const INVALID_PUBLIC_ID = Symbol('invalid-public-id');
 
 documentRoutes.use('*', requireAuth);
@@ -91,6 +92,60 @@ documentRoutes.get('/trash', async (c) => {
     c,
     'db',
     repo.listDeletedDocuments(c.env.DB, ownerId, { limit, offset }),
+  );
+  return c.json(result);
+});
+
+documentRoutes.post('/batch', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    ids?: unknown;
+    action?: unknown;
+    folderId?: unknown;
+    favorite?: unknown;
+  } | null;
+  if (!body || !Array.isArray(body.ids) || body.ids.length === 0) {
+    return c.json({ error: 'ids 必须是非空数组' }, 400);
+  }
+
+  const ids = [...new Set(body.ids)];
+  if (
+    ids.length > MAX_BATCH_DOCUMENTS ||
+    ids.some((value) => typeof value !== 'string' || !isPublicId(value))
+  ) {
+    return c.json({ error: `一次最多操作 ${MAX_BATCH_DOCUMENTS} 篇文档，且 ID 必须合法` }, 400);
+  }
+
+  let action:
+    | { kind: 'move'; folderId: PublicId | null }
+    | { kind: 'favorite'; favorite: boolean }
+    | { kind: 'delete' }
+    | { kind: 'restore' };
+
+  if (body.action === 'move') {
+    if (!Object.hasOwn(body, 'folderId')) {
+      return c.json({ error: '请求体必须包含 folderId' }, 400);
+    }
+    const folderId = parseOptionalFolderId(body.folderId);
+    if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
+    if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
+      return c.json({ error: '文件夹不存在' }, 404);
+    }
+    action = { kind: 'move', folderId };
+  } else if (body.action === 'favorite') {
+    if (typeof body.favorite !== 'boolean') {
+      return c.json({ error: 'favorite 必须是布尔值' }, 400);
+    }
+    action = { kind: 'favorite', favorite: body.favorite };
+  } else if (body.action === 'delete' || body.action === 'restore') {
+    action = { kind: body.action };
+  } else {
+    return c.json({ error: '不支持的批量操作' }, 400);
+  }
+
+  const result = await wrapTime(
+    c,
+    'db',
+    repo.batchUpdateDocuments(c.env.DB, c.get('user').id, ids as PublicId[], action),
   );
   return c.json(result);
 });

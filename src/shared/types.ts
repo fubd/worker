@@ -28,6 +28,14 @@ export interface DocumentListResponse {
   items: DocumentSummary[];
 }
 
+export type DocumentBatchAction = 'move' | 'favorite' | 'delete' | 'restore';
+
+export interface DocumentBatchResponse {
+  requestedCount: number;
+  updatedCount: number;
+  items: DocumentSummary[];
+}
+
 export interface DocumentVersionSummary {
   version: number;
   title: string;

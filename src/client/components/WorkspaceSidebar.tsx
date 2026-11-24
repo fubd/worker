@@ -43,6 +43,7 @@ import {
 
 interface WorkspaceSidebarProps {
   activeId: PublicId | null;
+  batchBusy: boolean;
   creating: boolean;
   creatingFolder: boolean;
   creatingFolderParentId: PublicId | null;
@@ -57,10 +58,16 @@ interface WorkspaceSidebarProps {
   restoringId: PublicId | null;
   saveState: SaveState;
   searchValue: string;
+  selectionMode: boolean;
+  selectedDocumentIds: ReadonlySet<PublicId>;
   user: AuthUser;
   view: DocumentView;
   onBindProvider: (provider: 'google' | 'github') => void;
+  onBatchDelete: (ids: PublicId[]) => void;
+  onBatchFavorite: (ids: PublicId[], favorite: boolean) => void;
+  onBatchMove: (ids: PublicId[], folderId: PublicId | null) => void;
   onCancelFolderCreate: () => void;
+  onClearSelection: () => void;
   onCreate: () => void;
   onCreateFolder: (parentId: PublicId | null) => void;
   onDeleteDocument: (document: DocumentSummary) => void;
@@ -78,6 +85,9 @@ interface WorkspaceSidebarProps {
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
   onTogglePinned: (document: DocumentSummary) => void;
+  onToggleDocumentSelection: (id: PublicId) => void;
+  onToggleSelectAll: (selected: boolean) => void;
+  onToggleSelectionMode: () => void;
 }
 
 function DocumentListSkeleton() {
@@ -123,6 +133,7 @@ function DocumentDragHandle({
 
 export function WorkspaceSidebar({
   activeId,
+  batchBusy,
   creating,
   creatingFolder,
   creatingFolderParentId,
@@ -137,10 +148,16 @@ export function WorkspaceSidebar({
   restoringId,
   saveState,
   searchValue,
+  selectionMode,
+  selectedDocumentIds,
   user,
   view,
   onBindProvider,
+  onBatchDelete,
+  onBatchFavorite,
+  onBatchMove,
   onCancelFolderCreate,
+  onClearSelection,
   onCreate,
   onCreateFolder,
   onDeleteDocument,
@@ -158,6 +175,9 @@ export function WorkspaceSidebar({
   onSubmitFolderCreate,
   onToggleFavorite,
   onTogglePinned,
+  onToggleDocumentSelection,
+  onToggleSelectAll,
+  onToggleSelectionMode,
 }: WorkspaceSidebarProps) {
   'use no memo';
 
@@ -277,6 +297,26 @@ export function WorkspaceSidebar({
     view === 'documents' && currentFolder && !hasSearch
       ? `${directChildFolderCount} 个子文件夹 · ${documents.length} 篇直属文档`
       : null;
+  const selectedDocuments = documents.filter((document) => selectedDocumentIds.has(document.id));
+  const selectedIds = selectedDocuments.map((document) => document.id);
+  const selectedCount = selectedDocuments.length;
+  const allSelected = documents.length > 0 && selectedCount === documents.length;
+  const allSelectedFavorite =
+    selectedCount > 0 && selectedDocuments.every((document) => document.favorite);
+  const someSelectedFavorite = selectedDocuments.some((document) => document.favorite);
+
+  const batchMoveItems: MenuProps['items'] = [
+    {
+      key: 'move:none',
+      label: '未归档',
+      icon: <FileText aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    ...folders.map((folder) => ({
+      key: `move:${folder.id}`,
+      label: getFolderPathLabel(folders, folder.id),
+      icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
+    })),
+  ];
 
   const getFolderMoveTargets = (folder: FolderSummary) => [
     ...(folder.parentId === null ? [] : [{ key: 'move:none', label: '顶层' }]),
@@ -548,27 +588,159 @@ export function WorkspaceSidebar({
       )}
 
       <div className="swan-sidebar-section-head">
-        <span className="swan-sidebar-section-copy">
-          <OverflowText text={sectionTitle} className="swan-sidebar-section-title" />
-          {sectionSummary && <small>{sectionSummary}</small>}
-        </span>
-        <span className="swan-sidebar-section-actions">
-          {!sectionSummary && (
-            <span className="swan-sidebar-count">{String(documents.length).padStart(2, '0')}</span>
-          )}
-          {view === 'documents' && (
+        {selectionMode ? (
+          <span className="swan-sidebar-section-copy swan-sidebar-selection-copy">
             <button
               type="button"
-              className="swan-sidebar-add"
-              aria-label="新建文档"
-              disabled={creating || saveState === 'conflict'}
-              onClick={onCreate}
+              className="swan-sidebar-select-all"
+              aria-pressed={allSelected}
+              disabled={batchBusy || documents.length === 0}
+              onClick={() => onToggleSelectAll(!allSelected)}
             >
-              <Plus aria-hidden="true" size={15} strokeWidth={1.8} />
+              {allSelected ? '取消全选' : '全选'}
             </button>
+            <small>
+              已选 {selectedCount} 篇，共 {documents.length} 篇
+            </small>
+          </span>
+        ) : (
+          <span className="swan-sidebar-section-copy">
+            <OverflowText text={sectionTitle} className="swan-sidebar-section-title" />
+            {sectionSummary && <small>{sectionSummary}</small>}
+          </span>
+        )}
+        <span className="swan-sidebar-section-actions">
+          {selectionMode ? (
+            <Tooltip title="退出批量选择">
+              <button
+                type="button"
+                className="swan-sidebar-add"
+                aria-label="退出批量选择"
+                disabled={batchBusy}
+                onClick={onClearSelection}
+              >
+                <X aria-hidden="true" size={15} strokeWidth={1.8} />
+              </button>
+            </Tooltip>
+          ) : (
+            <>
+              {!sectionSummary && (
+                <span className="swan-sidebar-count">
+                  {String(documents.length).padStart(2, '0')}
+                </span>
+              )}
+              {view === 'documents' && (
+                <button
+                  type="button"
+                  className="swan-sidebar-add"
+                  aria-label="新建文档"
+                  disabled={creating || saveState === 'conflict'}
+                  onClick={onCreate}
+                >
+                  <Plus aria-hidden="true" size={15} strokeWidth={1.8} />
+                </button>
+              )}
+              {view !== 'trash' && documents.length > 0 && (
+                <Tooltip title="批量选择">
+                  <button
+                    type="button"
+                    className="swan-sidebar-select-entry"
+                    aria-label="批量选择"
+                    disabled={listLoading}
+                    onClick={onToggleSelectionMode}
+                  >
+                    选择
+                  </button>
+                </Tooltip>
+              )}
+            </>
           )}
         </span>
       </div>
+
+      {selectionMode && (
+        <div
+          className="swan-sidebar-batch-actions"
+          aria-label="批量文档操作"
+          aria-busy={batchBusy || undefined}
+        >
+          <Dropdown
+            trigger={['click']}
+            placement="bottomLeft"
+            disabled={batchBusy || selectedCount === 0}
+            menu={{
+              items: batchMoveItems,
+              onClick: ({ key }) => {
+                const target = key.slice('move:'.length);
+                onBatchMove(
+                  selectedIds,
+                  target === 'none' ? null : isPublicId(target) ? target : null,
+                );
+              },
+            }}
+          >
+            <Button
+              className="swan-sidebar-batch-button"
+              type="text"
+              size="small"
+              icon={<Folder aria-hidden="true" size={15} strokeWidth={1.8} />}
+              aria-label="批量移动到文件夹"
+              disabled={batchBusy || selectedCount === 0}
+            />
+          </Dropdown>
+          <Dropdown
+            trigger={['click']}
+            placement="bottomLeft"
+            disabled={batchBusy || selectedCount === 0}
+            menu={{
+              items: [
+                {
+                  key: 'favorite',
+                  label: '收藏',
+                  icon: <Star aria-hidden="true" size={15} strokeWidth={1.8} />,
+                  disabled: allSelectedFavorite,
+                },
+                {
+                  key: 'unfavorite',
+                  label: '取消收藏',
+                  icon: <Star aria-hidden="true" size={15} strokeWidth={1.8} fill="currentColor" />,
+                  disabled: !someSelectedFavorite,
+                },
+              ],
+              onClick: ({ key }) => onBatchFavorite(selectedIds, key === 'favorite'),
+            }}
+          >
+            <Button
+              className="swan-sidebar-batch-button"
+              type="text"
+              size="small"
+              icon={
+                <Star
+                  aria-hidden="true"
+                  size={15}
+                  strokeWidth={1.8}
+                  fill={allSelectedFavorite ? 'currentColor' : 'none'}
+                />
+              }
+              aria-label="批量收藏操作"
+              disabled={batchBusy || selectedCount === 0}
+            />
+          </Dropdown>
+          <Button
+            className="swan-sidebar-batch-button is-danger"
+            type="text"
+            size="small"
+            danger
+            icon={<Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />}
+            aria-label="批量移入回收站"
+            disabled={batchBusy || selectedCount === 0}
+            onClick={() => onBatchDelete(selectedIds)}
+          />
+          <span className="swan-sidebar-batch-status" aria-live="polite">
+            {batchBusy ? '处理中…' : `${selectedCount} 项`}
+          </span>
+        </div>
+      )}
 
       <div className="swan-sidebar-doc-list">
         {listLoading ? (
@@ -608,20 +780,49 @@ export function WorkspaceSidebar({
                 </Button>
               </div>
             ) : (
-              <div className="swan-sidebar-doc-item" key={document.id}>
-                <DocumentDragHandle
-                  document={document}
-                  dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
-                  onBeginDrag={beginDrag}
-                  onDragEnd={resetDrag}
-                />
+              <div
+                className={
+                  selectionMode ? 'swan-sidebar-doc-item is-selecting' : 'swan-sidebar-doc-item'
+                }
+                key={document.id}
+              >
+                {selectionMode ? (
+                  <input
+                    className="swan-sidebar-doc-checkbox"
+                    checked={selectedDocumentIds.has(document.id)}
+                    aria-label={`选择文档 ${document.title}`}
+                    disabled={batchBusy}
+                    type="checkbox"
+                    onChange={() => onToggleDocumentSelection(document.id)}
+                  />
+                ) : (
+                  <DocumentDragHandle
+                    document={document}
+                    dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
+                    onBeginDrag={beginDrag}
+                    onDragEnd={resetDrag}
+                  />
+                )}
                 <button
                   type="button"
                   className={
-                    document.id === activeId ? 'swan-sidebar-doc is-selected' : 'swan-sidebar-doc'
+                    selectionMode
+                      ? selectedDocumentIds.has(document.id)
+                        ? 'swan-sidebar-doc is-checked'
+                        : 'swan-sidebar-doc'
+                      : document.id === activeId
+                        ? 'swan-sidebar-doc is-selected'
+                        : 'swan-sidebar-doc'
                   }
-                  disabled={saveState === 'saving' || deletingDocumentId === document.id}
-                  onClick={() => onSelect(document.id)}
+                  aria-pressed={selectionMode ? selectedDocumentIds.has(document.id) : undefined}
+                  disabled={
+                    batchBusy ||
+                    (!selectionMode && saveState === 'saving') ||
+                    deletingDocumentId === document.id
+                  }
+                  onClick={() =>
+                    selectionMode ? onToggleDocumentSelection(document.id) : onSelect(document.id)
+                  }
                 >
                   <span className="swan-sidebar-doc-title-row">
                     {document.favorite && (
@@ -647,43 +848,45 @@ export function WorkspaceSidebar({
                   </span>
                   <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
                 </button>
-                <Dropdown
-                  trigger={['click']}
-                  placement="bottomRight"
-                  menu={{
-                    items: getDocumentMenuItems(document),
-                    onClick: ({ key }) => {
-                      if (key === 'pin') {
-                        onTogglePinned(document);
-                        return;
-                      }
-                      if (key === 'favorite') {
-                        onToggleFavorite(document);
-                        return;
-                      }
-                      if (key === 'delete') {
-                        onDeleteDocument(document);
-                        return;
-                      }
-                      if (!key.startsWith('move:')) return;
-                      const target = key.slice('move:'.length);
-                      if (target === 'none') {
-                        onMoveDocument(document, null);
-                      } else if (isPublicId(target)) {
-                        onMoveDocument(document, target);
-                      }
-                    },
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="swan-sidebar-doc-more"
-                    aria-label={`更多操作 ${document.title}`}
-                    disabled={saveState === 'saving' || deletingDocumentId === document.id}
+                {!selectionMode && (
+                  <Dropdown
+                    trigger={['click']}
+                    placement="bottomRight"
+                    menu={{
+                      items: getDocumentMenuItems(document),
+                      onClick: ({ key }) => {
+                        if (key === 'pin') {
+                          onTogglePinned(document);
+                          return;
+                        }
+                        if (key === 'favorite') {
+                          onToggleFavorite(document);
+                          return;
+                        }
+                        if (key === 'delete') {
+                          onDeleteDocument(document);
+                          return;
+                        }
+                        if (!key.startsWith('move:')) return;
+                        const target = key.slice('move:'.length);
+                        if (target === 'none') {
+                          onMoveDocument(document, null);
+                        } else if (isPublicId(target)) {
+                          onMoveDocument(document, target);
+                        }
+                      },
+                    }}
                   >
-                    <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
-                  </button>
-                </Dropdown>
+                    <button
+                      type="button"
+                      className="swan-sidebar-doc-more"
+                      aria-label={`更多操作 ${document.title}`}
+                      disabled={saveState === 'saving' || deletingDocumentId === document.id}
+                    >
+                      <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
+                    </button>
+                  </Dropdown>
+                )}
               </div>
             ),
           )

@@ -295,7 +295,7 @@ export default function DocsPage() {
 }
 
 function DocsPageContent() {
-  const { message, modal } = App.useApp();
+  const { message, modal, notification } = App.useApp();
   const { status, markUnauthenticated } = useAuth();
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
@@ -319,6 +319,9 @@ function DocsPageContent() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<PublicId>>(() => new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
   const [documentMode, setDocumentMode] = useState<DocumentMode>('read');
   const [listLoading, setListLoading] = useState(true);
   const [listRevision, setListRevision] = useState(0);
@@ -426,6 +429,19 @@ function DocsPageContent() {
   useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setSelectionMode(false);
+    setSelectedDocumentIds((current) => (current.size === 0 ? current : new Set()));
+  }, [folderScope, listRevision, searchQuery, view]);
+
+  useEffect(() => {
+    const availableIds = new Set(documents.map((document) => document.id));
+    setSelectedDocumentIds((current) => {
+      if ([...current].every((id) => availableIds.has(id))) return current;
+      return new Set([...current].filter((id) => availableIds.has(id)));
+    });
+  }, [documents]);
 
   useEffect(() => {
     const normalized = searchInput.trim();
@@ -825,6 +841,219 @@ function DocsPageContent() {
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => deleteDocument(document),
+    });
+  };
+
+  const clearDocumentSelection = () => {
+    setSelectionMode(false);
+    setSelectedDocumentIds(new Set());
+  };
+
+  const toggleSelectionMode = () => {
+    if (batchBusy) return;
+    if (selectionMode) {
+      clearDocumentSelection();
+      return;
+    }
+    setSelectedDocumentIds(new Set());
+    setSelectionMode(true);
+  };
+
+  const toggleDocumentSelection = (id: PublicId) => {
+    if (batchBusy) return;
+    setSelectedDocumentIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllDocuments = (selected: boolean) => {
+    if (batchBusy) return;
+    setSelectedDocumentIds(
+      selected ? new Set(documents.map((document) => document.id)) : new Set(),
+    );
+  };
+
+  const matchesCurrentDocumentList = (document: DocumentSummary) => {
+    if (view === 'favorites') return document.favorite;
+    if (view !== 'documents') return true;
+    if (folderScope === 'unfiled') return document.folderId === null;
+    if (isPublicId(folderScope)) return document.folderId === folderScope;
+    return true;
+  };
+
+  const applyBatchDocumentResult = (
+    items: DocumentSummary[],
+    removedIds: ReadonlySet<PublicId> = new Set(),
+  ) => {
+    const updates = new Map(items.map((item) => [item.id, item]));
+    const nextDocuments = sortDocumentSummaries(
+      documents
+        .filter((document) => !removedIds.has(document.id))
+        .map((document) => updates.get(document.id) ?? document)
+        .filter(matchesCurrentDocumentList),
+    );
+    setDocuments(nextDocuments);
+
+    const current = activeDocumentRef.current;
+    if (!current) return;
+    const currentSummary = updates.get(current.id);
+    const currentRemains = nextDocuments.some((document) => document.id === current.id);
+
+    if (currentSummary && currentRemains) {
+      const updated = { ...current, ...currentSummary };
+      activeDocumentRef.current = updated;
+      setActiveDocument(updated);
+      return;
+    }
+
+    if (currentRemains) return;
+    const nextActiveId = searchQuery ? null : (nextDocuments[0]?.id ?? null);
+    activeIdRef.current = nextActiveId;
+    activeDocumentRef.current = null;
+    setActiveDocument(null);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    navigateRef.current(docsRoute(nextActiveId, next), { replace: true });
+  };
+
+  const prepareBatchOperation = async (ids: PublicId[]): Promise<boolean> => {
+    const currentId = activeIdRef.current;
+    if (!currentId || !ids.includes(currentId)) return true;
+    if (saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return false;
+    }
+
+    const saved = await savePendingChanges();
+    if (!saved) message.error('当前文档保存失败，请重试后再批量操作');
+    return saved;
+  };
+
+  const batchMoveDocuments = async (ids: PublicId[], folderId: PublicId | null) => {
+    if (batchBusy || ids.length === 0) return;
+    setBatchBusy(true);
+    try {
+      if (!(await prepareBatchOperation(ids))) return;
+      const result = await api.batchDocuments({ ids, action: 'move', folderId });
+      applyBatchDocumentResult(result.items);
+      setFolderRevision((value) => value + 1);
+      clearDocumentSelection();
+      message.success(
+        folderId === null
+          ? `已将 ${result.updatedCount} 篇文档移到未归档`
+          : `已移动 ${result.updatedCount} 篇文档`,
+      );
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '批量移动失败'));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const batchFavoriteDocuments = async (ids: PublicId[], favorite: boolean) => {
+    if (batchBusy || ids.length === 0) return;
+    setBatchBusy(true);
+    try {
+      if (!(await prepareBatchOperation(ids))) return;
+      const result = await api.batchDocuments({ ids, action: 'favorite', favorite });
+      applyBatchDocumentResult(result.items);
+      clearDocumentSelection();
+      message.success(
+        favorite
+          ? `已收藏 ${result.updatedCount} 篇文档`
+          : `已取消收藏 ${result.updatedCount} 篇文档`,
+      );
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, favorite ? '批量收藏失败' : '批量取消收藏失败'));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const restoreBatchDocuments = async (ids: PublicId[]) => {
+    if (batchBusy || ids.length === 0) return;
+    setBatchBusy(true);
+    try {
+      const result = await api.batchDocuments({ ids, action: 'restore' });
+      setFolderRevision((value) => value + 1);
+      setListRevision((value) => value + 1);
+      message.success(`已恢复 ${result.updatedCount} 篇文档`);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '撤销删除失败'));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const batchDeleteDocuments = async (ids: PublicId[]) => {
+    if (batchBusy || ids.length === 0) return;
+    setBatchBusy(true);
+    try {
+      if (!(await prepareBatchOperation(ids))) return;
+      const result = await api.batchDocuments({ ids, action: 'delete' });
+      applyBatchDocumentResult([], new Set(ids));
+      setFolderRevision((value) => value + 1);
+      clearDocumentSelection();
+
+      if (result.updatedCount === 0) {
+        message.info('所选文档已不在当前列表中');
+        return;
+      }
+
+      const notificationKey = `batch-delete-${Date.now()}`;
+      notification.info({
+        key: notificationKey,
+        message: `已将 ${result.updatedCount} 篇文档移入回收站`,
+        description: '可以在通知消失前撤销。',
+        duration: 8,
+        btn: (
+          <Button
+            size="small"
+            onClick={() => {
+              notification.destroy(notificationKey);
+              void restoreBatchDocuments(ids);
+            }}
+          >
+            撤销
+          </Button>
+        ),
+      });
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '批量删除失败'));
+    } finally {
+      setBatchBusy(false);
+    }
+  };
+
+  const requestBatchDelete = (ids: PublicId[]) => {
+    if (batchBusy || ids.length === 0) return;
+    modal.confirm({
+      title: `将 ${ids.length} 篇文档移入回收站？`,
+      content: '删除后仍可在通知中撤销，或稍后从回收站恢复。',
+      okText: '移入回收站',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => batchDeleteDocuments(ids),
     });
   };
 
@@ -1410,6 +1639,7 @@ function DocsPageContent() {
     <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
       <WorkspaceSidebar
         activeId={activeId}
+        batchBusy={batchBusy}
         creating={creating}
         creatingFolder={creatingFolder}
         creatingFolderParentId={creatingFolderParentId}
@@ -1424,10 +1654,16 @@ function DocsPageContent() {
         restoringId={restoringId}
         saveState={saveState}
         searchValue={searchInput}
+        selectionMode={selectionMode}
+        selectedDocumentIds={selectedDocumentIds}
         user={user}
         view={view}
         onBindProvider={bindProvider}
+        onBatchDelete={requestBatchDelete}
+        onBatchFavorite={(ids, favorite) => void batchFavoriteDocuments(ids, favorite)}
+        onBatchMove={(ids, folderId) => void batchMoveDocuments(ids, folderId)}
         onCancelFolderCreate={cancelCreateFolder}
+        onClearSelection={clearDocumentSelection}
         onCreate={() => {
           setSidebarOpen(false);
           void createDocument();
@@ -1459,6 +1695,9 @@ function DocsPageContent() {
         onSubmitFolderCreate={() => void createFolder()}
         onToggleFavorite={(document) => void toggleFavorite(document)}
         onTogglePinned={(document) => void togglePinned(document)}
+        onToggleDocumentSelection={toggleDocumentSelection}
+        onToggleSelectAll={toggleSelectAllDocuments}
+        onToggleSelectionMode={toggleSelectionMode}
       />
 
       {sidebarOpen && (

@@ -1,5 +1,7 @@
 import type {
   AuthSessionResponse,
+  DocumentBatchAction,
+  DocumentBatchResponse,
   DocumentListResponse,
   DocumentRecord,
   DocumentVersionListResponse,
@@ -168,6 +170,17 @@ export const api = {
     request<DocumentRecord>(`/documents/${id}/favorite`, {
       method: 'PATCH',
       body: JSON.stringify({ favorite }),
+    }),
+
+  batchDocuments: (input: {
+    ids: PublicId[];
+    action: DocumentBatchAction;
+    folderId?: PublicId | null;
+    favorite?: boolean;
+  }) =>
+    request<DocumentBatchResponse>('/documents/batch', {
+      method: 'POST',
+      body: JSON.stringify(input),
     }),
 
   setDocumentSharing: (id: PublicId, shared: boolean) =>

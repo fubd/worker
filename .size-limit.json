@@ -13,7 +13,7 @@
       "!dist/vercel/static/js/async/command-palette.*.mjs",
       "!dist/vercel/static/js/async/command-palette-vendor.*.mjs"
     ],
-    "limit": "210 kB"
+    "limit": "211 kB"
   },
   {
     "name": "share route",
