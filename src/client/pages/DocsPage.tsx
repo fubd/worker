@@ -1529,8 +1529,7 @@ function DocumentOutline({ editor }: { editor: Editor }) {
     const node = editor.view.nodeDOM(pos);
     if (!(node instanceof HTMLElement)) return;
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    node.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    node.scrollIntoView({ behavior: 'auto', block: 'center' });
     if (editor.isEditable) {
       editor
         .chain()
