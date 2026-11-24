@@ -54,8 +54,11 @@ interface WorkspaceSidebarProps {
   folderScope: FolderScope;
   folderSaving: boolean;
   folders: FolderSummary[];
+  hasMore: boolean;
   isOpen: boolean;
   listLoading: boolean;
+  loadingMore: boolean;
+  purgingId: PublicId | null;
   restoringId: PublicId | null;
   saveState: SaveState;
   searchValue: string;
@@ -77,10 +80,12 @@ interface WorkspaceSidebarProps {
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
   onImport: () => void;
+  onLoadMore: () => void;
   onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
   onMoveFolder: (folder: FolderSummary, parentId: PublicId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
+  onPermanentlyDelete: (document: DocumentSummary) => void;
   onRestore: (document: DocumentSummary) => void;
   onSearchChange: (value: string) => void;
   onSelect: (id: PublicId) => void;
@@ -146,8 +151,11 @@ export function WorkspaceSidebar({
   folderScope,
   folderSaving,
   folders,
+  hasMore,
   isOpen,
   listLoading,
+  loadingMore,
+  purgingId,
   restoringId,
   saveState,
   searchValue,
@@ -169,10 +177,12 @@ export function WorkspaceSidebar({
   onFolderDraftChange,
   onFolderSelect,
   onImport,
+  onLoadMore,
   onMoveDocument,
   onMoveFolder,
   onNavigate,
   onOpenPasswordSettings,
+  onPermanentlyDelete,
   onRestore,
   onSearchChange,
   onSelect,
@@ -797,14 +807,29 @@ export function WorkspaceSidebar({
                 <span className="swan-sidebar-doc-time">
                   删除于 {formatUpdatedAt(document.deletedAt ?? document.updatedAt)}
                 </span>
-                <Button
-                  size="small"
-                  icon={<RotateCcw aria-hidden="true" size={13} strokeWidth={1.8} />}
-                  loading={restoringId === document.id}
-                  onClick={() => onRestore(document)}
-                >
-                  恢复
-                </Button>
+                <div className="swan-sidebar-trash-actions">
+                  <Button
+                    size="small"
+                    icon={<RotateCcw aria-hidden="true" size={13} strokeWidth={1.8} />}
+                    loading={restoringId === document.id}
+                    disabled={purgingId === document.id}
+                    onClick={() => onRestore(document)}
+                  >
+                    恢复
+                  </Button>
+                  <Button
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<Trash2 aria-hidden="true" size={13} strokeWidth={1.8} />}
+                    loading={purgingId === document.id}
+                    disabled={restoringId === document.id}
+                    aria-label={`永久删除 ${document.title}`}
+                    onClick={() => onPermanentlyDelete(document)}
+                  >
+                    永久删除
+                  </Button>
+                </div>
               </div>
             ) : (
               <div
@@ -917,6 +942,17 @@ export function WorkspaceSidebar({
               </div>
             ),
           )
+        )}
+        {!listLoading && hasMore && (
+          <Button
+            className="swan-sidebar-load-more"
+            type="text"
+            size="small"
+            loading={loadingMore}
+            onClick={onLoadMore}
+          >
+            {loadingMore ? '正在载入…' : '载入更多文档'}
+          </Button>
         )}
       </div>
 

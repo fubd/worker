@@ -332,7 +332,8 @@ export default function LoginPage() {
             </div>
             <p className="swan-login-hint">
               <ShieldCheck aria-hidden="true" size={14} strokeWidth={1.8} />
-              账号名和密码可以先开始使用；绑定 Google 或 GitHub 后可找回账号并跨设备恢复。
+              账号名和密码没有邮件找回入口。请绑定 Google 或
+              GitHub；未绑定可信身份且忘记密码的账号无法自动恢复。
             </p>
           </div>
         </section>

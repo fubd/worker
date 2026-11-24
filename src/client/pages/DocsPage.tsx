@@ -1,52 +1,53 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Dropdown, Input, Modal, type MenuProps } from 'antd';
+import { App, Alert, Button, Dropdown, Modal, type MenuProps } from 'antd';
 import {
-  Bold,
   ChevronRight,
-  CircleAlert,
   ClipboardCopy,
   Clock3,
-  CloudCheck,
-  CodeXml,
   Copy,
   FileDown,
   Folder,
   Info,
-  Italic,
   Link2,
   Link2Off,
-  List,
-  ListOrdered,
-  LoaderCircle,
   Menu,
   MoreVertical,
   Pin,
   Plus,
   Printer,
-  Redo2,
   RefreshCw,
   Share2,
   Star,
   Trash2,
-  TriangleAlert,
-  Undo2,
 } from 'lucide-react';
 import Placeholder from '@tiptap/extension-placeholder';
-import {
-  EditorContent,
-  useEditor,
-  useEditorState,
-  type Editor,
-  type JSONContent,
-} from '@tiptap/react';
+import { EditorContent, useEditor, type Editor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router';
+import {
+  Navigate,
+  useLoaderData,
+  useNavigate,
+  useOutletContext,
+  useParams,
+  useRevalidator,
+  useSearchParams,
+  type LoaderFunction,
+} from 'react-router';
 
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
+import {
+  DocumentOutline,
+  DocumentSkeleton,
+  DocumentTitleInput,
+  EditorCharacterCount,
+  EditorToolbar,
+  SaveStatus,
+} from '../components/docs/DocsEditor';
 import { OverflowText } from '../components/OverflowText';
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
+import { emptyDocsRouteData, loadDocsRouteData, type DocsRouteData } from '../docs-loader';
 import type { WorkspaceOutletContext } from '../layouts/workspace-context';
 import {
   getFolderAncestors,
@@ -56,13 +57,14 @@ import {
 } from '../folder-utils';
 import {
   formatUpdatedAt,
+  parseDocumentView,
+  type DocumentMode,
   type DocumentView,
   type FolderScope,
   type SaveState,
 } from '../workspace-utils';
 import { BRAND } from '@/shared/brand';
 import { isPublicId, type PublicId } from '@/shared/ids';
-import { DOCUMENT_TITLE_MAX_LENGTH } from '@/shared/limits';
 import type {
   DocumentImportInput,
   DocumentRecord,
@@ -95,6 +97,12 @@ const CommandPalette = lazy(() =>
     }),
   ),
 );
+
+type HydratingLoader = LoaderFunction & { hydrate?: boolean };
+
+export const loader: HydratingLoader = async ({ request }) =>
+  typeof window === 'undefined' ? emptyDocsRouteData(request) : loadDocsRouteData(request);
+loader.hydrate = true;
 
 function parsePublicId(value: string | null | undefined): PublicId | null {
   return isPublicId(value) ? value : null;
@@ -143,18 +151,6 @@ function docsRoute(id: PublicId | null, search: URLSearchParams) {
 }
 
 type FolderDialogState = { folder: FolderSummary } | null;
-type DocumentMode = 'read' | 'edit';
-
-function formatLastEditedAt(value: string, now: number): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未知';
-
-  const elapsed = Math.max(0, now - date.getTime());
-  if (elapsed < 60_000) return '刚刚';
-  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} 分钟前`;
-  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} 小时前`;
-  return formatUpdatedAt(value);
-}
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -284,44 +280,6 @@ export function HydrateFallback() {
   );
 }
 
-function DocumentSkeleton() {
-  return (
-    <div
-      className="swan-editor-canvas swan-document-loading"
-      role="status"
-      aria-label="正在加载文档"
-    >
-      <div className="swan-editor-stage">
-        <aside className="swan-editor-margin" aria-hidden="true">
-          <span>DOCUMENT</span>
-          <div className="swan-skeleton-bar is-margin" />
-          <div className="swan-skeleton-bar is-margin is-short" />
-          <div className="swan-skeleton-bar is-margin is-short" />
-        </aside>
-        <article className="swan-editor-page">
-          <span className="swan-editor-kicker">私人笔记 · 写作</span>
-          <div className="swan-document-skeleton swan-loading-surface" aria-hidden="true">
-            <div className="swan-skeleton-bar is-title" />
-            <div className="swan-skeleton-meta">
-              <div className="swan-skeleton-bar is-meta" />
-              <div className="swan-skeleton-bar is-meta is-short" />
-              <div className="swan-skeleton-bar is-meta is-folder-meta" />
-            </div>
-            <div className="swan-skeleton-bar is-toolbar" />
-            <div className="swan-skeleton-copy">
-              <div className="swan-skeleton-bar is-copy" />
-              <div className="swan-skeleton-bar is-copy is-wide" />
-              <div className="swan-skeleton-bar is-copy" />
-              <div className="swan-skeleton-bar is-copy is-short" />
-            </div>
-          </div>
-        </article>
-        <aside className="swan-editor-margin is-right" aria-hidden="true" />
-      </div>
-    </div>
-  );
-}
-
 export default function DocsPage() {
   return (
     <App>
@@ -333,39 +291,35 @@ export default function DocsPage() {
 function DocsPageContent() {
   const { message, modal, notification } = App.useApp();
   const { status, markUnauthenticated } = useAuth();
+  const loaderData = useLoaderData() as DocsRouteData | undefined;
+  const revalidator = useRevalidator();
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
   const { documentId } = useParams<{ documentId?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const requestedView = searchParams.get('view');
-  const view: DocumentView =
-    requestedView === 'trash'
-      ? 'trash'
-      : requestedView === 'favorites'
-        ? 'favorites'
-        : requestedView === 'recent'
-          ? 'recent'
-          : 'documents';
+  const view: DocumentView = parseDocumentView(searchParams.get('view'));
   const activeId = view !== 'trash' ? parsePublicId(documentId) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
 
-  const [documents, setDocuments] = useState<DocumentSummary[]>([]);
-  const [folders, setFolders] = useState<FolderSummary[]>([]);
+  const [documents, setDocuments] = useState<DocumentSummary[]>(loaderData?.documents ?? []);
+  const [nextCursor, setNextCursor] = useState<string | null>(loaderData?.nextCursor ?? null);
+  const [folders, setFolders] = useState<FolderSummary[]>(loaderData?.folders ?? []);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<PublicId>>(() => new Set());
   const [batchBusy, setBatchBusy] = useState(false);
   const [documentMode, setDocumentMode] = useState<DocumentMode>('read');
-  const [listLoading, setListLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(!loaderData);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [listRevision, setListRevision] = useState(0);
-  const [folderRevision, setFolderRevision] = useState(0);
   const [editorLoading, setEditorLoading] = useState(false);
   const [showDocumentLoading, setShowDocumentLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deletingDocumentId, setDeletingDocumentId] = useState<PublicId | null>(null);
+  const [purgingId, setPurgingId] = useState<PublicId | null>(null);
   const [moving, setMoving] = useState(false);
   const [restoringId, setRestoringId] = useState<PublicId | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -405,6 +359,10 @@ function DocsPageContent() {
     window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
   }, []);
+
+  const refreshWorkspace = useCallback(() => {
+    void revalidator.revalidate();
+  }, [revalidator]);
 
   const scheduleSave = useCallback(() => {
     clearSaveTimer();
@@ -490,6 +448,7 @@ function DocsPageContent() {
       if (normalized) next.set('q', normalized);
       else next.delete('q');
       next.delete('id');
+      setListLoading(true);
       navigate(docsRoute(null, next), { replace: true });
     }, 240);
 
@@ -497,85 +456,59 @@ function DocsPageContent() {
   }, [navigate, searchInput, searchParams, searchQuery]);
 
   useEffect(() => {
-    if (authUnavailable) {
-      setFolders([]);
+    if (!loaderData) return;
+    if (loaderData.unauthorized) {
+      markUnauthenticated();
       return;
     }
 
-    const controller = new AbortController();
-    api
-      .listFolders({ signal: controller.signal })
-      .then(({ items }) => setFolders(items))
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        if (isUnauthorized(error)) {
-          markUnauthenticated();
-          return;
-        }
-        setLoadError(errorMessage(error, '文件夹加载失败'));
+    setFolders(loaderData.folders);
+    setDocuments(loaderData.documents);
+    setNextCursor(loaderData.nextCursor);
+    setListLoading(false);
+    setLoadError(loaderData.error);
+
+    if (loaderData.view === 'trash' || searchQuery || loaderData.activeId) return;
+    const firstDocument = loaderData.documents[0];
+    if (!firstDocument) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    navigateRef.current(docsRoute(firstDocument.id, next), { replace: true });
+  }, [loaderData, markUnauthenticated, navigate, searchParams, searchQuery]);
+
+  const loadMoreDocuments = async () => {
+    if (!nextCursor || listLoading || loadingMore) return;
+
+    setLoadingMore(true);
+    try {
+      const folderId =
+        folderScope === 'all' ? undefined : folderScope === 'unfiled' ? null : folderScope;
+      const response =
+        view === 'trash'
+          ? await api.listTrashDocuments({ cursor: nextCursor })
+          : await api.listDocuments({
+              folderId: view === 'documents' ? folderId : undefined,
+              query: searchQuery,
+              favoriteOnly: view === 'favorites',
+              recentOnly: view === 'recent',
+              cursor: nextCursor,
+            });
+
+      setDocuments((current) => {
+        const existingIds = new Set(current.map((document) => document.id));
+        return [...current, ...response.items.filter((document) => !existingIds.has(document.id))];
       });
-
-    return () => controller.abort();
-  }, [authUnavailable, folderRevision, markUnauthenticated]);
-
-  useEffect(() => {
-    if (authUnavailable) {
-      setDocuments([]);
-      setListLoading(false);
-      return;
+      setNextCursor(response.nextCursor);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      setLoadError(errorMessage(error, '更多文档加载失败'));
+    } finally {
+      setLoadingMore(false);
     }
-
-    const controller = new AbortController();
-    setListLoading(true);
-    setLoadError(null);
-
-    const folderId =
-      folderScope === 'all' ? undefined : folderScope === 'unfiled' ? null : folderScope;
-    const request =
-      view === 'trash'
-        ? api.listTrashDocuments({ signal: controller.signal })
-        : api.listDocuments({
-            signal: controller.signal,
-            folderId: view === 'documents' ? folderId : undefined,
-            query: searchQuery,
-            favoriteOnly: view === 'favorites',
-            recentOnly: view === 'recent',
-          });
-
-    request
-      .then(({ items }) => {
-        setDocuments(items);
-        if (view === 'trash') return;
-        if (searchQuery) return;
-
-        const requestedId = activeIdRef.current;
-        if (requestedId && items.some((item) => item.id === requestedId)) return;
-        const next = new URLSearchParams(searchParams);
-        next.delete('id');
-        navigateRef.current(docsRoute(items[0]?.id ?? null, next), { replace: true });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        if (isUnauthorized(error)) {
-          markUnauthenticated();
-          return;
-        }
-        setLoadError(errorMessage(error, '文档列表加载失败'));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setListLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [
-    authUnavailable,
-    folderScope,
-    listRevision,
-    markUnauthenticated,
-    searchParams,
-    searchQuery,
-    view,
-  ]);
+  };
 
   useEffect(() => {
     clearSaveTimer();
@@ -604,44 +537,51 @@ function DocsPageContent() {
       return;
     }
 
-    const controller = new AbortController();
     setEditorLoading(true);
     setLoadError(null);
+  }, [activeId, authUnavailable, clearSaveTimer, editor, view]);
 
-    api
-      .getDocument(activeId, { signal: controller.signal })
-      .then((document) => {
-        if (activeIdRef.current !== activeId) return;
-        activeDocumentRef.current = document;
-        setActiveDocument(document);
-        titleRef.current = document.title;
-        revisionRef.current = 0;
-        savedRevisionRef.current = 0;
-        setSaveState('idle');
-        editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
-        if (editor && createdDocumentIdRef.current === activeId) {
-          createdDocumentIdRef.current = null;
-        }
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || activeIdRef.current !== activeId) return;
-        if (createdDocumentIdRef.current === activeId) {
-          createdDocumentIdRef.current = null;
-        }
-        if (isUnauthorized(error)) {
-          markUnauthenticated();
-          return;
-        }
-        setLoadError(errorMessage(error, '文档加载失败'));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted && activeIdRef.current === activeId) {
-          setEditorLoading(false);
-        }
-      });
+  useEffect(() => {
+    if (!loaderData) return;
+    if (loaderData.unauthorized) {
+      markUnauthenticated();
+      return;
+    }
+    if (loaderData.error) {
+      setEditorLoading(false);
+      if (loaderData.activeId === activeId) {
+        activeDocumentRef.current = null;
+        setActiveDocument(null);
+        setLoadError(loaderData.error);
+      }
+      return;
+    }
+    if (view === 'trash' || !activeId) {
+      setEditorLoading(false);
+      return;
+    }
 
-    return () => controller.abort();
-  }, [activeId, authUnavailable, clearSaveTimer, editor, markUnauthenticated, view]);
+    const document = loaderData.document;
+    if (!document || document.id !== activeId) return;
+
+    const current = activeDocumentRef.current;
+    const hasUnsavedChanges =
+      current?.id === document.id &&
+      (revisionRef.current > savedRevisionRef.current || savePromiseRef.current !== null);
+    setEditorLoading(false);
+    if (hasUnsavedChanges) return;
+
+    activeDocumentRef.current = document;
+    setActiveDocument(document);
+    titleRef.current = document.title;
+    revisionRef.current = 0;
+    savedRevisionRef.current = 0;
+    setSaveState('idle');
+    editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
+    if (createdDocumentIdRef.current === activeId) {
+      createdDocumentIdRef.current = null;
+    }
+  }, [activeId, editor, loaderData, markUnauthenticated, view]);
 
   const saveDocument = useCallback(async (): Promise<boolean> => {
     const pending = savePromiseRef.current;
@@ -779,13 +719,13 @@ function DocsPageContent() {
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
       setDocuments((items) => [toSummary(document), ...items]);
-      setFolderRevision((value) => value + 1);
       activeIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
       next.delete('view');
       next.delete('q');
       next.delete('id');
       navigate(docsRoute(document.id, next));
+      window.setTimeout(refreshWorkspace, 0);
       setSearchInput('');
       message.success('已新建文档');
     } catch (error) {
@@ -812,13 +752,13 @@ function DocsPageContent() {
       const document = await api.importDocument({ ...input, folderId });
       documentModesRef.current.set(document.id, 'edit');
       setDocuments((items) => [toSummary(document), ...items]);
-      setFolderRevision((value) => value + 1);
       activeIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
       next.delete('view');
       next.delete('q');
       next.delete('id');
       navigate(docsRoute(document.id, next));
+      window.setTimeout(refreshWorkspace, 0);
       setSearchInput('');
       message.success('文档已导入');
     } catch (error) {
@@ -847,7 +787,6 @@ function DocsPageContent() {
       documentModesRef.current.delete(document.id);
       const remaining = documents.filter((item) => item.id !== document.id);
       setDocuments(remaining);
-      setFolderRevision((value) => value + 1);
 
       if (isActive) {
         activeIdRef.current = remaining[0]?.id ?? null;
@@ -858,6 +797,7 @@ function DocsPageContent() {
         next.delete('id');
         navigate(docsRoute(remaining[0]?.id ?? null, next), { replace: true });
       }
+      window.setTimeout(refreshWorkspace, 0);
       message.success('文档已移入回收站');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -884,7 +824,6 @@ function DocsPageContent() {
       createdDocumentIdRef.current = duplicate.id;
       documentModesRef.current.set(duplicate.id, 'edit');
       setDocuments((items) => [toSummary(duplicate), ...items]);
-      setFolderRevision((value) => value + 1);
 
       const next = new URLSearchParams(searchParams);
       next.delete('view');
@@ -893,6 +832,7 @@ function DocsPageContent() {
       if (duplicate.folderId) next.set('folder', duplicate.folderId);
       else next.delete('folder');
       navigate(docsRoute(duplicate.id, next));
+      window.setTimeout(refreshWorkspace, 0);
       setSearchInput('');
       message.success('副本已创建');
     } catch (error) {
@@ -1012,7 +952,7 @@ function DocsPageContent() {
       if (!(await prepareBatchOperation(ids))) return;
       const result = await api.batchDocuments({ ids, action: 'move', folderId });
       applyBatchDocumentResult(result.items);
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       clearDocumentSelection();
       message.success(
         folderId === null
@@ -1086,7 +1026,7 @@ function DocsPageContent() {
     setBatchBusy(true);
     try {
       const result = await api.batchDocuments({ ids, action: 'restore' });
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       setListRevision((value) => value + 1);
       message.success(`已恢复 ${result.updatedCount} 篇文档`);
     } catch (error) {
@@ -1107,7 +1047,7 @@ function DocsPageContent() {
       if (!(await prepareBatchOperation(ids))) return;
       const result = await api.batchDocuments({ ids, action: 'delete' });
       applyBatchDocumentResult([], new Set(ids));
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       clearDocumentSelection();
 
       if (result.updatedCount === 0) {
@@ -1269,6 +1209,18 @@ function DocsPageContent() {
       ),
     },
     {
+      key: 'favorite',
+      label: activeDocument?.favorite ? '取消收藏' : '收藏文档',
+      icon: (
+        <Star
+          aria-hidden="true"
+          size={15}
+          strokeWidth={1.8}
+          fill={activeDocument?.favorite ? 'currentColor' : 'none'}
+        />
+      ),
+    },
+    {
       key: 'copy-link',
       label: '复制文档链接',
       icon: <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />,
@@ -1365,6 +1317,11 @@ function DocsPageContent() {
 
     if (key === 'pin') {
       void togglePinned(activeDocument);
+      return;
+    }
+
+    if (key === 'favorite') {
+      void toggleFavorite(activeDocument);
       return;
     }
 
@@ -1471,7 +1428,7 @@ function DocsPageContent() {
     try {
       await api.restoreDocument(document.id);
       setDocuments((items) => items.filter((item) => item.id !== document.id));
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       message.success('文档已恢复');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -1482,6 +1439,41 @@ function DocsPageContent() {
     } finally {
       setRestoringId(null);
     }
+  };
+
+  const permanentlyDeleteDocument = async (document: DocumentSummary) => {
+    if (purgingId !== null) return;
+    setPurgingId(document.id);
+    try {
+      const result = await api.permanentlyDeleteDocument(document.id);
+      setDocuments((items) => items.filter((item) => item.id !== document.id));
+      refreshWorkspace();
+      message.success(
+        result.deletedAttachmentCount > 0
+          ? `文档已永久删除，同时清理 ${result.deletedAttachmentCount} 个附件`
+          : '文档已永久删除',
+      );
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '永久删除失败'));
+    } finally {
+      setPurgingId(null);
+    }
+  };
+
+  const requestPermanentDelete = (document: DocumentSummary) => {
+    if (purgingId !== null) return;
+    modal.confirm({
+      title: '永久删除这篇文档？',
+      content: `“${document.title}”及其历史版本、附件都会被删除，无法恢复。`,
+      okText: '永久删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => permanentlyDeleteDocument(document),
+    });
   };
 
   const selectFolder = (scope: FolderScope) => {
@@ -1544,7 +1536,7 @@ function DocsPageContent() {
       setCreatingFolder(false);
       setCreatingFolderParentId(null);
       setFolderName('');
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       selectFolder(folder.id);
       message.success('文件夹已创建');
     } catch (error) {
@@ -1567,7 +1559,7 @@ function DocsPageContent() {
       const folder = await api.renameFolder(folderDialog.folder.id, name);
       setFolders((items) => items.map((item) => (item.id === folder.id ? folder : item)));
       setFolderDialog(null);
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       message.success('文件夹已重命名');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -1590,7 +1582,7 @@ function DocsPageContent() {
       const deletedIds = getFolderSubtreeIds(folders, folder.id);
       setFolders((items) => items.filter((item) => !deletedIds.has(item.id)));
       setFolderDialog(null);
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       setListRevision((value) => value + 1);
       if (folderScope !== 'all' && folderScope !== 'unfiled') {
         if (!isFolderInSubtree(folders, folderScope, folder.id)) {
@@ -1628,7 +1620,7 @@ function DocsPageContent() {
     try {
       const updated = await api.moveFolder(folder.id, parentId);
       setFolders((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       message.success(parentId === null ? '文件夹已移到顶层' : '文件夹已移动');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -1657,7 +1649,7 @@ function DocsPageContent() {
       setDocuments((items) =>
         items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
       );
-      setFolderRevision((value) => value + 1);
+      refreshWorkspace();
       setListRevision((value) => value + 1);
       message.success(folderId === null ? '文档已移到未归档' : '文档已移动');
     } catch (error) {
@@ -1779,6 +1771,18 @@ function DocsPageContent() {
     activeDocument?.folderId == null
       ? '未归档'
       : getFolderPathLabel(folders, activeDocument.folderId);
+  const mobileLocationLabel = searchQuery
+    ? `搜索：${searchQuery}`
+    : (selectedFolder?.name ??
+      (folderScope === 'unfiled'
+        ? '未归档'
+        : view === 'trash'
+          ? '回收站'
+          : view === 'favorites'
+            ? '收藏'
+            : view === 'recent'
+              ? '最近浏览'
+              : '全部文档'));
   const reloadingActiveDocument = editorLoading && activeDocument?.id === activeId;
   const documentLoadingVisible =
     reloadingActiveDocument || (documentPending && (!activeDocument || showDocumentLoading));
@@ -1799,6 +1803,9 @@ function DocsPageContent() {
         folders={folders}
         isOpen={sidebarOpen}
         listLoading={listLoading}
+        loadingMore={loadingMore}
+        hasMore={nextCursor !== null}
+        purgingId={purgingId}
         restoringId={restoringId}
         saveState={saveState}
         searchValue={searchInput}
@@ -1826,10 +1833,12 @@ function DocsPageContent() {
           setSidebarOpen(false);
           setImportOpen(true);
         }}
+        onLoadMore={() => void loadMoreDocuments()}
         onMoveDocument={(document, folderId) => void moveDocument(document, folderId)}
         onMoveFolder={(folder, parentId) => void moveFolder(folder, parentId)}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
+        onPermanentlyDelete={requestPermanentDelete}
         onRestore={(document) => void restoreDocument(document)}
         onSearchChange={(value) => {
           setSearchInput(value);
@@ -1872,6 +1881,14 @@ function DocsPageContent() {
               onClick={() => setSidebarOpen(true)}
             >
               <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
+            </button>
+            <button
+              type="button"
+              className="swan-mobile-location"
+              aria-label={`打开位置菜单：${mobileLocationLabel}`}
+              onClick={() => setSidebarOpen(true)}
+            >
+              {mobileLocationLabel}
             </button>
             <nav className="swan-editor-breadcrumb" aria-label="当前位置">
               {view === 'documents' ? (
@@ -2253,263 +2270,6 @@ function DocsPageContent() {
           />
         </Suspense>
       )}
-    </div>
-  );
-}
-
-function SaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: string }) {
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    if (state !== 'idle') return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, [state]);
-
-  const syncing = state === 'dirty' || state === 'saving';
-  const Icon =
-    state === 'error'
-      ? CircleAlert
-      : state === 'conflict'
-        ? TriangleAlert
-        : syncing
-          ? LoaderCircle
-          : state === 'saved'
-            ? CloudCheck
-            : Clock3;
-  const label =
-    state === 'error'
-      ? '保存失败'
-      : state === 'conflict'
-        ? '版本冲突'
-        : syncing
-          ? '正在保存...'
-          : state === 'saved'
-            ? '已保存'
-            : `上次编辑 ${formatLastEditedAt(updatedAt, now)}`;
-
-  return (
-    <span className={`swan-save-state is-${state}`} aria-live="polite">
-      <Icon
-        className={syncing ? 'swan-save-icon is-spinning' : 'swan-save-icon'}
-        aria-hidden="true"
-        size={14}
-        strokeWidth={1.8}
-      />
-      <span>{label}</span>
-    </span>
-  );
-}
-
-function DocumentTitleInput({
-  initialValue,
-  mode,
-  onChange,
-}: {
-  initialValue: string;
-  mode: DocumentMode;
-  onChange: (value: string) => void;
-}) {
-  const [value, setValue] = useState(initialValue);
-
-  if (mode === 'read') {
-    return <h1 className="swan-doc-title-display">{value.trim() || '无标题文档'}</h1>;
-  }
-
-  return (
-    <Input.TextArea
-      variant="borderless"
-      className="swan-doc-title-input"
-      autoSize={{ minRows: 1 }}
-      value={value}
-      maxLength={DOCUMENT_TITLE_MAX_LENGTH}
-      placeholder="无标题文档"
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.preventDefault();
-      }}
-      onChange={(event) => {
-        setValue(event.target.value);
-        onChange(event.target.value);
-      }}
-    />
-  );
-}
-
-function EditorCharacterCount({ editor }: { editor: Editor }) {
-  const count = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => currentEditor.getText().trim().length,
-  });
-
-  return count;
-}
-
-function DocumentOutline({ editor }: { editor: Editor }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const headings = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => {
-      const items: Array<{ level: number; pos: number; text: string }> = [];
-      currentEditor.state.doc.descendants((node, pos) => {
-        if (node.type.name !== 'heading') return;
-        const level = Number(node.attrs.level);
-        const text = node.textContent.trim();
-        if (level >= 1 && level <= 3 && text) {
-          items.push({ level, pos, text });
-        }
-      });
-      return items;
-    },
-  });
-
-  if (headings.length === 0) {
-    return <aside className="swan-editor-margin is-right" aria-hidden="true" />;
-  }
-
-  const jumpToHeading = (pos: number) => {
-    const node = editor.view.nodeDOM(pos);
-    if (!(node instanceof HTMLElement)) return;
-
-    node.scrollIntoView({ behavior: 'auto', block: 'center' });
-    if (editor.isEditable) {
-      editor
-        .chain()
-        .setTextSelection(pos + 1)
-        .focus()
-        .run();
-    }
-  };
-
-  return (
-    <aside className="swan-editor-margin is-right swan-document-outline" aria-label="文档大纲">
-      <div className="swan-document-outline-head">
-        {!collapsed && <span>大纲</span>}
-        <button
-          type="button"
-          aria-label={collapsed ? '展开文档大纲' : '收起文档大纲'}
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed((value) => !value)}
-        >
-          <ChevronRight
-            className={collapsed ? undefined : 'is-expanded'}
-            aria-hidden="true"
-            size={14}
-            strokeWidth={1.8}
-          />
-        </button>
-      </div>
-      {!collapsed && (
-        <nav className="swan-document-outline-list">
-          {headings.map((heading) => (
-            <button
-              type="button"
-              className={`swan-document-outline-item is-h${heading.level}`}
-              key={`${heading.pos}-${heading.text}`}
-              title={heading.text}
-              onClick={() => jumpToHeading(heading.pos)}
-            >
-              {heading.text}
-            </button>
-          ))}
-        </nav>
-      )}
-    </aside>
-  );
-}
-
-function EditorToolbar({ editor }: { editor: Editor }) {
-  const activeFormats = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => ({
-      h1: currentEditor.isActive('heading', { level: 1 }),
-      h2: currentEditor.isActive('heading', { level: 2 }),
-      bold: currentEditor.isActive('bold'),
-      italic: currentEditor.isActive('italic'),
-      bulletList: currentEditor.isActive('bulletList'),
-      orderedList: currentEditor.isActive('orderedList'),
-      blockquote: currentEditor.isActive('blockquote'),
-      codeBlock: currentEditor.isActive('codeBlock'),
-      canUndo: currentEditor.can().undo(),
-      canRedo: currentEditor.can().redo(),
-    }),
-  });
-
-  return (
-    <div className="swan-editor-toolbar" role="toolbar" aria-label="文档格式">
-      <Button
-        size="small"
-        type={activeFormats.h1 ? 'primary' : 'text'}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-      >
-        H1
-      </Button>
-      <Button
-        size="small"
-        type={activeFormats.h2 ? 'primary' : 'text'}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      >
-        H2
-      </Button>
-      <Button
-        size="small"
-        type={activeFormats.bold ? 'primary' : 'text'}
-        icon={<Bold aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="粗体"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      />
-      <Button
-        size="small"
-        type={activeFormats.italic ? 'primary' : 'text'}
-        icon={<Italic aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="斜体"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      />
-      <Button
-        size="small"
-        type={activeFormats.bulletList ? 'primary' : 'text'}
-        icon={<List aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="无序列表"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      />
-      <Button
-        size="small"
-        type={activeFormats.orderedList ? 'primary' : 'text'}
-        icon={<ListOrdered aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="有序列表"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      />
-      <Button
-        size="small"
-        type={activeFormats.blockquote ? 'primary' : 'text'}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      >
-        引用
-      </Button>
-      <Button
-        size="small"
-        type={activeFormats.codeBlock ? 'primary' : 'text'}
-        icon={<CodeXml aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="代码块"
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-      />
-      <span className="swan-editor-toolbar-spacer" />
-      <Button
-        size="small"
-        type="text"
-        icon={<Undo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="撤销"
-        disabled={!activeFormats.canUndo}
-        onClick={() => editor.chain().focus().undo().run()}
-      />
-      <Button
-        size="small"
-        type="text"
-        icon={<Redo2 aria-hidden="true" size={16} strokeWidth={1.8} />}
-        aria-label="重做"
-        disabled={!activeFormats.canRedo}
-        onClick={() => editor.chain().focus().redo().run()}
-      />
     </div>
   );
 }

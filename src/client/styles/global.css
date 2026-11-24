@@ -933,9 +933,16 @@ input {
   cursor: default;
 }
 
-.swan-sidebar-doc.is-trash .ant-btn {
-  width: fit-content;
+.swan-sidebar-trash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   margin-top: 3px;
+}
+
+.swan-sidebar-trash-actions .ant-btn {
+  width: fit-content;
 }
 
 .swan-sidebar-empty {
@@ -946,6 +953,21 @@ input {
   padding: 20px 8px;
   color: var(--swan-text-muted);
   font-size: 12px;
+}
+
+.swan-sidebar-load-more.ant-btn {
+  display: flex;
+  width: calc(100% - 16px);
+  min-height: 36px;
+  margin: 8px;
+  justify-content: center;
+  color: var(--swan-text-muted);
+  font-size: 11px;
+}
+
+.swan-sidebar-load-more.ant-btn:hover {
+  background: var(--swan-list-hover);
+  color: var(--swan-text);
 }
 
 .swan-sidebar-user {
@@ -1036,6 +1058,10 @@ input {
   background: transparent;
   color: #5e6872;
   cursor: pointer;
+}
+
+.swan-mobile-location {
+  display: none;
 }
 
 .swan-editor-breadcrumb {
@@ -1950,6 +1976,14 @@ input {
   color: #20262c;
 }
 
+.swan-editor-toolbar .swan-format-more.ant-btn {
+  display: none;
+}
+
+.swan-editor-toolbar .swan-format-more svg {
+  transform: rotate(90deg);
+}
+
 .swan-editor-toolbar-spacer {
   flex: 1;
 }
@@ -2350,6 +2384,8 @@ input {
 
   .swan-workspace-menu-button {
     display: grid;
+    width: 44px;
+    height: 44px;
   }
 
   .swan-workspace-actions {
@@ -2357,7 +2393,30 @@ input {
   }
 
   .swan-folder-item {
-    grid-template-columns: 20px minmax(0, 1fr) 26px;
+    min-height: 44px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+
+  .swan-folder-toggle,
+  .swan-folder-row,
+  .swan-folder-edit {
+    min-height: 44px;
+  }
+
+  .swan-folder-toggle,
+  .swan-folder-edit {
+    width: 44px;
+    height: 44px;
+  }
+
+  .swan-folder-create {
+    min-height: 52px;
+    grid-template-columns: 16px minmax(0, 1fr) 44px 44px;
+  }
+
+  .swan-folder-create button {
+    width: 44px;
+    height: 44px;
   }
 
   .swan-folder-edit {
@@ -2369,8 +2428,57 @@ input {
   }
 
   .swan-sidebar-doc-more {
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .swan-sidebar-nav a {
+    height: 44px;
+  }
+
+  .swan-sidebar-search button,
+  .swan-sidebar-add,
+  .swan-sidebar-select-entry {
+    width: 44px;
+    height: 44px;
+  }
+
+  .swan-sidebar-select-entry {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    font-size: 10px;
+  }
+
+  .swan-sidebar-select-all {
+    min-height: 44px;
+  }
+
+  .swan-sidebar-batch-actions {
+    min-height: 52px;
+  }
+
+  .swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .swan-sidebar-doc {
+    min-height: 56px;
+    padding-right: 48px;
+  }
+
+  .swan-sidebar-trash-actions .ant-btn {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .swan-sidebar-load-more.ant-btn {
+    min-height: 44px;
   }
 
   .swan-sidebar-doc time {
@@ -2415,7 +2523,8 @@ input {
 
 @media (max-width: 560px) {
   .swan-workspace-topbar {
-    gap: 8px;
+    gap: 6px;
+    padding: 0 10px;
   }
 
   .swan-editor-breadcrumb-segment,
@@ -2423,18 +2532,78 @@ input {
     display: none;
   }
 
+  .swan-editor-breadcrumb {
+    display: none;
+  }
+
+  .swan-mobile-location {
+    display: block;
+    min-width: 0;
+    max-width: 112px;
+    height: 44px;
+    flex: 1;
+    overflow: hidden;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--swan-text-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 580;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .swan-mobile-location:hover {
+    background: var(--swan-list-hover);
+  }
+
   .swan-save-state {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
     font-size: 10px;
   }
 
+  .swan-save-state > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .swan-workspace-actions .ant-btn-text {
-    width: 30px;
-    padding-inline: 6px;
+    width: 44px;
+    height: 44px;
+    padding-inline: 0;
+  }
+
+  .swan-workspace-actions .swan-workspace-more.ant-btn,
+  .swan-workspace-actions .swan-document-pin-button.ant-btn,
+  .swan-workspace-actions .swan-document-favorite-button.ant-btn {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .swan-workspace-actions .swan-document-pin-button,
+  .swan-workspace-actions .swan-document-favorite-button {
+    display: none;
   }
 
   .swan-workspace-actions .swan-document-mode-button.ant-btn {
     width: auto;
-    min-width: 42px;
+    min-width: 48px;
+    height: 44px !important;
+    min-height: 44px !important;
     padding-inline: 7px;
   }
 
@@ -2454,6 +2623,22 @@ input {
 
   .swan-editor-toolbar {
     margin-top: 22px;
+    gap: 2px;
+    overflow-x: visible;
+  }
+
+  .swan-editor-toolbar .ant-btn {
+    min-width: 44px;
+    height: 44px;
+    padding-inline: 0;
+  }
+
+  .swan-editor-toolbar .swan-format-secondary.ant-btn {
+    display: none;
+  }
+
+  .swan-editor-toolbar .swan-format-more.ant-btn {
+    display: inline-flex;
   }
 
   .swan-tiptap {

@@ -52,6 +52,7 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
       ? {
           Component: initial.docs.default,
           HydrateFallback: initial.docs.HydrateFallback,
+          loader: initial.docs.loader,
         }
       : {
           lazy: async () => {
@@ -59,6 +60,7 @@ export function createRoutes(initial: InitialRouteModules = {}): RouteObject[] {
             return {
               Component: route.default,
               HydrateFallback: route.HydrateFallback,
+              loader: route.loader,
             };
           },
         }),
