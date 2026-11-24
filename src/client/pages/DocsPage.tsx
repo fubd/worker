@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { App, Alert, Button, Input, Spin } from 'antd';
+import { App, Alert, Button, Input } from 'antd';
 import {
   Bold,
   ChevronRight,
@@ -100,7 +100,7 @@ function isUnauthorized(error: unknown): boolean {
 
 export function HydrateFallback() {
   return (
-    <div className="swan-workspace">
+    <div className="swan-workspace swan-workspace-is-loading" aria-busy="true">
       <aside className="swan-sidebar">
         <div className="swan-sidebar-brand">
           <span className="swan-sidebar-brand-mark">
@@ -111,18 +111,77 @@ export function HydrateFallback() {
             <small>{BRAND.tagline}</small>
           </span>
         </div>
-        <div className="swan-sidebar-section-head">
-          <span>最近编辑</span>
-          <span className="swan-sidebar-count">00</span>
+        <div className="swan-sidebar-loading" aria-hidden="true">
+          <div className="swan-loading-surface">
+            <div className="swan-skeleton-bar is-search" />
+            <div className="swan-skeleton-bar is-nav" />
+            <div className="swan-skeleton-bar is-nav is-short" />
+            <div className="swan-skeleton-bar is-section" />
+            <div className="swan-skeleton-bar is-folder" />
+            <div className="swan-skeleton-bar is-folder" />
+            <div className="swan-skeleton-bar is-section" />
+            <div className="swan-skeleton-document">
+              <div className="swan-skeleton-bar is-document-title" />
+              <div className="swan-skeleton-bar is-document-copy" />
+            </div>
+            <div className="swan-skeleton-document">
+              <div className="swan-skeleton-bar is-document-title" />
+              <div className="swan-skeleton-bar is-document-copy" />
+            </div>
+            <div className="swan-skeleton-document">
+              <div className="swan-skeleton-bar is-document-title" />
+              <div className="swan-skeleton-bar is-document-copy" />
+            </div>
+          </div>
         </div>
-        <div className="swan-sidebar-empty">正在载入文档…</div>
       </aside>
       <main className="swan-workspace-main">
-        <header className="swan-workspace-topbar" />
-        <div className="swan-workspace-loading-panel">
-          <Spin />
-        </div>
+        <header className="swan-workspace-topbar">
+          <div className="swan-topbar-skeleton swan-loading-surface" aria-hidden="true">
+            <div className="swan-skeleton-bar is-topbar-title" />
+            <div className="swan-skeleton-bar is-topbar-actions" />
+          </div>
+        </header>
+        <DocumentSkeleton />
       </main>
+    </div>
+  );
+}
+
+function DocumentSkeleton() {
+  return (
+    <div
+      className="swan-editor-canvas swan-document-loading"
+      role="status"
+      aria-label="正在加载文档"
+    >
+      <div className="swan-editor-stage">
+        <aside className="swan-editor-margin" aria-hidden="true">
+          <span>DOCUMENT</span>
+          <div className="swan-skeleton-bar is-margin" />
+          <div className="swan-skeleton-bar is-margin is-short" />
+          <div className="swan-skeleton-bar is-margin is-short" />
+        </aside>
+        <article className="swan-editor-page">
+          <span className="swan-editor-kicker">私人笔记 · 写作</span>
+          <div className="swan-document-skeleton swan-loading-surface" aria-hidden="true">
+            <div className="swan-skeleton-bar is-title" />
+            <div className="swan-skeleton-meta">
+              <div className="swan-skeleton-bar is-meta" />
+              <div className="swan-skeleton-bar is-meta is-short" />
+              <div className="swan-skeleton-bar is-meta is-folder-meta" />
+            </div>
+            <div className="swan-skeleton-bar is-toolbar" />
+            <div className="swan-skeleton-copy">
+              <div className="swan-skeleton-bar is-copy" />
+              <div className="swan-skeleton-bar is-copy is-wide" />
+              <div className="swan-skeleton-bar is-copy" />
+              <div className="swan-skeleton-bar is-copy is-short" />
+            </div>
+          </div>
+        </article>
+        <aside className="swan-editor-margin is-right" aria-hidden="true" />
+      </div>
     </div>
   );
 }
@@ -145,6 +204,7 @@ function DocsPageContent() {
   const activeId = view === 'documents' ? parseDocumentId(searchParams.get('id')) : null;
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
+  const authUnavailable = status === 'unauthenticated';
 
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
@@ -153,6 +213,7 @@ function DocsPageContent() {
   const [listRevision, setListRevision] = useState(0);
   const [folderRevision, setFolderRevision] = useState(0);
   const [editorLoading, setEditorLoading] = useState(false);
+  const [showDocumentLoading, setShowDocumentLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deletingDocumentId, setDeletingDocumentId] = useState<number | null>(null);
   const [moving, setMoving] = useState(false);
@@ -253,7 +314,7 @@ function DocsPageContent() {
   }, [searchInput, searchQuery, setSearchParams]);
 
   useEffect(() => {
-    if (status !== 'authenticated') {
+    if (authUnavailable) {
       setFolders([]);
       return;
     }
@@ -272,14 +333,10 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [folderRevision, markUnauthenticated, status]);
+  }, [authUnavailable, folderRevision, markUnauthenticated]);
 
   useEffect(() => {
-    if (status === 'loading') {
-      setListLoading(true);
-      return;
-    }
-    if (status === 'unauthenticated') {
+    if (authUnavailable) {
       setDocuments([]);
       setListLoading(false);
       return;
@@ -331,12 +388,12 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [folderScope, listRevision, markUnauthenticated, searchQuery, status, view]);
+  }, [authUnavailable, folderScope, listRevision, markUnauthenticated, searchQuery, view]);
 
   useEffect(() => {
     clearSaveTimer();
 
-    if (status !== 'authenticated' || view !== 'documents' || !activeId) {
+    if (authUnavailable || view !== 'documents' || !activeId) {
       activeIdRef.current = null;
       activeDocumentRef.current = null;
       setActiveDocument(null);
@@ -379,7 +436,7 @@ function DocsPageContent() {
       });
 
     return () => controller.abort();
-  }, [activeId, clearSaveTimer, editor, markUnauthenticated, status, view]);
+  }, [activeId, authUnavailable, clearSaveTimer, editor, markUnauthenticated, view]);
 
   const saveDocument = useCallback(async (): Promise<boolean> => {
     const pending = savePromiseRef.current;
@@ -751,8 +808,24 @@ function DocsPageContent() {
     [markDirty],
   );
 
+  const documentPending =
+    !loadError &&
+    (activeId === null
+      ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
+      : activeDocument?.id !== activeId);
+
+  useEffect(() => {
+    if (!documentPending || activeDocument !== null) {
+      setShowDocumentLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowDocumentLoading(true), 80);
+    return () => window.clearTimeout(timer);
+  }, [activeDocument, documentPending]);
+
   if (status === 'loading') return <HydrateFallback />;
-  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
+  if (status === 'unauthenticated' || !user) return <Navigate to="/login" replace />;
 
   const selectedFolder =
     typeof folderScope === 'number'
@@ -765,11 +838,9 @@ function DocsPageContent() {
     activeDocument?.folderId == null
       ? '未归档'
       : (folders.find((folder) => folder.id === activeDocument.folderId)?.name ?? '文件夹');
-  const documentPending =
-    !loadError &&
-    (activeId === null
-      ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
-      : activeDocument?.id !== activeId);
+  const reloadingActiveDocument = editorLoading && activeDocument?.id === activeId;
+  const documentLoadingVisible =
+    reloadingActiveDocument || (documentPending && (!activeDocument || showDocumentLoading));
 
   return (
     <div className={sidebarOpen ? 'swan-workspace is-sidebar-open' : 'swan-workspace'}>
@@ -856,21 +927,24 @@ function DocsPageContent() {
             </nav>
           </div>
 
-          {view === 'documents' && activeDocument && (
-            <div className="swan-workspace-actions">
-              <SaveStatus state={saveState} updatedAt={activeDocument.updatedAt} />
-              {saveState === 'error' && (
-                <Button size="small" type="link" onClick={() => void saveDocument()}>
-                  重试
-                </Button>
-              )}
-              {saveState === 'conflict' && (
-                <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
-                  重新加载
-                </Button>
-              )}
-            </div>
-          )}
+          {view === 'documents' &&
+            activeDocument &&
+            !documentPending &&
+            !reloadingActiveDocument && (
+              <div className="swan-workspace-actions">
+                <SaveStatus state={saveState} updatedAt={activeDocument.updatedAt} />
+                {saveState === 'error' && (
+                  <Button size="small" type="link" onClick={() => void saveDocument()}>
+                    重试
+                  </Button>
+                )}
+                {saveState === 'conflict' && (
+                  <Button size="small" type="link" onClick={() => void reloadActiveDocument()}>
+                    重新加载
+                  </Button>
+                )}
+              </div>
+            )}
         </header>
 
         {(loadError || saveState === 'conflict') && (
@@ -911,10 +985,8 @@ function DocsPageContent() {
               <span>恢复后会重新出现在全部文档中。</span>
             </div>
           </div>
-        ) : editorLoading || !editor || documentPending ? (
-          <div className="swan-workspace-empty">
-            <Spin />
-          </div>
+        ) : !editor || documentLoadingVisible ? (
+          <DocumentSkeleton />
         ) : !activeDocument ? (
           <div className="swan-workspace-empty">
             <div className="swan-empty-state">
@@ -930,7 +1002,14 @@ function DocsPageContent() {
             </div>
           </div>
         ) : (
-          <div className="swan-editor-canvas">
+          <div
+            className={
+              documentPending || reloadingActiveDocument
+                ? 'swan-editor-canvas is-document-switching'
+                : 'swan-editor-canvas'
+            }
+            aria-busy={documentPending || reloadingActiveDocument || undefined}
+          >
             <div className="swan-editor-stage">
               <aside className="swan-editor-margin">
                 <span>DOCUMENT</span>

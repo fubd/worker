@@ -34,7 +34,7 @@ if (!loginHtml.includes('swan-login-card') || !loginHtml.includes('继续写作'
 }
 
 const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
-if (!docsHtml.includes('swan-workspace-loading')) {
+if (!docsHtml.includes('swan-workspace-is-loading')) {
   throw new Error('/docs is missing its authentication shell');
 }
 

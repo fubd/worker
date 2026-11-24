@@ -2,21 +2,11 @@ import { lazy, Suspense, useCallback, useState } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-import { BrandMark } from '../components/BrandMark';
 import { useAuth } from '../auth/AuthProvider';
 import type { WorkspaceOutletContext } from './workspace-context';
 
 const enableSpeedInsights = import.meta.env.PROD;
 const PasswordSettingsModal = lazy(() => import('../components/PasswordSettingsModal'));
-
-function WorkspaceLoading() {
-  return (
-    <div className="swan-workspace-loading" role="status" aria-label="正在读取登录状态">
-      <BrandMark size={42} />
-      <span>正在打开雨燕…</span>
-    </div>
-  );
-}
 
 export default function RootLayout() {
   const location = useLocation();
@@ -33,8 +23,9 @@ export default function RootLayout() {
     navigate('/login', { replace: true });
   }, [navigate, signOut]);
 
-  if (status === 'loading') return <WorkspaceLoading />;
-  if (status === 'unauthenticated' || !user) return <Navigate to="/login" replace />;
+  if (status === 'unauthenticated' || (status === 'authenticated' && !user)) {
+    return <Navigate to="/login" replace />;
+  }
 
   const context: WorkspaceOutletContext = {
     user,
@@ -46,7 +37,7 @@ export default function RootLayout() {
   return (
     <>
       <Outlet context={context} />
-      {passwordModalOpen && (
+      {passwordModalOpen && user && (
         <Suspense fallback={null}>
           <PasswordSettingsModal
             hasPassword={user.hasPassword}

@@ -60,17 +60,38 @@ input {
   white-space: normal;
 }
 
-/* ---------- 鉴权过渡 ---------- */
-.swan-workspace-loading {
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 14px;
-  color: var(--swan-text-muted);
-  background: var(--swan-canvas);
-  font-size: 12px;
+/* ---------- 加载骨架 ---------- */
+.swan-loading-surface {
+  opacity: 0;
+  animation: swan-loading-surface-in 160ms ease-out 40ms forwards;
+}
+
+.swan-skeleton-bar {
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #e7eaec;
+}
+
+.swan-skeleton-bar::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.72), transparent);
+  content: '';
+  transform: translateX(-100%);
+  animation: swan-skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes swan-loading-surface-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes swan-skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }
 
 /* ---------- 工作区壳层 ---------- */
@@ -94,6 +115,61 @@ input {
   padding: 24px 18px 18px;
   border-right: 1px solid var(--swan-border);
   background: var(--swan-sidebar);
+}
+
+.swan-sidebar-loading {
+  min-height: 0;
+  margin-top: 22px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.swan-skeleton-bar.is-search {
+  height: 36px;
+  margin-bottom: 18px;
+}
+
+.swan-skeleton-bar.is-nav {
+  width: 100%;
+  height: 38px;
+  margin-bottom: 3px;
+}
+
+.swan-skeleton-bar.is-nav.is-short {
+  width: 58%;
+}
+
+.swan-skeleton-bar.is-section {
+  width: 32%;
+  height: 9px;
+  margin: 23px 8px 9px;
+}
+
+.swan-skeleton-bar.is-folder {
+  width: calc(100% - 18px);
+  height: 27px;
+  margin: 0 9px 4px;
+}
+
+.swan-skeleton-document {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+}
+
+.swan-skeleton-bar.is-document-title {
+  width: 72%;
+  height: 12px;
+}
+
+.swan-skeleton-bar.is-document-copy {
+  width: 91%;
+  height: 8px;
+}
+
+.swan-sidebar-document-skeleton {
+  display: grid;
+  padding-top: 2px;
 }
 
 .swan-sidebar-brand {
@@ -728,6 +804,23 @@ input {
   gap: 8px;
 }
 
+.swan-topbar-skeleton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.swan-skeleton-bar.is-topbar-title {
+  width: 132px;
+  height: 10px;
+}
+
+.swan-skeleton-bar.is-topbar-actions {
+  width: 82px;
+  height: 10px;
+}
+
 .swan-save-state {
   display: inline-flex;
   align-items: center;
@@ -780,14 +873,83 @@ input {
   padding: 14px 24px 0;
 }
 
-.swan-workspace-empty,
-.swan-workspace-loading-panel {
+.swan-workspace-empty {
   display: flex;
   flex: 1;
   min-height: 0;
   align-items: center;
   justify-content: center;
   padding: 32px;
+}
+
+.swan-document-loading .swan-editor-page {
+  padding-top: 0;
+}
+
+.swan-skeleton-bar.is-margin {
+  width: 54px;
+  height: 7px;
+  margin-top: 5px;
+}
+
+.swan-skeleton-bar.is-margin.is-short {
+  width: 38px;
+}
+
+.swan-document-skeleton {
+  padding-top: 20px;
+}
+
+.swan-skeleton-bar.is-title {
+  width: min(74%, 520px);
+  height: clamp(46px, 3.5vw, 56px);
+  border-radius: 9px;
+}
+
+.swan-skeleton-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.swan-skeleton-bar.is-meta {
+  width: 78px;
+  height: 8px;
+}
+
+.swan-skeleton-bar.is-meta.is-short {
+  width: 98px;
+}
+
+.swan-skeleton-bar.is-meta.is-folder-meta {
+  width: 142px;
+  margin-left: auto;
+}
+
+.swan-skeleton-bar.is-toolbar {
+  height: 46px;
+  margin-top: 28px;
+  border-radius: 0;
+}
+
+.swan-skeleton-copy {
+  display: grid;
+  gap: 17px;
+  padding-top: 35px;
+}
+
+.swan-skeleton-bar.is-copy {
+  width: 86%;
+  height: 12px;
+}
+
+.swan-skeleton-bar.is-copy.is-wide {
+  width: 100%;
+}
+
+.swan-skeleton-bar.is-copy.is-short {
+  width: 57%;
 }
 
 .swan-empty-state {
@@ -822,6 +984,11 @@ input {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(73, 85, 96, 0.18) transparent;
+}
+
+.swan-editor-canvas.is-document-switching {
+  pointer-events: none;
+  user-select: none;
 }
 
 .swan-editor-stage {
@@ -1408,5 +1575,14 @@ input {
   .swan-sidebar-nav a,
   .swan-sidebar-doc {
     transition: none;
+  }
+
+  .swan-loading-surface {
+    opacity: 1;
+    animation: none;
+  }
+
+  .swan-skeleton-bar::after {
+    display: none;
   }
 }

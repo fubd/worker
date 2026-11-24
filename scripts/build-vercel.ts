@@ -50,7 +50,7 @@ if (!readFileSync(`${OUT}/index.html`, 'utf8').includes('swan-home-hero')) {
 if (!readFileSync(`${OUT}/login.html`, 'utf8').includes('swan-login-card')) {
   throw new Error('/login is missing its login form');
 }
-if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-workspace-loading')) {
+if (!readFileSync(`${OUT}/docs.html`, 'utf8').includes('swan-workspace-is-loading')) {
   throw new Error('/docs is missing its authentication shell');
 }
 

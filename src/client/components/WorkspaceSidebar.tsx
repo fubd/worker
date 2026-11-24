@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Avatar, Button, Dropdown, Spin, Tooltip, type MenuProps } from 'antd';
+import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
   Check,
   ChevronDown,
@@ -62,6 +62,19 @@ interface WorkspaceSidebarProps {
   onSelect: (id: number) => void;
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
+}
+
+function DocumentListSkeleton() {
+  return (
+    <div className="swan-sidebar-document-skeleton swan-loading-surface" aria-hidden="true">
+      {[0, 1, 2, 3].map((item) => (
+        <div className="swan-skeleton-document" key={item}>
+          <div className="swan-skeleton-bar is-document-title" />
+          <div className="swan-skeleton-bar is-document-copy" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function WorkspaceSidebar({
@@ -324,9 +337,7 @@ export function WorkspaceSidebar({
 
       <div className="swan-sidebar-doc-list">
         {listLoading ? (
-          <div className="swan-sidebar-empty">
-            <Spin size="small" />
-          </div>
+          <DocumentListSkeleton />
         ) : documents.length === 0 ? (
           <div className="swan-sidebar-empty">
             {view === 'trash' ? '回收站是空的' : hasSearch ? '没有匹配的文档' : '这里还没有文档'}
