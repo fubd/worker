@@ -62,7 +62,7 @@ interface WorkspaceSidebarProps {
   onBindProvider: (provider: 'google' | 'github') => void;
   onCancelFolderCreate: () => void;
   onCreate: () => void;
-  onCreateFolder: () => void;
+  onCreateFolder: (parentId: PublicId | null) => void;
   onDeleteDocument: (document: DocumentSummary) => void;
   onEditFolder: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
@@ -267,6 +267,77 @@ export function WorkspaceSidebar({
               : folderScope === 'unfiled'
                 ? '未归档'
                 : (folders.find((folder) => folder.id === folderScope)?.name ?? '文件夹');
+  const currentFolder = isPublicId(folderScope)
+    ? folders.find((folder) => folder.id === folderScope)
+    : undefined;
+  const directChildFolderCount = currentFolder
+    ? folders.filter((folder) => folder.parentId === currentFolder.id).length
+    : 0;
+  const sectionSummary =
+    view === 'documents' && currentFolder && !hasSearch
+      ? `${directChildFolderCount} 个子文件夹 · ${documents.length} 篇直属文档`
+      : null;
+
+  const getFolderMoveTargets = (folder: FolderSummary) => [
+    ...(folder.parentId === null ? [] : [{ key: 'move:none', label: '顶层' }]),
+    ...folders
+      .filter(
+        (target) =>
+          target.id !== folder.id &&
+          target.id !== folder.parentId &&
+          !isFolderInSubtree(folders, target.id, folder.id),
+      )
+      .map((target) => ({
+        key: `move:${target.id}`,
+        label: getFolderPathLabel(folders, target.id),
+      })),
+  ];
+
+  const getFolderMenuItems = (folder: FolderSummary): MenuProps['items'] => {
+    const moveTargets = getFolderMoveTargets(folder);
+
+    return [
+      {
+        key: 'create-child',
+        label: '新建子文件夹',
+        icon: <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />,
+      },
+      ...(moveTargets.length
+        ? [
+            {
+              key: 'move',
+              label: '移动到文件夹',
+              icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
+              children: moveTargets,
+            },
+          ]
+        : []),
+      { type: 'divider' as const },
+      {
+        key: 'manage',
+        label: '重命名或删除',
+      },
+    ];
+  };
+
+  const handleFolderMenuAction = (folder: FolderSummary, key: string) => {
+    if (key === 'create-child') {
+      onCreateFolder(folder.id);
+      return;
+    }
+    if (key === 'manage') {
+      onEditFolder(folder);
+      return;
+    }
+    if (!key.startsWith('move:')) return;
+
+    const target = key.slice('move:'.length);
+    if (target === 'none') {
+      onMoveFolder(folder, null);
+    } else if (isPublicId(target)) {
+      onMoveFolder(folder, target);
+    }
+  };
 
   const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
     const moveTargets = [
@@ -418,7 +489,7 @@ export function WorkspaceSidebar({
                 className="swan-sidebar-add"
                 aria-label="新建文件夹"
                 aria-expanded={creatingFolder}
-                onClick={onCreateFolder}
+                onClick={() => onCreateFolder(null)}
               >
                 <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />
               </button>
@@ -457,6 +528,7 @@ export function WorkspaceSidebar({
               folders={folders}
               folderDraft={folderDraft}
               folderSaving={folderSaving}
+              getFolderMenuItems={getFolderMenuItems}
               node={node}
               onBeginDrag={beginDrag}
               onCancelFolderCreate={onCancelFolderCreate}
@@ -465,6 +537,7 @@ export function WorkspaceSidebar({
               onDragOverTarget={handleDragOverTarget}
               onDropTarget={finishDrop}
               onEditFolder={onEditFolder}
+              onFolderMenuAction={handleFolderMenuAction}
               onFolderDraftChange={onFolderDraftChange}
               onFolderSelect={onFolderSelect}
               onSubmitFolderCreate={onSubmitFolderCreate}
@@ -475,9 +548,14 @@ export function WorkspaceSidebar({
       )}
 
       <div className="swan-sidebar-section-head">
-        <OverflowText text={sectionTitle} className="swan-sidebar-section-title" />
+        <span className="swan-sidebar-section-copy">
+          <OverflowText text={sectionTitle} className="swan-sidebar-section-title" />
+          {sectionSummary && <small>{sectionSummary}</small>}
+        </span>
         <span className="swan-sidebar-section-actions">
-          <span className="swan-sidebar-count">{String(documents.length).padStart(2, '0')}</span>
+          {!sectionSummary && (
+            <span className="swan-sidebar-count">{String(documents.length).padStart(2, '0')}</span>
+          )}
           {view === 'documents' && (
             <button
               type="button"

@@ -1,4 +1,5 @@
 import type { DragEvent as ReactDragEvent } from 'react';
+import { Dropdown, type MenuProps } from 'antd';
 import { Check, ChevronRight, Folder, GripVertical, MoreHorizontal, X } from 'lucide-react';
 
 import type { PublicId } from '@/shared/ids';
@@ -58,6 +59,7 @@ interface FolderTreeItemProps {
   folders: FolderSummary[];
   folderDraft: string;
   folderSaving: boolean;
+  getFolderMenuItems: (folder: FolderSummary) => MenuProps['items'];
   node: FolderTreeNode;
   onBeginDrag: (event: ReactDragEvent<HTMLElement>, payload: SidebarDragPayload) => void;
   onCancelFolderCreate: () => void;
@@ -66,6 +68,7 @@ interface FolderTreeItemProps {
   onDragOverTarget: (targetId: string) => void;
   onDropTarget: (event: ReactDragEvent<HTMLElement>, parentId: PublicId | null) => void;
   onEditFolder: (folder: FolderSummary) => void;
+  onFolderMenuAction: (folder: FolderSummary, key: string) => void;
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (folderId: PublicId) => void;
   onSubmitFolderCreate: () => void;
@@ -82,6 +85,7 @@ export function FolderTreeItem({
   folders,
   folderDraft,
   folderSaving,
+  getFolderMenuItems,
   node,
   onBeginDrag,
   onCancelFolderCreate,
@@ -90,6 +94,7 @@ export function FolderTreeItem({
   onDragOverTarget,
   onDropTarget,
   onEditFolder,
+  onFolderMenuAction,
   onFolderDraftChange,
   onFolderSelect,
   onSubmitFolderCreate,
@@ -165,14 +170,22 @@ export function FolderTreeItem({
         >
           <GripVertical aria-hidden="true" size={14} strokeWidth={1.8} />
         </button>
-        <button
-          type="button"
-          className="swan-folder-edit"
-          aria-label={`管理文件夹 ${folder.name}`}
-          onClick={() => onEditFolder(folder)}
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            items: getFolderMenuItems(folder),
+            onClick: ({ key }) => onFolderMenuAction(folder, key),
+          }}
         >
-          <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
+          <button
+            type="button"
+            className="swan-folder-edit"
+            aria-label={`管理文件夹 ${folder.name}`}
+          >
+            <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
+          </button>
+        </Dropdown>
       </div>
 
       {expanded && (hasChildren || (creatingFolder && creatingFolderParentId === folder.id)) && (
@@ -198,6 +211,7 @@ export function FolderTreeItem({
               folders={folders}
               folderDraft={folderDraft}
               folderSaving={folderSaving}
+              getFolderMenuItems={getFolderMenuItems}
               node={child}
               onBeginDrag={onBeginDrag}
               onCancelFolderCreate={onCancelFolderCreate}
@@ -206,6 +220,7 @@ export function FolderTreeItem({
               onDragOverTarget={onDragOverTarget}
               onDropTarget={onDropTarget}
               onEditFolder={onEditFolder}
+              onFolderMenuAction={onFolderMenuAction}
               onFolderDraftChange={onFolderDraftChange}
               onFolderSelect={onFolderSelect}
               onSubmitFolderCreate={onSubmitFolderCreate}

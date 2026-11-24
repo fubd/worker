@@ -48,7 +48,12 @@ import { BrandMark } from '../components/BrandMark';
 import { OverflowText } from '../components/OverflowText';
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
 import type { WorkspaceOutletContext } from '../layouts/workspace-context';
-import { getFolderPathLabel, getFolderSubtreeIds, isFolderInSubtree } from '../folder-utils';
+import {
+  getFolderAncestors,
+  getFolderPathLabel,
+  getFolderSubtreeIds,
+  isFolderInSubtree,
+} from '../folder-utils';
 import {
   formatUpdatedAt,
   type DocumentView,
@@ -1392,13 +1397,7 @@ function DocsPageContent() {
     folderScope === 'all' || folderScope === 'unfiled'
       ? undefined
       : folders.find((folder) => folder.id === folderScope);
-  const breadcrumbFolder = searchQuery
-    ? `搜索：${searchQuery}`
-    : selectedFolder
-      ? getFolderPathLabel(folders, selectedFolder.id)
-      : folderScope === 'unfiled'
-        ? '未归档'
-        : '私人笔记';
+  const breadcrumbFolders = selectedFolder ? getFolderAncestors(folders, selectedFolder.id) : [];
   const activeFolderName =
     activeDocument?.folderId == null
       ? '未归档'
@@ -1433,7 +1432,7 @@ function DocsPageContent() {
           setSidebarOpen(false);
           void createDocument();
         }}
-        onCreateFolder={() => openCreateFolder(null)}
+        onCreateFolder={openCreateFolder}
         onDeleteDocument={requestDeleteDocument}
         onEditFolder={openEditFolder}
         onFolderDraftChange={setFolderName}
@@ -1483,20 +1482,57 @@ function DocsPageContent() {
               <Menu aria-hidden="true" size={18} strokeWidth={1.8} />
             </button>
             <nav className="swan-editor-breadcrumb" aria-label="当前位置">
-              <span className="swan-editor-breadcrumb-root">
-                {view === 'trash'
-                  ? '回收站'
-                  : view === 'favorites'
-                    ? '收藏'
-                    : view === 'recent'
-                      ? '最近浏览'
-                      : '全部文档'}
-              </span>
-              {view === 'documents' && (
+              {view === 'documents' ? (
                 <>
-                  <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-                  <OverflowText text={breadcrumbFolder} className="swan-editor-breadcrumb-folder" />
+                  <button
+                    type="button"
+                    className="swan-editor-breadcrumb-link"
+                    onClick={() => selectFolder('all')}
+                  >
+                    全部文档
+                  </button>
+                  {folderScope === 'unfiled' && (
+                    <span className="swan-editor-breadcrumb-segment">
+                      <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+                      <span className="swan-editor-breadcrumb-current">未归档</span>
+                    </span>
+                  )}
+                  {breadcrumbFolders.map((folder, index) => (
+                    <span className="swan-editor-breadcrumb-segment" key={folder.id}>
+                      <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+                      {index === breadcrumbFolders.length - 1 ? (
+                        <OverflowText
+                          text={folder.name}
+                          className="swan-editor-breadcrumb-folder"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="swan-editor-breadcrumb-link"
+                          onClick={() => selectFolder(folder.id)}
+                        >
+                          <OverflowText
+                            text={folder.name}
+                            className="swan-editor-breadcrumb-folder"
+                          />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {searchQuery && (
+                    <span className="swan-editor-breadcrumb-segment">
+                      <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+                      <OverflowText
+                        text={`搜索：${searchQuery}`}
+                        className="swan-editor-breadcrumb-current"
+                      />
+                    </span>
+                  )}
                 </>
+              ) : (
+                <span className="swan-editor-breadcrumb-current">
+                  {view === 'trash' ? '回收站' : view === 'favorites' ? '收藏' : '最近浏览'}
+                </span>
               )}
             </nav>
           </div>

@@ -330,6 +330,21 @@ input {
   flex: 1;
 }
 
+.swan-sidebar-section-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.swan-sidebar-section-copy small {
+  color: var(--swan-text-muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: none;
+}
+
 .swan-sidebar-section-actions {
   display: inline-flex;
   flex: 0 0 auto;
@@ -915,13 +930,43 @@ input {
   white-space: nowrap;
 }
 
-.swan-editor-breadcrumb-root,
 .swan-editor-breadcrumb svg {
   flex: 0 0 auto;
 }
 
+.swan-editor-breadcrumb-segment {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.swan-editor-breadcrumb-link {
+  max-width: 180px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.swan-editor-breadcrumb-link:hover {
+  background: var(--swan-list-hover);
+  color: var(--swan-text);
+}
+
+.swan-editor-breadcrumb-current {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--swan-text-soft);
+  font-weight: 560;
+  text-overflow: ellipsis;
+}
+
 .swan-editor-breadcrumb-folder {
-  flex: 1;
+  min-width: 0;
   color: var(--swan-text-soft);
   font-weight: 560;
 }
@@ -2253,8 +2298,8 @@ input {
     gap: 8px;
   }
 
-  .swan-editor-breadcrumb-folder,
-  .swan-editor-breadcrumb svg {
+  .swan-editor-breadcrumb-segment,
+  .swan-editor-breadcrumb > svg {
     display: none;
   }
 
