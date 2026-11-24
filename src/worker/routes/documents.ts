@@ -199,9 +199,10 @@ documentRoutes.get('/:id', async (c) => {
   const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, id));
+  const ownerId = c.get('user').id;
+  await wrapTime(c, 'db', repo.touchDocumentViewed(c.env.DB, ownerId, id));
+  const document = await wrapTime(c, 'db', repo.getDocument(c.env.DB, ownerId, id));
   if (!document) return c.json({ error: '文档不存在' }, 404);
-  await wrapTime(c, 'db', repo.touchDocumentViewed(c.env.DB, c.get('user').id, id));
   return c.json(document);
 });
 

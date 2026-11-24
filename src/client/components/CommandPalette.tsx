@@ -37,6 +37,7 @@ export function CommandPalette({
   onOpenDocument,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
+  const [selectedValue, setSelectedValue] = useState('');
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,7 @@ export function CommandPalette({
   useEffect(() => {
     if (!open) return;
     setQuery('');
+    setSelectedValue('');
     const controller = new AbortController();
     api
       .listFolders({ signal: controller.signal })
@@ -92,6 +94,15 @@ export function CommandPalette({
     { value: 'navigate-favorites', label: '收藏', path: '/docs?view=favorites', icon: Star },
     { value: 'navigate-trash', label: '回收站', path: '/docs?view=trash', icon: Trash2 },
   ].filter((item) => matches(item.label));
+  const commandValues = [
+    ...(!normalizedQuery ? ['action-new-document'] : []),
+    ...navigationItems.map((item) => item.value),
+    ...matchingFolders.map((folder) => `folder-${folder.id}`),
+    ...documents.map((document) => commandDocumentTarget(document.id)),
+  ];
+  const activeValue = commandValues.includes(selectedValue)
+    ? selectedValue
+    : (commandValues[0] ?? '');
 
   const navigate = (path: string) => {
     onNavigate(path);
@@ -113,7 +124,13 @@ export function CommandPalette({
       className="swan-command-modal"
       onCancel={onClose}
     >
-      <Command label="快速打开" shouldFilter={false} loop>
+      <Command
+        label="快速打开"
+        value={activeValue}
+        onValueChange={setSelectedValue}
+        shouldFilter={false}
+        loop
+      >
         <div className="swan-command-search">
           <Search aria-hidden="true" size={17} strokeWidth={1.8} />
           <Command.Input
