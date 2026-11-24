@@ -216,10 +216,10 @@ export const api = {
       signal: options.signal,
     }),
 
-  createFolder: (name: string) =>
+  createFolder: (name: string, parentId: PublicId | null = null) =>
     request<FolderSummary>('/folders', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, parentId }),
     }),
 
   renameFolder: (id: PublicId, name: string) =>
@@ -228,8 +228,19 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
+  moveFolder: (id: PublicId, parentId: PublicId | null) =>
+    request<FolderSummary>(`/folders/${id}/move`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId }),
+    }),
+
   deleteFolder: (id: PublicId) =>
-    request<{ ok: boolean; id: PublicId }>(`/folders/${id}`, {
+    request<{
+      ok: boolean;
+      id: PublicId;
+      deletedFolderCount: number;
+      movedDocumentCount: number;
+    }>(`/folders/${id}`, {
       method: 'DELETE',
     }),
 };

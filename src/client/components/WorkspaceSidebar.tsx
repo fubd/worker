@@ -1,11 +1,12 @@
+import { useEffect, useState, type DragEvent as ReactDragEvent } from 'react';
 import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
-  Check,
   ChevronDown,
   Clock3,
   FileText,
   Folder,
   FolderPlus,
+  GripVertical,
   Link2,
   LockKeyhole,
   LogOut,
@@ -24,7 +25,15 @@ import { BRAND } from '@/shared/brand';
 import { isPublicId, type PublicId } from '@/shared/ids';
 import type { AuthUser, DocumentSummary, FolderSummary } from '@/shared/types';
 import { BrandMark } from './BrandMark';
+import {
+  buildFolderTree,
+  getFolderAncestors,
+  getFolderPathLabel,
+  isFolderInSubtree,
+} from '../folder-utils';
 import { OverflowText } from './OverflowText';
+import { FolderCreateForm, FolderTreeItem, UnfiledDropRow } from './SidebarFolderTree';
+import { beginSidebarDrag, readSidebarDrag, type SidebarDragPayload } from '../sidebar-drag';
 import {
   formatUpdatedAt,
   type DocumentView,
@@ -36,6 +45,7 @@ interface WorkspaceSidebarProps {
   activeId: PublicId | null;
   creating: boolean;
   creatingFolder: boolean;
+  creatingFolderParentId: PublicId | null;
   deletingDocumentId: PublicId | null;
   documents: DocumentSummary[];
   folderDraft: string;
@@ -58,6 +68,7 @@ interface WorkspaceSidebarProps {
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
   onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
+  onMoveFolder: (folder: FolderSummary, parentId: PublicId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
   onRestore: (document: DocumentSummary) => void;
@@ -82,10 +93,39 @@ function DocumentListSkeleton() {
   );
 }
 
+function DocumentDragHandle({
+  document,
+  dragging,
+  onBeginDrag,
+  onDragEnd,
+}: {
+  document: DocumentSummary;
+  dragging: boolean;
+  onBeginDrag: (event: ReactDragEvent<HTMLElement>, payload: SidebarDragPayload) => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={dragging ? 'swan-document-drag is-dragging' : 'swan-document-drag'}
+      aria-label={`拖动文档 ${document.title}`}
+      draggable
+      onClick={(event) => event.stopPropagation()}
+      onDragStart={(event) =>
+        onBeginDrag(event, { kind: 'document', id: document.id, label: document.title })
+      }
+      onDragEnd={onDragEnd}
+    >
+      <GripVertical aria-hidden="true" size={14} strokeWidth={1.8} />
+    </button>
+  );
+}
+
 export function WorkspaceSidebar({
   activeId,
   creating,
   creatingFolder,
+  creatingFolderParentId,
   deletingDocumentId,
   documents,
   folderDraft,
@@ -108,6 +148,7 @@ export function WorkspaceSidebar({
   onFolderDraftChange,
   onFolderSelect,
   onMoveDocument,
+  onMoveFolder,
   onNavigate,
   onOpenPasswordSettings,
   onRestore,
@@ -118,7 +159,99 @@ export function WorkspaceSidebar({
   onToggleFavorite,
   onTogglePinned,
 }: WorkspaceSidebarProps) {
+  'use no memo';
+
   const linkedProviders = user.linkedProviders;
+  const folderTree = buildFolderTree(folders);
+  const [draggingItem, setDraggingItem] = useState<SidebarDragPayload | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<Set<PublicId>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const value = JSON.parse(
+        window.localStorage.getItem('swan:expanded-folders') ?? '[]',
+      ) as unknown;
+      return new Set(Array.isArray(value) ? value.filter(isPublicId) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  useEffect(() => {
+    window.localStorage.setItem('swan:expanded-folders', JSON.stringify([...expandedFolderIds]));
+  }, [expandedFolderIds]);
+
+  useEffect(() => {
+    if (!isPublicId(folderScope)) return;
+    const ancestorIds = getFolderAncestors(folders, folderScope).map((folder) => folder.id);
+    setExpandedFolderIds((current) => {
+      if (ancestorIds.every((id) => current.has(id))) return current;
+      return new Set([...current, ...ancestorIds]);
+    });
+  }, [folderScope, folders]);
+
+  useEffect(() => {
+    if (!creatingFolder || !isPublicId(creatingFolderParentId)) return;
+    const parentId = creatingFolderParentId;
+    const ancestorIds = [
+      ...getFolderAncestors(folders, parentId).map((folder) => folder.id),
+      parentId,
+    ];
+    setExpandedFolderIds((current) => {
+      if (ancestorIds.every((id) => current.has(id))) return current;
+      return new Set([...current, ...ancestorIds]);
+    });
+  }, [creatingFolder, creatingFolderParentId, folders]);
+
+  const toggleFolderExpanded = (folderId: PublicId) => {
+    setExpandedFolderIds((current) => {
+      const next = new Set(current);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const beginDrag = (event: ReactDragEvent<HTMLElement>, payload: SidebarDragPayload) => {
+    setDraggingItem(payload);
+    beginSidebarDrag(event, payload);
+  };
+
+  const resetDrag = () => {
+    setDraggingItem(null);
+    setDropTargetId(null);
+  };
+
+  const finishDrop = (event: ReactDragEvent<HTMLElement>, parentId: PublicId | null) => {
+    const drag = readSidebarDrag(event) ?? draggingItem;
+    resetDrag();
+    if (!drag) return;
+
+    if (drag.kind === 'document') {
+      const document = documents.find((item) => item.id === drag.id);
+      if (document && document.folderId !== parentId) onMoveDocument(document, parentId);
+      return;
+    }
+
+    const folder = folders.find((item) => item.id === drag.id);
+    if (
+      !folder ||
+      folder.parentId === parentId ||
+      (parentId !== null &&
+        (parentId === folder.id || isFolderInSubtree(folders, parentId, folder.id)))
+    ) {
+      return;
+    }
+    onMoveFolder(folder, parentId);
+  };
+
+  const handleDragOverTarget = (targetId: string) => {
+    if (dropTargetId !== targetId) setDropTargetId(targetId);
+  };
+
+  const handleDragLeaveTarget = (targetId: string) => {
+    setDropTargetId((current) => (current === targetId ? null : current));
+  };
+
   const hasSearch = searchValue.trim().length > 0;
   const sectionTitle =
     view === 'trash'
@@ -140,7 +273,10 @@ export function WorkspaceSidebar({
       ...(document.folderId === null ? [] : [{ key: 'move:none', label: '未归档' }]),
       ...folders
         .filter((folder) => folder.id !== document.folderId)
-        .map((folder) => ({ key: `move:${folder.id}`, label: folder.name })),
+        .map((folder) => ({
+          key: `move:${folder.id}`,
+          label: getFolderPathLabel(folders, folder.id),
+        })),
     ];
 
     return [
@@ -254,7 +390,27 @@ export function WorkspaceSidebar({
 
       {view === 'documents' && (
         <div className="swan-sidebar-folders">
-          <div className="swan-sidebar-section-head">
+          <div
+            className={
+              dropTargetId === 'folder-root'
+                ? 'swan-sidebar-section-head is-drop-target'
+                : 'swan-sidebar-section-head'
+            }
+            onDragOver={(event) => {
+              if (!draggingItem) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              handleDragOverTarget('folder-root');
+            }}
+            onDragLeave={(event) => {
+              event.stopPropagation();
+              handleDragLeaveTarget('folder-root');
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              finishDrop(event, null);
+            }}
+          >
             <span>文件夹</span>
             <Tooltip title="新建文件夹" placement="top">
               <button
@@ -269,80 +425,51 @@ export function WorkspaceSidebar({
             </Tooltip>
           </div>
 
-          {creatingFolder && (
-            <form
-              className="swan-folder-create"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onSubmitFolderCreate();
-              }}
-            >
-              <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
-              <input
-                autoFocus
-                maxLength={30}
-                value={folderDraft}
-                aria-label="新文件夹名称"
-                placeholder="文件夹名称"
-                onChange={(event) => onFolderDraftChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') onCancelFolderCreate();
-                }}
-              />
-              <button
-                type="submit"
-                aria-label="创建文件夹"
-                disabled={folderSaving || !folderDraft.trim()}
-              >
-                <Check aria-hidden="true" size={14} strokeWidth={2} />
-              </button>
-              <button
-                type="button"
-                aria-label="取消新建文件夹"
-                disabled={folderSaving}
-                onClick={onCancelFolderCreate}
-              >
-                <X aria-hidden="true" size={14} strokeWidth={2} />
-              </button>
-            </form>
+          {creatingFolder && creatingFolderParentId === null && (
+            <FolderCreateForm
+              draft={folderDraft}
+              saving={folderSaving}
+              onCancel={onCancelFolderCreate}
+              onChange={onFolderDraftChange}
+              onSubmit={onSubmitFolderCreate}
+            />
           )}
 
-          <button
-            type="button"
-            className={
-              folderScope === 'unfiled' ? 'swan-folder-row is-selected' : 'swan-folder-row'
-            }
-            onClick={() => onFolderSelect('unfiled')}
-          >
-            <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
-            <span>未归档</span>
-          </button>
+          <UnfiledDropRow
+            draggingItem={draggingItem}
+            dropTargetId={dropTargetId}
+            selected={folderScope === 'unfiled'}
+            onDragLeaveTarget={handleDragLeaveTarget}
+            onDragOverTarget={handleDragOverTarget}
+            onDropTarget={finishDrop}
+            onSelect={() => onFolderSelect('unfiled')}
+          />
 
-          {folders.map((folder) => (
-            <div
-              className={
-                folderScope === folder.id ? 'swan-folder-item is-selected' : 'swan-folder-item'
-              }
-              key={folder.id}
-            >
-              <button
-                type="button"
-                className="swan-folder-row"
-                onClick={() => onFolderSelect(folder.id)}
-              >
-                <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
-                <OverflowText text={folder.name} />
-                <small>{folder.documentCount}</small>
-              </button>
-              <button
-                type="button"
-                className="swan-folder-edit"
-                aria-label={`管理文件夹 ${folder.name}`}
-                onClick={() => onEditFolder(folder)}
-              >
-                <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
-              </button>
-            </div>
+          {folderTree.map((node) => (
+            <FolderTreeItem
+              key={node.folder.id}
+              activeFolderId={isPublicId(folderScope) ? folderScope : null}
+              creatingFolder={creatingFolder}
+              creatingFolderParentId={creatingFolderParentId}
+              draggingItem={draggingItem}
+              dropTargetId={dropTargetId}
+              expandedFolderIds={expandedFolderIds}
+              folders={folders}
+              folderDraft={folderDraft}
+              folderSaving={folderSaving}
+              node={node}
+              onBeginDrag={beginDrag}
+              onCancelFolderCreate={onCancelFolderCreate}
+              onDragEnd={resetDrag}
+              onDragLeaveTarget={handleDragLeaveTarget}
+              onDragOverTarget={handleDragOverTarget}
+              onDropTarget={finishDrop}
+              onEditFolder={onEditFolder}
+              onFolderDraftChange={onFolderDraftChange}
+              onFolderSelect={onFolderSelect}
+              onSubmitFolderCreate={onSubmitFolderCreate}
+              onToggleExpanded={toggleFolderExpanded}
+            />
           ))}
         </div>
       )}
@@ -404,6 +531,12 @@ export function WorkspaceSidebar({
               </div>
             ) : (
               <div className="swan-sidebar-doc-item" key={document.id}>
+                <DocumentDragHandle
+                  document={document}
+                  dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
+                  onBeginDrag={beginDrag}
+                  onDragEnd={resetDrag}
+                />
                 <button
                   type="button"
                   className={

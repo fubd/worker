@@ -48,6 +48,7 @@ import { BrandMark } from '../components/BrandMark';
 import { OverflowText } from '../components/OverflowText';
 import { WorkspaceSidebar } from '../components/WorkspaceSidebar';
 import type { WorkspaceOutletContext } from '../layouts/workspace-context';
+import { getFolderPathLabel, getFolderSubtreeIds, isFolderInSubtree } from '../folder-utils';
 import {
   formatUpdatedAt,
   type DocumentView,
@@ -329,6 +330,7 @@ function DocsPageContent() {
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [creatingFolderParentId, setCreatingFolderParentId] = useState<PublicId | null>(null);
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderDeleting, setFolderDeleting] = useState(false);
@@ -1129,15 +1131,17 @@ function DocsPageContent() {
     navigate(path);
   };
 
-  const openCreateFolder = () => {
+  const openCreateFolder = (parentId: PublicId | null = null) => {
     setFolderDialog(null);
     setFolderName('');
+    setCreatingFolderParentId(parentId);
     setCreatingFolder(true);
   };
 
   const cancelCreateFolder = () => {
     if (folderSaving) return;
     setCreatingFolder(false);
+    setCreatingFolderParentId(null);
     setFolderName('');
   };
 
@@ -1153,11 +1157,10 @@ function DocsPageContent() {
 
     setFolderSaving(true);
     try {
-      const folder = await api.createFolder(name);
-      setFolders((items) =>
-        [...items, folder].sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
-      );
+      const folder = await api.createFolder(name, creatingFolderParentId);
+      setFolders((items) => [...items, folder]);
       setCreatingFolder(false);
+      setCreatingFolderParentId(null);
       setFolderName('');
       setFolderRevision((value) => value + 1);
       selectFolder(folder.id);
@@ -1180,11 +1183,7 @@ function DocsPageContent() {
     setFolderSaving(true);
     try {
       const folder = await api.renameFolder(folderDialog.folder.id, name);
-      setFolders((items) =>
-        items
-          .map((item) => (item.id === folder.id ? folder : item))
-          .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN')),
-      );
+      setFolders((items) => items.map((item) => (item.id === folder.id ? folder : item)));
       setFolderDialog(null);
       setFolderRevision((value) => value + 1);
       message.success('文件夹已重命名');
@@ -1205,19 +1204,30 @@ function DocsPageContent() {
 
     setFolderDeleting(true);
     try {
-      await api.deleteFolder(folder.id);
-      setFolders((items) => items.filter((item) => item.id !== folder.id));
+      const result = await api.deleteFolder(folder.id);
+      const deletedIds = getFolderSubtreeIds(folders, folder.id);
+      setFolders((items) => items.filter((item) => !deletedIds.has(item.id)));
       setFolderDialog(null);
       setFolderRevision((value) => value + 1);
       setListRevision((value) => value + 1);
-      if (folderScope === folder.id) {
+      if (folderScope !== 'all' && folderScope !== 'unfiled') {
+        if (!isFolderInSubtree(folders, folderScope, folder.id)) {
+          message.success(
+            result.movedDocumentCount > 0 ? '文件夹已删除，文档已移到未归档' : '文件夹已删除',
+          );
+          return;
+        }
         const next = new URLSearchParams(searchParams);
         next.delete('folder');
         next.delete('id');
         next.delete('q');
         navigate(docsRoute(null, next));
       }
-      message.success('文件夹已删除，文档已移到未归档');
+      message.success(
+        result.movedDocumentCount > 0
+          ? '文件夹及其子文件夹已删除，文档已移到未归档'
+          : '文件夹及其子文件夹已删除',
+      );
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
@@ -1226,6 +1236,26 @@ function DocsPageContent() {
       message.error(errorMessage(error, '文件夹删除失败'));
     } finally {
       setFolderDeleting(false);
+    }
+  };
+
+  const moveFolder = async (folder: FolderSummary, parentId: PublicId | null) => {
+    if (moving || folder.parentId === parentId) return;
+
+    setMoving(true);
+    try {
+      const updated = await api.moveFolder(folder.id, parentId);
+      setFolders((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setFolderRevision((value) => value + 1);
+      message.success(parentId === null ? '文件夹已移到顶层' : '文件夹已移动');
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '移动文件夹失败'));
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -1364,11 +1394,15 @@ function DocsPageContent() {
       : folders.find((folder) => folder.id === folderScope);
   const breadcrumbFolder = searchQuery
     ? `搜索：${searchQuery}`
-    : (selectedFolder?.name ?? (folderScope === 'unfiled' ? '未归档' : '私人笔记'));
+    : selectedFolder
+      ? getFolderPathLabel(folders, selectedFolder.id)
+      : folderScope === 'unfiled'
+        ? '未归档'
+        : '私人笔记';
   const activeFolderName =
     activeDocument?.folderId == null
       ? '未归档'
-      : (folders.find((folder) => folder.id === activeDocument.folderId)?.name ?? '文件夹');
+      : getFolderPathLabel(folders, activeDocument.folderId);
   const reloadingActiveDocument = editorLoading && activeDocument?.id === activeId;
   const documentLoadingVisible =
     reloadingActiveDocument || (documentPending && (!activeDocument || showDocumentLoading));
@@ -1379,6 +1413,7 @@ function DocsPageContent() {
         activeId={activeId}
         creating={creating}
         creatingFolder={creatingFolder}
+        creatingFolderParentId={creatingFolderParentId}
         deletingDocumentId={deletingDocumentId}
         documents={documents}
         folderDraft={folderName}
@@ -1398,12 +1433,13 @@ function DocsPageContent() {
           setSidebarOpen(false);
           void createDocument();
         }}
-        onCreateFolder={openCreateFolder}
+        onCreateFolder={() => openCreateFolder(null)}
         onDeleteDocument={requestDeleteDocument}
         onEditFolder={openEditFolder}
         onFolderDraftChange={setFolderName}
         onFolderSelect={selectFolder}
         onMoveDocument={(document, folderId) => void moveDocument(document, folderId)}
+        onMoveFolder={(folder, parentId) => void moveFolder(folder, parentId)}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
         onRestore={(document) => void restoreDocument(document)}
@@ -1759,6 +1795,11 @@ function DocsPageContent() {
             onChange={setFolderName}
             onClose={() => {
               if (!folderSaving && !folderDeleting) setFolderDialog(null);
+            }}
+            onCreateChild={() => {
+              const folder = folderDialog.folder;
+              setFolderDialog(null);
+              openCreateFolder(folder.id);
             }}
             onDelete={deleteFolder}
             onSubmit={() => void renameFolder()}

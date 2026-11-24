@@ -15,6 +15,7 @@ import {
 import type { PublicId } from '@/shared/ids';
 import type { DocumentSummary, FolderSummary } from '@/shared/types';
 import { api } from '../api/client';
+import { getFolderPathLabel } from '../folder-utils';
 import { OverflowText } from './OverflowText';
 
 interface CommandPaletteProps {
@@ -193,7 +194,10 @@ export function CommandPalette({
                 >
                   <Folder aria-hidden="true" size={16} strokeWidth={1.8} />
                   <OverflowText text={folder.name} />
-                  <small>{folder.documentCount} 篇</small>
+                  <small>
+                    {folder.parentId ? getFolderPathLabel(folders, folder.parentId) : '顶层'} ·{' '}
+                    {folder.documentCount} 篇
+                  </small>
                 </Command.Item>
               ))}
             </Command.Group>
@@ -209,7 +213,10 @@ export function CommandPalette({
                 <FileText aria-hidden="true" size={16} strokeWidth={1.8} />
                 <span className="swan-command-document-copy">
                   <strong>{document.title}</strong>
-                  <small>{document.excerpt || '空白文档'}</small>
+                  <small>
+                    {getFolderPathLabel(folders, document.folderId)} ·{' '}
+                    {document.excerpt || '空白文档'}
+                  </small>
                 </span>
                 {document.favorite && (
                   <Star

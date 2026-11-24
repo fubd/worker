@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FolderPlus } from 'lucide-react';
 
 export default function FolderDialog({
   name,
@@ -6,6 +7,7 @@ export default function FolderDialog({
   deleting,
   onChange,
   onClose,
+  onCreateChild,
   onDelete,
   onSubmit,
 }: {
@@ -14,6 +16,7 @@ export default function FolderDialog({
   deleting: boolean;
   onChange: (value: string) => void;
   onClose: () => void;
+  onCreateChild: () => void;
   onDelete: () => void;
   onSubmit: () => void;
 }) {
@@ -46,7 +49,7 @@ export default function FolderDialog({
         {confirmingDelete ? (
           <div className="swan-folder-delete-confirm">
             <strong>删除“{name}”？</strong>
-            <p>文件夹里的文档不会删除，只会移到“未归档”。</p>
+            <p>文件夹及其子文件夹会被删除，里面的文档会保留并移到“未归档”。</p>
             <div>
               <button type="button" onClick={() => setConfirmingDelete(false)}>
                 取消
@@ -72,7 +75,11 @@ export default function FolderDialog({
               placeholder="例如：产品笔记"
               onChange={(event) => onChange(event.target.value)}
             />
-            <p>最多 30 个字符，同一账号下名称不能重复。</p>
+            <p>最多 30 个字符，同一目录下名称不能重复。</p>
+            <button type="button" className="swan-folder-child-action" onClick={onCreateChild}>
+              <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />
+              在这里新建子文件夹
+            </button>
             <div className="swan-folder-dialog-actions">
               <button
                 type="button"

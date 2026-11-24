@@ -366,7 +366,7 @@ input {
 }
 
 .swan-sidebar-folders {
-  max-height: 190px;
+  max-height: min(34vh, 320px);
   margin: 0 -2px;
   padding: 0 2px 5px;
   overflow-y: auto;
@@ -379,10 +379,34 @@ input {
   margin-bottom: 4px;
 }
 
+.swan-sidebar-folders .swan-sidebar-section-head.is-drop-target {
+  border-radius: 6px;
+  background: rgba(47, 111, 232, 0.08);
+  color: var(--swan-brand);
+}
+
+.swan-folder-tree-node {
+  min-width: 0;
+}
+
+.swan-folder-children {
+  position: relative;
+  margin-left: 16px;
+  padding-left: 5px;
+}
+
+.swan-folder-children::before {
+  position: absolute;
+  inset: 2px auto 4px 0;
+  width: 1px;
+  background: #e4e6e7;
+  content: '';
+}
+
 .swan-folder-item {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 26px;
+  grid-template-columns: 20px minmax(0, 1fr) 22px 26px;
   align-items: center;
   border-radius: 7px;
   transition: background-color 0.18s ease;
@@ -393,6 +417,44 @@ input {
   background: var(--swan-list-hover);
 }
 
+.swan-folder-item.is-drop-target,
+.swan-folder-row.is-drop-target {
+  background: rgba(47, 111, 232, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 232, 0.28);
+  color: var(--swan-brand);
+}
+
+.swan-folder-toggle {
+  display: grid;
+  width: 20px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: pointer;
+}
+
+.swan-folder-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.swan-folder-toggle.is-expanded svg {
+  transform: rotate(90deg);
+}
+
+.swan-folder-toggle:hover:not(:disabled) {
+  background: var(--swan-list-action);
+  color: var(--swan-text);
+}
+
+.swan-folder-toggle:disabled {
+  cursor: default;
+  opacity: 0;
+}
+
 .swan-folder-row {
   display: grid;
   width: 100%;
@@ -401,7 +463,7 @@ input {
   grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
-  padding: 0 9px;
+  padding: 0 6px;
   border: 0;
   border-radius: 7px;
   background: transparent;
@@ -430,6 +492,11 @@ input {
   color: var(--swan-text-muted);
   font-size: 9px;
   font-variant-numeric: tabular-nums;
+}
+
+.swan-folder-unfiled {
+  width: 100%;
+  padding-left: 34px;
 }
 
 .swan-folder-create {
@@ -491,10 +558,11 @@ input {
 }
 
 .swan-folder-item > .swan-folder-row {
-  border-radius: 7px 0 0 7px;
+  border-radius: 0;
 }
 
-.swan-folder-edit {
+.swan-folder-edit,
+.swan-folder-drag {
   display: grid;
   width: 26px;
   height: 26px;
@@ -512,13 +580,29 @@ input {
     color 0.15s ease;
 }
 
+.swan-folder-drag {
+  width: 22px;
+  cursor: grab;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.swan-folder-drag:active {
+  cursor: grabbing;
+}
+
 .swan-folder-item:hover .swan-folder-edit,
-.swan-folder-edit:focus-visible {
+.swan-folder-edit:focus-visible,
+.swan-folder-item:hover .swan-folder-drag,
+.swan-folder-drag:focus-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .swan-folder-edit:hover,
-.swan-folder-edit:focus-visible {
+.swan-folder-edit:focus-visible,
+.swan-folder-drag:hover,
+.swan-folder-drag:focus-visible {
   background: var(--swan-list-action);
 }
 
@@ -635,8 +719,34 @@ input {
     color 0.15s ease;
 }
 
+.swan-document-drag {
+  position: absolute;
+  top: 6px;
+  right: 31px;
+  z-index: 1;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--swan-text-muted);
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
 .swan-sidebar-doc-item:hover .swan-sidebar-doc-more,
-.swan-sidebar-doc-item:focus-within .swan-sidebar-doc-more {
+.swan-sidebar-doc-item:focus-within .swan-sidebar-doc-more,
+.swan-sidebar-doc-item:hover .swan-document-drag,
+.swan-sidebar-doc-item:focus-within .swan-document-drag {
   opacity: 1;
   pointer-events: auto;
 }
@@ -647,7 +757,9 @@ input {
 }
 
 .swan-sidebar-doc-more:hover,
-.swan-sidebar-doc-more:focus-visible {
+.swan-sidebar-doc-more:focus-visible,
+.swan-document-drag:hover,
+.swan-document-drag:focus-visible {
   background: var(--swan-list-action);
 }
 
@@ -660,6 +772,11 @@ input {
   cursor: wait;
   opacity: 0;
   pointer-events: none;
+}
+
+.swan-document-drag.is-dragging,
+.swan-folder-drag.is-dragging {
+  opacity: 0.35;
 }
 
 .swan-sidebar-doc-excerpt {
@@ -1875,6 +1992,25 @@ input {
   line-height: 1.6;
 }
 
+.swan-folder-child-action {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--swan-brand);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.swan-folder-child-action:hover {
+  color: var(--swan-brand-deep);
+}
+
 .swan-folder-dialog-actions,
 .swan-folder-delete-confirm > div {
   display: flex;
@@ -2055,8 +2191,16 @@ input {
     gap: 4px;
   }
 
+  .swan-folder-item {
+    grid-template-columns: 20px minmax(0, 1fr) 26px;
+  }
+
   .swan-folder-edit {
     opacity: 1;
+  }
+
+  .swan-folder-drag {
+    display: none;
   }
 
   .swan-sidebar-doc-more {
