@@ -8,10 +8,7 @@ async function runWrangler(...args: string[]): Promise<{ changes?: number }> {
     ['bunx', 'wrangler', 'd1', 'execute', databaseName, ...args, '--json'],
     { stdout: 'pipe', stderr: 'inherit' },
   );
-  const [code, output] = await Promise.all([
-    process.exited,
-    new Response(process.stdout).text(),
-  ]);
+  const [code, output] = await Promise.all([process.exited, new Response(process.stdout).text()]);
   if (code !== 0) throw new Error(`wrangler exited with code ${code}`);
   return (JSON.parse(output) as [{ meta?: { changes?: number } }])[0] ?? {};
 }
