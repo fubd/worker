@@ -1,7 +1,10 @@
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 
-import type { PublicId } from '../../shared/ids';
+import { PUBLIC_ID_LENGTH, type PublicId } from '../../shared/ids';
+
+const PUBLIC_ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const generatePublicId = customAlphabet(PUBLIC_ID_ALPHABET, PUBLIC_ID_LENGTH);
 
 export function createPublicId(): PublicId {
-  return nanoid(24) as PublicId;
+  return generatePublicId() as PublicId;
 }

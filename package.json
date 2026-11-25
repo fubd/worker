@@ -27,6 +27,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:reset:e2e": "wrangler d1 execute DB --local --command=\"DELETE FROM auth_rate_limits\"",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:clear": "bun scripts/clear-database.ts",
+    "db:clear:local": "bun scripts/clear-database.ts --local",
     "db:studio": "wrangler d1 execute DB --local --command=\"select id,title,owner_id,version,deleted_at from documents order by updated_at desc\""
   },
   "dependencies": {

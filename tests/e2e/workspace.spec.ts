@@ -53,7 +53,7 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
 
   await expect(page).toHaveURL(/\/docs(?:\?|$)/);
   await page.getByLabel('新建文档').click();
-  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9_-]{24}/);
+  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9]{24}/);
 
   await page.getByPlaceholder('无标题文档').fill('M5 自动化验收');
   await page.getByRole('textbox', { name: '文档正文' }).fill('自动保存与刷新恢复正常。');
@@ -200,7 +200,7 @@ test('creates and nests documents under existing documents', async ({ page }) =>
   await page.getByRole('button', { name: '更多操作 父文档' }).click();
   const menu = page.getByRole('menu').filter({ hasText: '新建子文档' });
   await menu.getByRole('menuitem', { name: '新建子文档' }).click();
-  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9_-]{24}/);
+  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9]{24}/);
   await expect(page.getByPlaceholder('无标题文档')).toBeVisible();
 });
 
