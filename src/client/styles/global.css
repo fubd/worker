@@ -628,11 +628,6 @@ input {
   transition: opacity 0.15s ease;
 }
 
-.swan-folder-unfiled {
-  width: 100%;
-  padding-left: 34px;
-}
-
 .swan-folder-create {
   display: grid;
   height: 36px;
@@ -774,8 +769,10 @@ input {
   display: none;
 }
 
-.swan-unfiled-children {
-  margin-bottom: 3px;
+.swan-sidebar-root-documents {
+  display: grid;
+  gap: 1px;
+  margin-bottom: 4px;
 }
 
 .swan-sidebar-doc-item {

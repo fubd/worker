@@ -33,7 +33,7 @@ import {
   isFolderInSubtree,
 } from '../folder-utils';
 import { OverflowText } from './OverflowText';
-import { FolderCreateForm, FolderTreeItem, UnfiledDropRow } from './SidebarFolderTree';
+import { FolderCreateForm, FolderTreeItem } from './SidebarFolderTree';
 import { beginSidebarDrag, readSidebarDrag, type SidebarDragPayload } from '../sidebar-drag';
 import {
   formatUpdatedAt,
@@ -319,10 +319,10 @@ export function WorkspaceSidebar({
       ? `${directChildFolderCount} 个文件夹 · ${documents.length} 篇文档`
       : null;
   const documentsByFolder = new Map<PublicId, DocumentSummary[]>();
-  const unfiledDocuments: DocumentSummary[] = [];
+  const rootDocuments: DocumentSummary[] = [];
   for (const document of documents) {
     if (document.folderId === null) {
-      unfiledDocuments.push(document);
+      rootDocuments.push(document);
       continue;
     }
     const folderDocuments = documentsByFolder.get(document.folderId);
@@ -330,8 +330,6 @@ export function WorkspaceSidebar({
     else documentsByFolder.set(document.folderId, [document]);
   }
   const showDocumentTree = view === 'documents' && !hasSearch;
-  const showUnfiled =
-    unfiledDocuments.length > 0 || (view === 'documents' && folderScope === 'unfiled');
   const selectedDocuments = documents.filter((document) => selectedDocumentIds.has(document.id));
   const selectedIds = selectedDocuments.map((document) => document.id);
   const selectedCount = selectedDocuments.length;
@@ -343,7 +341,7 @@ export function WorkspaceSidebar({
   const batchMoveItems: MenuProps['items'] = [
     {
       key: 'move:none',
-      label: '未归档',
+      label: '根目录',
       icon: <FileText aria-hidden="true" size={15} strokeWidth={1.8} />,
     },
     ...folders.map((folder) => ({
@@ -416,7 +414,7 @@ export function WorkspaceSidebar({
 
   const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
     const moveTargets = [
-      ...(document.folderId === null ? [] : [{ key: 'move:none', label: '未归档' }]),
+      ...(document.folderId === null ? [] : [{ key: 'move:none', label: '移出文件夹' }]),
       ...folders
         .filter((folder) => folder.id !== document.folderId)
         .map((folder) => ({
@@ -922,23 +920,10 @@ export function WorkspaceSidebar({
                 />
               )}
 
-              {showUnfiled && (
-                <>
-                  <UnfiledDropRow
-                    draggingItem={draggingItem}
-                    dropTargetId={dropTargetId}
-                    selected={folderScope === 'unfiled'}
-                    onDragLeaveTarget={handleDragLeaveTarget}
-                    onDragOverTarget={handleDragOverTarget}
-                    onDropTarget={finishDrop}
-                    onSelect={() => onFolderSelect('unfiled')}
-                  />
-                  {unfiledDocuments.length > 0 && (
-                    <div className="swan-folder-children swan-unfiled-children">
-                      {renderDocumentRows(unfiledDocuments)}
-                    </div>
-                  )}
-                </>
+              {rootDocuments.length > 0 && (
+                <div className="swan-sidebar-root-documents">
+                  {renderDocumentRows(rootDocuments)}
+                </div>
               )}
 
               {folderTree.map((node) => (

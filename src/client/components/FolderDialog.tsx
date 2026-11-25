@@ -49,7 +49,7 @@ export default function FolderDialog({
         {confirmingDelete ? (
           <div className="swan-folder-delete-confirm">
             <strong>删除“{name}”？</strong>
-            <p>文件夹及其子文件夹会被删除，里面的文档会保留并移到“未归档”。</p>
+            <p>文件夹及其子文件夹会被删除，里面的文档会保留并移到根目录。</p>
             <div>
               <button type="button" onClick={() => setConfirmingDelete(false)}>
                 取消

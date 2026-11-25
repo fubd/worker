@@ -40,6 +40,7 @@ describe('folder utilities', () => {
       'c',
     ]);
     expect(getFolderPathLabel(folders, 'c' as PublicId)).toBe('产品 / 文档 / 项目 C');
+    expect(getFolderPathLabel(folders, null)).toBe('根目录');
   });
 
   test('resolves subtrees and descendants', () => {

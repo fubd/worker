@@ -971,7 +971,7 @@ function DocsPageContent() {
       clearDocumentSelection();
       message.success(
         folderId === null
-          ? `已将 ${result.updatedCount} 篇文档移到未归档`
+          ? `已将 ${result.updatedCount} 篇文档移到根目录`
           : `已移动 ${result.updatedCount} 篇文档`,
       );
     } catch (error) {
@@ -1602,7 +1602,7 @@ function DocsPageContent() {
       if (folderScope !== 'all' && folderScope !== 'unfiled') {
         if (!isFolderInSubtree(folders, folderScope, folder.id)) {
           message.success(
-            result.movedDocumentCount > 0 ? '文件夹已删除，文档已移到未归档' : '文件夹已删除',
+            result.movedDocumentCount > 0 ? '文件夹已删除，文档已移到根目录' : '文件夹已删除',
           );
           return;
         }
@@ -1614,7 +1614,7 @@ function DocsPageContent() {
       }
       message.success(
         result.movedDocumentCount > 0
-          ? '文件夹及其子文件夹已删除，文档已移到未归档'
+          ? '文件夹及其子文件夹已删除，文档已移到根目录'
           : '文件夹及其子文件夹已删除',
       );
     } catch (error) {
@@ -1666,7 +1666,7 @@ function DocsPageContent() {
       );
       refreshWorkspace();
       setListRevision((value) => value + 1);
-      message.success(folderId === null ? '文档已移到未归档' : '文档已移动');
+      message.success(folderId === null ? '文档已移到根目录' : '文档已移动');
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
@@ -1784,13 +1784,13 @@ function DocsPageContent() {
   const breadcrumbFolders = selectedFolder ? getFolderAncestors(folders, selectedFolder.id) : [];
   const activeFolderName =
     activeDocument?.folderId == null
-      ? '未归档'
+      ? '根目录'
       : getFolderPathLabel(folders, activeDocument.folderId);
   const mobileLocationLabel = searchQuery
     ? `搜索：${searchQuery}`
     : (selectedFolder?.name ??
       (folderScope === 'unfiled'
-        ? '未归档'
+        ? '根目录'
         : view === 'trash'
           ? '回收站'
           : view === 'favorites'
@@ -1918,7 +1918,7 @@ function DocsPageContent() {
                   {folderScope === 'unfiled' && (
                     <span className="swan-editor-breadcrumb-segment">
                       <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-                      <span className="swan-editor-breadcrumb-current">未归档</span>
+                      <span className="swan-editor-breadcrumb-current">根目录</span>
                     </span>
                   )}
                   {breadcrumbFolders.map((folder, index) => (

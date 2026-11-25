@@ -51,8 +51,8 @@ export function getFolderPath(folders: FolderSummary[], folderId: PublicId): str
 }
 
 export function getFolderPathLabel(folders: FolderSummary[], folderId: PublicId | null): string {
-  if (!folderId) return '未归档';
-  return getFolderPath(folders, folderId).join(' / ') || '未归档';
+  if (!folderId) return '根目录';
+  return getFolderPath(folders, folderId).join(' / ') || '根目录';
 }
 
 export function getFolderSubtreeIds(folders: FolderSummary[], folderId: PublicId): Set<PublicId> {

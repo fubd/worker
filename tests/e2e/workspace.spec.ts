@@ -63,6 +63,10 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await expect(page.getByRole('textbox', { name: '文档正文' })).toContainText(
     '自动保存与刷新恢复正常。',
   );
+  await expect(
+    page.locator('.swan-sidebar-root-documents').getByText('M5 自动化验收'),
+  ).toBeVisible();
+  await expect(page.getByText('未归档')).toHaveCount(0);
 });
 
 test('paginates documents, enforces create limits, and isolates ownership', async ({ browser }) => {
