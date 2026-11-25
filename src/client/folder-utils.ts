@@ -1,9 +1,14 @@
 import type { PublicId } from '@/shared/ids';
-import type { FolderSummary } from '@/shared/types';
+import type { DocumentSummary, FolderSummary } from '@/shared/types';
 
 export interface FolderTreeNode {
   folder: FolderSummary;
   children: FolderTreeNode[];
+}
+
+export interface DocumentTreeNode {
+  document: DocumentSummary;
+  children: DocumentTreeNode[];
 }
 
 function sortFolders(items: FolderSummary[]): FolderSummary[] {
@@ -27,6 +32,27 @@ export function buildFolderTree(folders: FolderSummary[]): FolderTreeNode[] {
       folder,
       children: build(folder.id),
     }));
+
+  return build(null);
+}
+
+export function buildDocumentTree(documents: DocumentSummary[]): DocumentTreeNode[] {
+  const ids = new Set(documents.map((document) => document.id));
+  const byParent = new Map<PublicId | null, DocumentSummary[]>();
+  for (const document of documents) {
+    const parentId = document.parentId && ids.has(document.parentId) ? document.parentId : null;
+    const siblings = byParent.get(parentId) ?? [];
+    siblings.push(document);
+    byParent.set(parentId, siblings);
+  }
+
+  const visited = new Set<PublicId>();
+  const build = (parentId: PublicId | null): DocumentTreeNode[] =>
+    (byParent.get(parentId) ?? []).flatMap((document) => {
+      if (visited.has(document.id)) return [];
+      visited.add(document.id);
+      return [{ document, children: build(document.id) }];
+    });
 
   return build(null);
 }

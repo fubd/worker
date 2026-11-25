@@ -136,7 +136,7 @@ documentRoutes.post('/import', documentCreateRateLimit, async (c) => {
   const folderId = parseOptionalFolderId(body.folderId);
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
-    return c.json({ error: '文件夹不存在' }, 404);
+    return c.json({ error: '分组不存在' }, 404);
   }
 
   const quota = await wrapTime(c, 'db', checkDocumentQuota(c.env.DB, c.get('user').id));
@@ -197,7 +197,7 @@ documentRoutes.post('/batch', async (c) => {
     const folderId = parseOptionalFolderId(body.folderId);
     if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
     if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
-      return c.json({ error: '文件夹不存在' }, 404);
+      return c.json({ error: '分组不存在' }, 404);
     }
     action = { kind: 'move', folderId };
   } else if (body.action === 'favorite') {
@@ -211,6 +211,18 @@ documentRoutes.post('/batch', async (c) => {
     return c.json({ error: '不支持的批量操作' }, 400);
   }
 
+  if (action.kind === 'move') {
+    const movedIds = await wrapTime(
+      c,
+      'db',
+      repo.moveDocumentsToFolder(c.env.DB, c.get('user').id, ids as PublicId[], action.folderId),
+    );
+    return c.json({
+      requestedCount: ids.length,
+      updatedCount: movedIds.length,
+      items: [],
+    });
+  }
   const result = await wrapTime(
     c,
     'db',
@@ -228,6 +240,16 @@ documentRoutes.get('/:id/versions', async (c) => {
   if (!document) return c.json({ error: '文档不存在' }, 404);
 
   const items = await wrapTime(c, 'db', versions.listDocumentVersions(c.env.DB, ownerId, id));
+  return c.json({ items });
+});
+
+documentRoutes.get('/:id/children', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+  const ownerId = c.get('user').id;
+  const children = await wrapTime(c, 'db', repo.listDocumentChildren(c.env.DB, ownerId, id));
+  if (!children) return c.json({ error: '文档不存在' }, 404);
+  const items = children.items;
   return c.json({ items });
 });
 
@@ -346,6 +368,7 @@ documentRoutes.post('/', documentCreateRateLimit, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     title?: unknown;
     folderId?: unknown;
+    parentId?: unknown;
   };
   const title = normalizeTitle(body.title, '无标题文档');
   if (!title) {
@@ -354,7 +377,16 @@ documentRoutes.post('/', documentCreateRateLimit, async (c) => {
   const folderId = parseOptionalFolderId(body.folderId);
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
-    return c.json({ error: '文件夹不存在' }, 404);
+    return c.json({ error: '分组不存在' }, 404);
+  }
+  const parentId = parseOptionalFolderId(body.parentId);
+  if (parentId === INVALID_PUBLIC_ID) return c.json({ error: 'parentId 非法' }, 400);
+  if (parentId !== null) {
+    const parent = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, parentId));
+    if (!parent) return c.json({ error: '父文档不存在' }, 404);
+    if (parent.folderId !== folderId) {
+      return c.json({ error: '子文档必须和父文档位于同一分组' }, 400);
+    }
   }
 
   const quota = await wrapTime(c, 'db', checkDocumentQuota(c.env.DB, c.get('user').id));
@@ -372,7 +404,7 @@ documentRoutes.post('/', documentCreateRateLimit, async (c) => {
   const document = await wrapTime(
     c,
     'db',
-    repo.createDocument(c.env.DB, c.get('user').id, title, folderId),
+    repo.createDocument(c.env.DB, c.get('user').id, title, folderId, parentId),
   );
   return c.json(document, 201);
 });
@@ -478,22 +510,34 @@ documentRoutes.patch('/:id/folder', async (c) => {
   const id = parsePublicId(c.req.param('id'));
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
-  const body = (await c.req.json().catch(() => null)) as { folderId?: unknown } | null;
+  const body = (await c.req.json().catch(() => null)) as {
+    folderId?: unknown;
+    parentId?: unknown;
+  } | null;
   if (!body || !Object.hasOwn(body, 'folderId')) {
     return c.json({ error: '请求体必须包含 folderId' }, 400);
   }
   const folderId = parseOptionalFolderId(body.folderId);
   if (folderId === INVALID_PUBLIC_ID) return c.json({ error: 'folderId 非法' }, 400);
   if (folderId !== null && !(await folderExists(c.env.DB, c.get('user').id, folderId))) {
-    return c.json({ error: '文件夹不存在' }, 404);
+    return c.json({ error: '分组不存在' }, 404);
+  }
+  const parentId = parseOptionalFolderId(body.parentId);
+  if (parentId === INVALID_PUBLIC_ID) return c.json({ error: 'parentId 非法' }, 400);
+  if (parentId !== null) {
+    const parent = await wrapTime(c, 'db', repo.getDocument(c.env.DB, c.get('user').id, parentId));
+    if (!parent) return c.json({ error: '父文档不存在' }, 404);
+    if (parent.folderId !== folderId) {
+      return c.json({ error: '子文档必须和父文档位于同一分组' }, 400);
+    }
   }
 
   const document = await wrapTime(
     c,
     'db',
-    repo.moveDocument(c.env.DB, c.get('user').id, id, folderId),
+    repo.moveDocument(c.env.DB, c.get('user').id, id, folderId, parentId),
   );
-  if (!document) return c.json({ error: '文档不存在' }, 404);
+  if (!document) return c.json({ error: '文档不存在或不能移动到自身或子文档中' }, 409);
   return c.json(document);
 });
 

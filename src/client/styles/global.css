@@ -535,7 +535,7 @@ input {
   position: relative;
   display: grid;
   min-height: 34px;
-  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr) 24px;
   align-items: center;
   border-radius: 6px;
   transition:
@@ -636,12 +636,12 @@ input {
 }
 
 .swan-folder-item:has(.swan-folder-row.is-root) {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 24px;
 }
 
 .swan-folder-row.is-root {
   padding-left: 8px;
-  padding-right: 40px;
+  padding-right: 57px;
 }
 
 .swan-folder-create {
@@ -707,6 +707,7 @@ input {
 }
 
 .swan-folder-edit,
+.swan-folder-add,
 .swan-folder-drag {
   position: absolute;
   top: 4px;
@@ -729,8 +730,14 @@ input {
     color 0.15s ease;
 }
 
-.swan-folder-drag {
+.swan-folder-add {
   right: 28px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.swan-folder-drag {
+  right: 52px;
   width: 24px;
   cursor: grab;
   pointer-events: none;
@@ -743,6 +750,8 @@ input {
 
 .swan-folder-item:hover .swan-folder-edit,
 .swan-folder-edit:focus-visible,
+.swan-folder-item:hover .swan-folder-add,
+.swan-folder-add:focus-visible,
 .swan-folder-item:hover .swan-folder-drag,
 .swan-folder-drag:focus-visible {
   opacity: 1;
@@ -756,6 +765,8 @@ input {
 
 .swan-folder-edit:hover,
 .swan-folder-edit:focus-visible,
+.swan-folder-add:hover,
+.swan-folder-add:focus-visible,
 .swan-folder-drag:hover,
 .swan-folder-drag:focus-visible {
   background: var(--swan-list-action);
@@ -804,6 +815,97 @@ input {
 .swan-sidebar-doc-item {
   position: relative;
   margin: 1px 0;
+}
+
+.swan-document-toggle {
+  position: absolute;
+  top: 8px;
+  left: 7px;
+  z-index: 2;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #879098;
+  cursor: pointer;
+}
+
+.swan-document-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.swan-sidebar-doc-item.is-expanded > .swan-sidebar-doc-actions .swan-document-toggle svg {
+  transform: rotate(90deg);
+}
+
+.swan-sidebar-doc-item.has-children > .swan-sidebar-doc {
+  padding-right: 40px;
+}
+
+.swan-sidebar-doc-item.has-children:not(.is-selecting) > .swan-sidebar-doc {
+  padding-left: 24px;
+}
+
+.swan-sidebar-doc-item.has-children.is-selecting > .swan-sidebar-doc {
+  padding-left: 42px;
+}
+
+.swan-sidebar-doc-actions {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.swan-sidebar-doc-item:hover .swan-sidebar-doc-actions,
+.swan-sidebar-doc-item:focus-within .swan-sidebar-doc-actions,
+.swan-sidebar-doc-item.is-expanded .swan-sidebar-doc-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swan-sidebar-doc-actions .swan-sidebar-doc-more {
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swan-document-toggle:hover,
+.swan-document-toggle:focus-visible {
+  background: var(--swan-list-action);
+  color: var(--swan-text);
+}
+
+.swan-document-children {
+  position: relative;
+  margin-left: calc(13px + var(--swan-doc-depth, 0) * 0px);
+  padding-left: 12px;
+}
+
+.swan-document-children::before {
+  position: absolute;
+  inset: 2px auto 4px 0;
+  width: 1px;
+  background: #e6e9eb;
+  content: '';
+}
+
+.swan-document-children .swan-sidebar-doc-item {
+  margin-left: calc(var(--swan-doc-depth, 0) * 0px);
+  padding-left: calc(var(--swan-doc-depth, 0) * 12px);
+}
+
+.swan-folder-documents.has-document-children .swan-sidebar-doc:not(.is-selected) {
+  padding-right: 40px;
 }
 
 .swan-sidebar-doc {
@@ -2188,7 +2290,7 @@ input {
   font-size: 10px;
 }
 
-/* ---------- 文件夹弹窗 ---------- */
+/* ---------- 分组弹窗 ---------- */
 .swan-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -2283,35 +2385,14 @@ input {
   box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.1);
 }
 
-.swan-folder-dialog form > p,
-.swan-folder-delete-confirm p {
+.swan-folder-dialog form > p {
   margin: 0;
   color: var(--swan-text-muted);
   font-size: 11px;
   line-height: 1.6;
 }
 
-.swan-folder-child-action {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 6px;
-  margin-top: 3px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--swan-brand);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.swan-folder-child-action:hover {
-  color: var(--swan-brand-deep);
-}
-
-.swan-folder-dialog-actions,
-.swan-folder-delete-confirm > div {
+.swan-folder-dialog-actions {
   display: flex;
   margin-top: 18px;
   align-items: center;
@@ -2322,8 +2403,7 @@ input {
   flex: 1;
 }
 
-.swan-folder-dialog-actions button,
-.swan-folder-delete-confirm button {
+.swan-folder-dialog-actions button {
   height: 34px;
   padding: 0 13px;
   border: 1px solid #dfe2e4;
@@ -2334,8 +2414,7 @@ input {
   cursor: pointer;
 }
 
-.swan-folder-dialog-actions button:hover,
-.swan-folder-delete-confirm button:hover {
+.swan-folder-dialog-actions button:hover {
   border-color: #cfd4d7;
   background: #f7f8f8;
 }
@@ -2351,39 +2430,6 @@ input {
   background: var(--swan-brand-deep);
 }
 
-.swan-folder-dialog-actions .is-danger-text {
-  padding-inline: 0;
-  border-color: transparent;
-  background: transparent;
-  color: #b44942;
-}
-
-.swan-folder-delete-confirm {
-  margin-top: 24px;
-}
-
-.swan-folder-delete-confirm strong {
-  color: var(--swan-text);
-  font-family: var(--swan-serif);
-  font-size: 19px;
-  font-weight: 600;
-}
-
-.swan-folder-delete-confirm p {
-  margin-top: 7px;
-}
-
-.swan-folder-delete-confirm > div {
-  justify-content: flex-end;
-}
-
-.swan-folder-delete-confirm .is-danger {
-  border-color: #b44942;
-  background: #b44942;
-  color: #fff;
-}
-
-.swan-folder-delete-confirm button:disabled,
 .swan-folder-dialog-actions button:disabled {
   cursor: wait;
   opacity: 0.55;
@@ -2498,7 +2544,11 @@ input {
   }
 
   .swan-folder-item:has(.swan-folder-row.is-root) {
-    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .swan-folder-item > .swan-folder-actions {
+    grid-column: 2;
   }
 
   .swan-folder-item > .swan-folder-toggle {
@@ -2507,23 +2557,32 @@ input {
   }
 
   .swan-folder-item:has(.swan-folder-row.is-root) > .swan-folder-toggle {
-    grid-column: 2;
+    grid-column: 1;
+    position: relative;
+    z-index: 2;
   }
 
   .swan-folder-toggle,
-  .swan-folder-row,
-  .swan-folder-edit {
+  .swan-folder-row {
     min-height: 44px;
   }
 
   .swan-folder-toggle,
-  .swan-folder-edit {
+  .swan-folder-edit,
+  .swan-folder-add {
     width: 44px;
     height: 44px;
   }
 
+  .swan-folder-actions {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+  }
+
   .swan-folder-row {
-    padding-right: 46px;
+    grid-column: 1;
+    padding-right: 4px;
   }
 
   .swan-folder-row small {
@@ -2541,13 +2600,25 @@ input {
   }
 
   .swan-folder-edit {
-    top: 0;
-    right: 0;
+    position: static;
+    grid-column: 3;
+    opacity: 1;
+  }
+
+  .swan-folder-add {
+    position: static;
+    grid-column: 2;
     opacity: 1;
   }
 
   .swan-folder-drag {
+    position: absolute;
+    top: 44px;
     display: none;
+  }
+
+  .swan-folder-row.is-root {
+    padding-right: 4px;
   }
 
   .swan-sidebar-doc-more {
@@ -2557,6 +2628,22 @@ input {
     height: 44px;
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .swan-document-toggle {
+    top: 6px;
+    left: 2px;
+    width: 32px;
+    height: 44px;
+  }
+
+  .swan-document-children {
+    margin-left: 6px;
+    padding-left: 8px;
+  }
+
+  .swan-document-children .swan-sidebar-doc-item {
+    padding-left: 0;
   }
 
   .swan-sidebar-nav a {

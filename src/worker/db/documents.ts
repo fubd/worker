@@ -13,6 +13,11 @@ import { captureVersion, captureVersionIfDue, getDocumentVersion } from './docum
 const LIST_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, substr(d.content_text, 1, 140) AS content_text,
   d.folder_id, f.public_id AS folder_public_id,
+  d.parent_document_id, parent.public_id AS parent_document_public_id,
+  (SELECT COUNT(id) FROM documents child
+   WHERE child.owner_id = d.owner_id
+     AND child.parent_document_id = d.id
+     AND child.deleted_at IS NULL) AS child_count,
   d.is_favorite, d.is_pinned, d.last_viewed_at, d.share_id, d.shared_at,
   d.version, d.created_at, d.updated_at, d.deleted_at
 `;
@@ -20,6 +25,11 @@ const LIST_COLUMNS = `
 const FULL_COLUMNS = `
   d.id, d.public_id, d.owner_id, d.title, d.content_json, d.content_html, d.content_text,
   d.folder_id, f.public_id AS folder_public_id,
+  d.parent_document_id, parent.public_id AS parent_document_public_id,
+  (SELECT COUNT(id) FROM documents child
+   WHERE child.owner_id = d.owner_id
+     AND child.parent_document_id = d.id
+     AND child.deleted_at IS NULL) AS child_count,
   d.is_favorite, d.is_pinned, d.last_viewed_at, d.share_id, d.shared_at,
   d.version, d.created_at, d.updated_at, d.deleted_at
 `;
@@ -63,6 +73,8 @@ function toSummary(row: DocumentRow): DocumentSummary {
     title: row.title,
     excerpt: row.content_text.trim(),
     folderId: row.folder_public_id,
+    parentId: row.parent_document_public_id,
+    childCount: Number(row.child_count ?? 0),
     favorite: row.is_favorite === 1,
     pinned: row.is_pinned === 1,
     lastViewedAt: row.last_viewed_at ? toIso(row.last_viewed_at) : null,
@@ -83,6 +95,16 @@ function toDocument(row: DocumentRow): DocumentRecord {
     contentText: row.content_text,
   };
 }
+
+const DOCUMENT_JOINS = `
+  LEFT JOIN folders f
+    ON f.id = d.folder_id
+   AND f.owner_id = d.owner_id
+  LEFT JOIN documents parent
+    ON parent.id = d.parent_document_id
+   AND parent.owner_id = d.owner_id
+   AND parent.deleted_at IS NULL
+`;
 
 async function getVersionSource(
   db: D1Database,
@@ -130,6 +152,8 @@ export async function listDocuments(
     params.push(ownerId, options.folderId);
   }
 
+  conditions.push('d.parent_document_id IS NULL');
+
   if (options.favoriteOnly) {
     conditions.push('d.is_favorite = 1');
   }
@@ -166,9 +190,7 @@ export async function listDocuments(
     .prepare(
       `SELECT ${LIST_COLUMNS}
        FROM documents d
-       LEFT JOIN folders f
-         ON f.id = d.folder_id
-        AND f.owner_id = d.owner_id
+       ${DOCUMENT_JOINS}
        WHERE ${conditions.join(' AND ')}
        ORDER BY
          d.is_pinned DESC,
@@ -216,9 +238,7 @@ export async function listDeletedDocuments(
     .prepare(
       `SELECT ${LIST_COLUMNS}
        FROM documents d
-       LEFT JOIN folders f
-         ON f.id = d.folder_id
-        AND f.owner_id = d.owner_id
+       ${DOCUMENT_JOINS}
        WHERE ${conditions.join(' AND ')}
        ORDER BY d.deleted_at DESC, d.id DESC
        LIMIT ? OFFSET ?`,
@@ -252,9 +272,7 @@ export async function getDocument(
     .prepare(
       `SELECT ${FULL_COLUMNS}
        FROM documents d
-       LEFT JOIN folders f
-         ON f.id = d.folder_id
-        AND f.owner_id = d.owner_id
+       ${DOCUMENT_JOINS}
        WHERE d.public_id = ? AND d.owner_id = ? AND d.deleted_at IS NULL`,
     )
     .bind(id, ownerId)
@@ -278,25 +296,58 @@ export async function touchDocumentViewed(
     .run();
 }
 
+export async function listDocumentChildren(
+  db: D1Database,
+  ownerId: number,
+  parentId: PublicId,
+): Promise<{ items: DocumentSummary[] } | null> {
+  const parent = await db
+    .prepare(
+      `SELECT id FROM documents
+       WHERE owner_id = ? AND public_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(ownerId, parentId)
+    .first<{ id: number }>();
+  if (!parent) return null;
+
+  const result = await db
+    .prepare(
+      `SELECT ${LIST_COLUMNS}
+       FROM documents d
+       ${DOCUMENT_JOINS}
+       WHERE d.owner_id = ? AND d.deleted_at IS NULL
+         AND d.parent_document_id = ?
+       ORDER BY d.is_pinned DESC, d.is_favorite DESC, d.updated_at DESC, d.id DESC`,
+    )
+    .bind(ownerId, parent.id)
+    .all<DocumentRow>();
+  return { items: (result.results ?? []).map(toSummary) };
+}
+
 export async function createDocument(
   db: D1Database,
   ownerId: number,
   title: string,
   folderId: PublicId | null = null,
+  parentId: PublicId | null = null,
 ): Promise<DocumentRecord> {
   const publicId = createPublicId();
   await db
     .prepare(
       `INSERT INTO documents (
-         public_id, owner_id, folder_id, title, content_json, content_html, content_text
+         public_id, owner_id, folder_id, parent_document_id,
+         title, content_json, content_html, content_text
        )
        VALUES (
          ?, ?, (
            SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
+         ), (
+           SELECT id FROM documents
+           WHERE owner_id = ? AND public_id = ? AND deleted_at IS NULL
          ), ?, ?, '<p></p>', ''
        )`,
     )
-    .bind(publicId, ownerId, ownerId, folderId, title, EMPTY_CONTENT_JSON)
+    .bind(publicId, ownerId, ownerId, folderId, ownerId, parentId, title, EMPTY_CONTENT_JSON)
     .run();
 
   const document = await getDocument(db, ownerId, publicId);
@@ -768,9 +819,7 @@ export async function batchUpdateDocuments(
     .prepare(
       `SELECT ${LIST_COLUMNS}
        FROM documents d
-       LEFT JOIN folders f
-         ON f.id = d.folder_id
-        AND f.owner_id = d.owner_id
+       ${DOCUMENT_JOINS}
        WHERE d.owner_id = ? AND d.deleted_at IS NULL AND d.public_id IN (${summaryPlaceholders})
        ORDER BY d.id ASC`,
     )
@@ -789,20 +838,75 @@ export async function moveDocument(
   ownerId: number,
   id: PublicId,
   folderId: PublicId | null,
+  parentId: PublicId | null = null,
 ): Promise<DocumentRecord | null> {
+  if (id === parentId) return null;
+  if (
+    parentId &&
+    (await db
+      .prepare(
+        `WITH RECURSIVE subtree(id) AS (
+           SELECT id FROM documents
+           WHERE owner_id = ? AND public_id = ?
+           UNION ALL
+           SELECT child.id
+           FROM documents child
+           JOIN subtree ON child.parent_document_id = subtree.id
+           WHERE child.owner_id = ?
+         )
+         SELECT 1 AS found FROM subtree
+         WHERE id = (
+           SELECT id FROM documents
+           WHERE owner_id = ? AND public_id = ? AND deleted_at IS NULL
+         )
+         LIMIT 1`,
+      )
+      .bind(ownerId, id, ownerId, ownerId, parentId)
+      .first<{ found: number }>())
+  ) {
+    return null;
+  }
+
   const moved = await db
     .prepare(
       `UPDATE documents
        SET folder_id = (
          SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
+       ),
+       parent_document_id = (
+         SELECT id FROM documents
+         WHERE owner_id = ? AND public_id = ? AND deleted_at IS NULL
        )
        WHERE public_id = ? AND owner_id = ? AND deleted_at IS NULL
        RETURNING public_id`,
     )
-    .bind(ownerId, folderId, id, ownerId)
+    .bind(ownerId, folderId, ownerId, parentId, id, ownerId)
     .first<{ public_id: PublicId }>();
 
   return moved ? getDocument(db, ownerId, moved.public_id) : null;
+}
+
+export async function moveDocumentsToFolder(
+  db: D1Database,
+  ownerId: number,
+  ids: PublicId[],
+  folderId: PublicId | null,
+): Promise<PublicId[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(', ');
+  const result = await db
+    .prepare(
+      `UPDATE documents
+       SET folder_id = (
+         SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
+       ),
+       parent_document_id = NULL
+       WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})
+       RETURNING public_id`,
+    )
+    .bind(ownerId, folderId, ownerId, ...ids)
+    .all<{ public_id: PublicId }>();
+  return (result.results ?? []).map((row) => row.public_id);
 }
 
 export async function setDocumentFavorite(

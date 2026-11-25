@@ -7,6 +7,7 @@ function uniqueUsername(prefix: string): string {
 async function isolateClient(page: Page): Promise<void> {
   const octet = () => Math.floor(Math.random() * 250) + 1;
   await page.context().setExtraHTTPHeaders({
+    'cf-connecting-ip': `10.${octet()}.${octet()}.${octet()}`,
     'x-forwarded-for': `10.${octet()}.${octet()}.${octet()}`,
   });
 }
@@ -69,7 +70,7 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await expect(page.getByText('未归档')).toHaveCount(0);
 });
 
-test('creating a folder preserves the current workspace tree', async ({ page }) => {
+test('creating a group preserves the current workspace tree', async ({ page }) => {
   await isolateClient(page);
   await registerByApi(page);
 
@@ -78,39 +79,39 @@ test('creating a folder preserves the current workspace tree', async ({ page }) 
   });
   expect(createdDirectory.status()).toBe(201);
   const folderResponse = await page.context().request.post('/api/folders', {
-    data: { name: '已有文件夹', parentId: null },
+    data: { name: '已有分组', parentId: null },
   });
   expect(folderResponse.status()).toBe(201);
   const folderId = ((await folderResponse.json()) as { id: string }).id;
   const folderDocumentResponse = await page.context().request.post('/api/documents', {
-    data: { title: '文件夹文档', folderId },
+    data: { title: '分组文档', folderId },
   });
   expect(folderDocumentResponse.status()).toBe(201);
 
   await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
-  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' })).toBeVisible();
-  await page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' }).click();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有分组' })).toBeVisible();
+  await page.locator('.swan-folder-row').filter({ hasText: '已有分组' }).click();
   await expect(
-    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
   ).toBeVisible();
 
+  await expect(
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`folder=${folderId}`));
+
+  await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
-  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' })).toBeVisible();
-  await expect(
-    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
-  ).toBeVisible();
-  await expect(page).not.toHaveURL(/[?&]folder=/);
+  await page.getByRole('button', { name: '新建顶层分组' }).click();
+  await page.getByLabel('新分组名称').fill('项目资料');
+  await page.getByRole('button', { name: '创建分组' }).click();
 
-  await page.getByRole('button', { name: '新建文件夹' }).click();
-  await page.getByLabel('新文件夹名称').fill('项目资料');
-  await page.getByRole('button', { name: '创建文件夹' }).click();
-
-  await expect(page.getByText('文件夹已创建')).toBeVisible();
+  await expect(page.getByText('分组已创建')).toBeVisible();
   await expect(page.locator('.swan-folder-row').filter({ hasText: '项目资料' })).toBeVisible();
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
   await expect(
-    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
   ).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]folder=/);
   const rootDocumentIcon = await page
@@ -119,13 +120,154 @@ test('creating a folder preserves the current workspace tree', async ({ page }) 
   const rootFolderIcon = await page.locator('.swan-folder-row.is-root svg').first().boundingBox();
   expect(rootFolderIcon?.x).toBeCloseTo(rootDocumentIcon?.x ?? Number.NaN, 0);
 
-  await page.getByRole('button', { name: '收起 已有文件夹' }).click();
-  await expect(page.getByRole('button', { name: '展开 已有文件夹' })).toBeVisible();
-  await page.getByRole('button', { name: '展开 已有文件夹' }).click();
-  await expect(page.getByRole('button', { name: '收起 已有文件夹' })).toBeVisible();
+  await page.getByRole('button', { name: '收起 已有分组' }).click();
+  await expect(page.getByRole('button', { name: '展开 已有分组' })).toBeVisible();
+  await page.getByRole('button', { name: '展开 已有分组' }).click();
+  await expect(page.getByRole('button', { name: '收起 已有分组' })).toBeVisible();
+
+  await page.getByRole('button', { name: '在 已有分组 中新建' }).click();
+  await page.getByRole('menuitem', { name: '新建文档' }).click();
+  await page.getByPlaceholder('无标题文档').fill('分组内新建文档');
+  await expect(page.getByText('已保存')).toBeVisible();
+  await page.locator('.swan-folder-row').filter({ hasText: '已有分组' }).click();
+  await expect(page).toHaveURL(new RegExp(`folder=${folderId}`));
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有分组' })).toBeVisible();
+  await expect(
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组内新建文档' }),
+  ).toBeVisible();
+  const folderDocuments = await page.context().request.get(`/api/documents?folderId=${folderId}`);
+  expect(folderDocuments.status()).toBe(200);
+  expect(
+    ((await folderDocuments.json()) as { items: Array<{ title: string; folderId: string }> }).items,
+  ).toContainEqual(expect.objectContaining({ title: '分组内新建文档', folderId }));
+
+  await page.getByRole('button', { name: '分组操作 已有分组' }).click();
+  const parentMenu = page.getByRole('menu').filter({ hasText: '新建分组' });
+  await expect(parentMenu.getByRole('menuitem', { name: '重命名' })).toBeVisible();
+  await expect(parentMenu.getByRole('menuitem', { name: '删除' })).toBeVisible();
+  await parentMenu.getByRole('menuitem', { name: '新建分组' }).click();
+  await page.getByLabel('新分组名称').fill('子目录');
+  await page.getByRole('button', { name: '创建分组' }).click();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '子目录' })).toBeVisible();
+
+  await page.getByRole('button', { name: '分组操作 子目录' }).click();
+  await page.getByRole('menuitem', { name: '重命名' }).last().click();
+  await expect(page.getByRole('dialog', { name: '重命名分组' })).toBeVisible();
+  await page.getByLabel('名称').fill('重命名后的目录');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(
+    page.locator('.swan-folder-row').filter({ hasText: '重命名后的目录' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: '分组操作 重命名后的目录' }).click();
+  await page.getByRole('menuitem', { name: '删除' }).last().click();
+  await expect(
+    page.getByRole('dialog').filter({ hasText: '删除“重命名后的目录”？' }),
+  ).toBeVisible();
+  await page
+    .getByRole('dialog')
+    .filter({ hasText: '删除“重命名后的目录”？' })
+    .getByRole('button', { name: /^删\s*除$/ })
+    .click();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '重命名后的目录' })).toHaveCount(
+    0,
+  );
 });
 
-test('paginates documents, enforces create limits, and isolates ownership', async ({ browser }) => {
+test('creates and nests documents under existing documents', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+  const parent = await page.context().request.post('/api/documents', {
+    data: { title: '父文档', folderId: null },
+  });
+  expect(parent.status()).toBe(201);
+  const child = await page.context().request.post('/api/documents', {
+    data: {
+      title: '子文档',
+      folderId: null,
+      parentId: ((await parent.json()) as { id: string }).id,
+    },
+  });
+  expect(child.status()).toBe(201);
+
+  await page.goto('/docs');
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('父文档')).toBeVisible();
+  await expect(page.getByText('子文档')).toHaveCount(0);
+  await page.getByRole('button', { name: '展开子文档' }).click();
+  await expect(page.locator('.swan-document-children').getByText('子文档')).toBeVisible();
+  await page.getByRole('button', { name: '收起子文档' }).click();
+  await expect(page.locator('.swan-document-children')).toHaveCount(0);
+
+  await page.getByRole('button', { name: '更多操作 父文档' }).click();
+  const menu = page.getByRole('menu').filter({ hasText: '新建子文档' });
+  await menu.getByRole('menuitem', { name: '新建子文档' }).click();
+  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9_-]{24}/);
+  await expect(page.getByPlaceholder('无标题文档')).toBeVisible();
+});
+
+test('moves documents between folders and document parents', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+
+  const folderResponse = await page.context().request.post('/api/folders', {
+    data: { name: '移动目标', parentId: null },
+  });
+  expect(folderResponse.status()).toBe(201);
+  const folderId = ((await folderResponse.json()) as { id: string }).id;
+
+  const create = async (title: string) => {
+    const response = await page.context().request.post('/api/documents', {
+      data: { title, folderId: null },
+    });
+    expect(response.status()).toBe(201);
+    return (await response.json()) as { id: string };
+  };
+  const parent = await create('移动父文档');
+  const child = await create('移动子文档');
+  const grandchild = await create('移动孙文档');
+
+  let response = await page.context().request.patch(`/api/documents/${parent.id}/folder`, {
+    data: { folderId, parentId: null },
+  });
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ folderId, parentId: null });
+
+  response = await page.context().request.patch(`/api/documents/${child.id}/folder`, {
+    data: { folderId, parentId: parent.id },
+  });
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ folderId, parentId: parent.id });
+
+  response = await page.context().request.patch(`/api/documents/${grandchild.id}/folder`, {
+    data: { folderId, parentId: child.id },
+  });
+  expect(response.status()).toBe(200);
+
+  response = await page.context().request.patch(`/api/documents/${parent.id}/folder`, {
+    data: { folderId, parentId: child.id },
+  });
+  expect(response.status()).toBe(409);
+  response = await page.context().request.patch(`/api/documents/${parent.id}/folder`, {
+    data: { folderId, parentId: parent.id },
+  });
+  expect(response.status()).toBe(409);
+
+  response = await page.context().request.patch(`/api/documents/${child.id}/folder`, {
+    data: { folderId: null, parentId: null },
+  });
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ folderId: null, parentId: null });
+
+  await page.goto('/docs');
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('移动子文档')).toBeVisible();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '移动目标' })).toBeVisible();
+  await page.getByRole('button', { name: '分组操作 移动目标' }).click();
+  const renameItem = page.getByRole('menuitem', { name: '重命名' });
+  await renameItem.click();
+  await expect(page.getByRole('dialog', { name: '重命名分组' })).toBeVisible();
+});
+
+test('paginates documents and isolates ownership', async ({ browser }) => {
   const healthContext = await browser.newContext();
   const healthResponse = await healthContext.request.get('/api/health/db');
   expect(healthResponse.status()).toBe(200);
@@ -146,11 +288,6 @@ test('paginates documents, enforces create limits, and isolates ownership', asyn
     expect(response.status()).toBe(201);
     createdIds.push(((await response.json()) as { id: string }).id);
   }
-
-  const rateLimited = await firstContext.request.post('/api/documents', {
-    data: { title: '超过创建频率', folderId: null },
-  });
-  expect(rateLimited.status()).toBe(429);
 
   const seen: string[] = [];
   let cursor: string | null = null;
@@ -183,6 +320,26 @@ test('paginates documents, enforces create limits, and isolates ownership', asyn
 
   await firstContext.close();
   await secondContext.close();
+});
+
+test('enforces document creation limits for a single account', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await isolateClient(page);
+  await registerByApi(page);
+
+  for (let index = 0; index < 60; index += 1) {
+    const response = await context.request.post('/api/documents', {
+      data: { title: `限流文档 ${index + 1}`, folderId: null },
+    });
+    expect(response.status()).toBe(201);
+  }
+
+  const rateLimited = await context.request.post('/api/documents', {
+    data: { title: '超过创建频率', folderId: null },
+  });
+  expect(rateLimited.status()).toBe(429);
+  await context.close();
 });
 
 test('mobile workspace keeps the topbar readable and primary targets at least 44px', async ({

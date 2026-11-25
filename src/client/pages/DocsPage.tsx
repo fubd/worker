@@ -77,7 +77,7 @@ const EMPTY_CONTENT: JSONContent = {
   content: [{ type: 'paragraph' }],
 };
 
-const FolderDialog = lazy(() => import('../components/FolderDialog'));
+const RenameFolderDialog = lazy(() => import('../components/FolderDialog'));
 const ImportDocumentModal = lazy(
   () => import(/* webpackChunkName: "document-import" */ '../components/ImportDocumentModal'),
 );
@@ -114,6 +114,8 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     title: document.title,
     excerpt: document.contentText.trim().slice(0, 140),
     folderId: document.folderId,
+    parentId: document.parentId,
+    childCount: document.childCount,
     favorite: document.favorite,
     pinned: document.pinned,
     lastViewedAt: document.lastViewedAt,
@@ -717,7 +719,10 @@ function DocsPageContent() {
     navigate(docsRoute(id, next));
   };
 
-  const createDocument = async () => {
+  const createDocument = async (
+    parent: Pick<DocumentSummary, 'id' | 'folderId'> | null = null,
+    targetFolderId?: PublicId | null,
+  ) => {
     if (creating || saveState === 'conflict') return;
     if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
       const saved = await saveDocument();
@@ -729,8 +734,15 @@ function DocsPageContent() {
 
     setCreating(true);
     try {
-      const folderId = folderScope === 'all' || folderScope === 'unfiled' ? null : folderScope;
-      const document = await api.createDocument('无标题文档', folderId);
+      const folderId =
+        targetFolderId !== undefined
+          ? targetFolderId
+          : parent
+            ? parent.folderId
+            : folderScope === 'all' || folderScope === 'unfiled'
+              ? null
+              : folderScope;
+      const document = await api.createDocument('无标题文档', folderId, parent?.id ?? null);
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
       setDocuments((items) => [toSummary(document), ...items]);
@@ -1499,7 +1511,7 @@ function DocsPageContent() {
     next.delete('view');
     next.delete('q');
     next.delete('id');
-    if (scope === 'all' || view === 'documents') next.delete('folder');
+    if (scope === 'all' || scope === 'unfiled') next.delete('folder');
     else next.set('folder', scope);
     navigate(docsRoute(null, next));
   };
@@ -1540,6 +1552,18 @@ function DocsPageContent() {
     setFolderDialog({ folder });
   };
 
+  const requestDeleteFolder = (folder: FolderSummary) => {
+    if (folderDeleting) return;
+    modal.confirm({
+      title: `删除“${folder.name}”？`,
+      content: '分组及其下属分组会被删除，里面的文档会保留并移到根目录。',
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => deleteFolder(folder),
+    });
+  };
+
   const createFolder = async () => {
     const name = folderName.trim();
     if (!creatingFolder || !name || folderSaving) return;
@@ -1552,13 +1576,13 @@ function DocsPageContent() {
       setCreatingFolderParentId(null);
       setFolderName('');
       refreshWorkspace();
-      message.success('文件夹已创建');
+      message.success('分组已创建');
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
         return;
       }
-      message.error(errorMessage(error, '文件夹保存失败'));
+      message.error(errorMessage(error, '分组保存失败'));
     } finally {
       setFolderSaving(false);
     }
@@ -1574,34 +1598,31 @@ function DocsPageContent() {
       setFolders((items) => items.map((item) => (item.id === folder.id ? folder : item)));
       setFolderDialog(null);
       refreshWorkspace();
-      message.success('文件夹已重命名');
+      message.success('分组已重命名');
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
         return;
       }
-      message.error(errorMessage(error, '文件夹保存失败'));
+      message.error(errorMessage(error, '分组保存失败'));
     } finally {
       setFolderSaving(false);
     }
   };
 
-  const deleteFolder = async () => {
-    if (!folderDialog || folderDeleting) return;
-    const { folder } = folderDialog;
-
+  const deleteFolder = async (folder: FolderSummary) => {
+    if (folderDeleting) return;
     setFolderDeleting(true);
     try {
       const result = await api.deleteFolder(folder.id);
       const deletedIds = getFolderSubtreeIds(folders, folder.id);
       setFolders((items) => items.filter((item) => !deletedIds.has(item.id)));
-      setFolderDialog(null);
       refreshWorkspace();
       setListRevision((value) => value + 1);
       if (folderScope !== 'all' && folderScope !== 'unfiled') {
         if (!isFolderInSubtree(folders, folderScope, folder.id)) {
           message.success(
-            result.movedDocumentCount > 0 ? '文件夹已删除，文档已移到根目录' : '文件夹已删除',
+            result.movedDocumentCount > 0 ? '分组已删除，文档已移到根目录' : '分组已删除',
           );
           return;
         }
@@ -1613,15 +1634,15 @@ function DocsPageContent() {
       }
       message.success(
         result.movedDocumentCount > 0
-          ? '文件夹及其子文件夹已删除，文档已移到根目录'
-          : '文件夹及其子文件夹已删除',
+          ? '分组及其下属分组已删除，文档已移到根目录'
+          : '分组及其下属分组已删除',
       );
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
         return;
       }
-      message.error(errorMessage(error, '文件夹删除失败'));
+      message.error(errorMessage(error, '分组删除失败'));
     } finally {
       setFolderDeleting(false);
     }
@@ -1635,13 +1656,13 @@ function DocsPageContent() {
       const updated = await api.moveFolder(folder.id, parentId);
       setFolders((items) => items.map((item) => (item.id === updated.id ? updated : item)));
       refreshWorkspace();
-      message.success(parentId === null ? '文件夹已移到顶层' : '文件夹已移动');
+      message.success(parentId === null ? '分组已移到顶层' : '分组已移动');
     } catch (error) {
       if (isUnauthorized(error)) {
         markUnauthenticated();
         return;
       }
-      message.error(errorMessage(error, '移动文件夹失败'));
+      message.error(errorMessage(error, '移动分组失败'));
     } finally {
       setMoving(false);
     }
@@ -1650,12 +1671,20 @@ function DocsPageContent() {
   const moveDocument = async (
     document: Pick<DocumentSummary, 'id' | 'folderId'>,
     folderId: PublicId | null,
+    parentId: PublicId | null = null,
   ) => {
-    if (moving || document.folderId === folderId) return;
+    if (moving) return;
+    if (
+      document.folderId === folderId &&
+      'parentId' in document &&
+      document.parentId === parentId
+    ) {
+      return;
+    }
 
     setMoving(true);
     try {
-      const updated = await api.moveDocument(document.id, folderId);
+      const updated = await api.moveDocument(document.id, folderId, parentId);
       if (activeDocumentRef.current?.id === updated.id) {
         activeDocumentRef.current = updated;
         setActiveDocument(updated);
@@ -1838,9 +1867,18 @@ function DocsPageContent() {
           setSidebarOpen(false);
           void createDocument();
         }}
+        onCreateChildDocument={(parent) => {
+          setSidebarOpen(false);
+          void createDocument(parent);
+        }}
         onCreateFolder={openCreateFolder}
         onDeleteDocument={requestDeleteDocument}
+        onDeleteFolder={requestDeleteFolder}
         onEditFolder={openEditFolder}
+        onFolderCreateDocument={(folder) => {
+          setSidebarOpen(false);
+          void createDocument(null, folder.id);
+        }}
         onFolderDraftChange={setFolderName}
         onFolderSelect={selectFolder}
         onImport={() => {
@@ -1849,6 +1887,10 @@ function DocsPageContent() {
         }}
         onLoadMore={() => void loadMoreDocuments()}
         onMoveDocument={(document, folderId) => void moveDocument(document, folderId)}
+        onMoveDocumentToParent={(document, folderId, parentId) =>
+          void moveDocument(document, folderId, parentId)
+        }
+        onLoadDocumentChildren={(id) => api.listDocumentChildren(id).then(({ items }) => items)}
         onMoveFolder={(folder, parentId) => void moveFolder(folder, parentId)}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
@@ -2265,21 +2307,14 @@ function DocsPageContent() {
 
       {folderDialog && (
         <Suspense fallback={null}>
-          <FolderDialog
+          <RenameFolderDialog
             key={`rename-${folderDialog.folder.id}`}
             name={folderName}
             saving={folderSaving}
-            deleting={folderDeleting}
             onChange={setFolderName}
             onClose={() => {
-              if (!folderSaving && !folderDeleting) setFolderDialog(null);
+              if (!folderSaving) setFolderDialog(null);
             }}
-            onCreateChild={() => {
-              const folder = folderDialog.folder;
-              setFolderDialog(null);
-              openCreateFolder(folder.id);
-            }}
-            onDelete={deleteFolder}
             onSubmit={() => void renameFolder()}
           />
         </Suspense>

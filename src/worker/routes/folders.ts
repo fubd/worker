@@ -41,7 +41,7 @@ folderRoutes.post('/', async (c) => {
     parentId?: unknown;
   };
   const name = normalizeName(body.name);
-  if (!name) return c.json({ error: '文件夹名称需在 1~30 个字符之间' }, 400);
+  if (!name) return c.json({ error: '分组名称需在 1~30 个字符之间' }, 400);
   const parentId = parseOptionalFolderId(body.parentId);
   if (parentId === INVALID_PUBLIC_ID) return c.json({ error: 'parentId 非法' }, 400);
 
@@ -50,11 +50,11 @@ folderRoutes.post('/', async (c) => {
     'db',
     repo.createFolder(c.env.DB, c.get('user').id, name, parentId),
   );
-  if (result.kind === 'parent_not_found') return c.json({ error: '父文件夹不存在' }, 404);
+  if (result.kind === 'parent_not_found') return c.json({ error: '父分组不存在' }, 404);
   if (result.kind === 'too_deep') {
-    return c.json({ error: `文件夹最多支持 ${repo.MAX_FOLDER_DEPTH} 层` }, 400);
+    return c.json({ error: `分组最多支持 ${repo.MAX_FOLDER_DEPTH} 层` }, 400);
   }
-  if (result.kind === 'conflict') return c.json({ error: '同一目录下已有同名文件夹' }, 409);
+  if (result.kind === 'conflict') return c.json({ error: '同一目录下已有同名分组' }, 409);
   return c.json(result.folder, 201);
 });
 
@@ -64,11 +64,11 @@ folderRoutes.patch('/:id', async (c) => {
 
   const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
   const name = normalizeName(body.name);
-  if (!name) return c.json({ error: '文件夹名称需在 1~30 个字符之间' }, 400);
+  if (!name) return c.json({ error: '分组名称需在 1~30 个字符之间' }, 400);
 
   const result = await wrapTime(c, 'db', repo.renameFolder(c.env.DB, c.get('user').id, id, name));
-  if (result.kind === 'not_found') return c.json({ error: '文件夹不存在' }, 404);
-  if (result.kind === 'conflict') return c.json({ error: '同一目录下已有同名文件夹' }, 409);
+  if (result.kind === 'not_found') return c.json({ error: '分组不存在' }, 404);
+  if (result.kind === 'conflict') return c.json({ error: '同一目录下已有同名分组' }, 409);
   return c.json(result.folder);
 });
 
@@ -84,13 +84,13 @@ folderRoutes.patch('/:id/move', async (c) => {
   if (parentId === INVALID_PUBLIC_ID) return c.json({ error: 'parentId 非法' }, 400);
 
   const result = await wrapTime(c, 'db', repo.moveFolder(c.env.DB, c.get('user').id, id, parentId));
-  if (result.kind === 'not_found') return c.json({ error: '文件夹不存在' }, 404);
-  if (result.kind === 'parent_not_found') return c.json({ error: '目标文件夹不存在' }, 404);
-  if (result.kind === 'cycle') return c.json({ error: '不能移动到自身或子文件夹中' }, 409);
+  if (result.kind === 'not_found') return c.json({ error: '分组不存在' }, 404);
+  if (result.kind === 'parent_not_found') return c.json({ error: '目标分组不存在' }, 404);
+  if (result.kind === 'cycle') return c.json({ error: '不能移动到自身或下属分组中' }, 409);
   if (result.kind === 'too_deep') {
-    return c.json({ error: `文件夹最多支持 ${repo.MAX_FOLDER_DEPTH} 层` }, 400);
+    return c.json({ error: `分组最多支持 ${repo.MAX_FOLDER_DEPTH} 层` }, 400);
   }
-  if (result.kind === 'conflict') return c.json({ error: '目标目录下已有同名文件夹' }, 409);
+  if (result.kind === 'conflict') return c.json({ error: '目标目录下已有同名分组' }, 409);
   return c.json(result.folder);
 });
 
@@ -99,6 +99,6 @@ folderRoutes.delete('/:id', async (c) => {
   if (!id) return c.json({ error: 'id 非法' }, 400);
 
   const result = await wrapTime(c, 'db', repo.deleteFolder(c.env.DB, c.get('user').id, id));
-  if (!result.deleted) return c.json({ error: '文件夹不存在' }, 404);
+  if (!result.deleted) return c.json({ error: '分组不存在' }, 404);
   return c.json({ ok: true, id, ...result });
 });

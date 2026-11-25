@@ -1,7 +1,8 @@
-import { useEffect, useState, type DragEvent as ReactDragEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type DragEvent as ReactDragEvent } from 'react';
 import { Avatar, Button, Dropdown, Tooltip, type MenuProps } from 'antd';
 import {
   ChevronDown,
+  ChevronRight,
   Clock3,
   FileUp,
   FileText,
@@ -12,6 +13,7 @@ import {
   LockKeyhole,
   LogOut,
   MoreHorizontal,
+  Pencil,
   Pin,
   Plus,
   RotateCcw,
@@ -76,12 +78,20 @@ interface WorkspaceSidebarProps {
   onCreate: () => void;
   onCreateFolder: (parentId: PublicId | null) => void;
   onDeleteDocument: (document: DocumentSummary) => void;
+  onDeleteFolder: (folder: FolderSummary) => void;
   onEditFolder: (folder: FolderSummary) => void;
+  onFolderCreateDocument: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
   onFolderSelect: (scope: FolderScope) => void;
   onImport: () => void;
   onLoadMore: () => void;
   onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
+  onMoveDocumentToParent: (
+    document: DocumentSummary,
+    folderId: PublicId | null,
+    parentId: PublicId | null,
+  ) => void;
+  onLoadDocumentChildren: (documentId: PublicId) => Promise<DocumentSummary[]>;
   onMoveFolder: (folder: FolderSummary, parentId: PublicId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
@@ -89,6 +99,7 @@ interface WorkspaceSidebarProps {
   onRestore: (document: DocumentSummary) => void;
   onSearchChange: (value: string) => void;
   onSelect: (id: PublicId) => void;
+  onCreateChildDocument: (parent: DocumentSummary) => void;
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
@@ -173,12 +184,16 @@ export function WorkspaceSidebar({
   onCreate,
   onCreateFolder,
   onDeleteDocument,
+  onDeleteFolder,
   onEditFolder,
+  onFolderCreateDocument,
   onFolderDraftChange,
   onFolderSelect,
   onImport,
   onLoadMore,
   onMoveDocument,
+  onMoveDocumentToParent,
+  onLoadDocumentChildren,
   onMoveFolder,
   onNavigate,
   onOpenPasswordSettings,
@@ -186,6 +201,7 @@ export function WorkspaceSidebar({
   onRestore,
   onSearchChange,
   onSelect,
+  onCreateChildDocument,
   onSignOut,
   onSubmitFolderCreate,
   onToggleFavorite,
@@ -296,6 +312,62 @@ export function WorkspaceSidebar({
   };
 
   const hasSearch = searchValue.trim().length > 0;
+  const [documentChildren, setDocumentChildren] = useState<Map<PublicId, DocumentSummary[]>>(
+    () => new Map(),
+  );
+  const [documentChildrenFolders, setDocumentChildrenFolders] = useState<
+    Map<PublicId, PublicId | null>
+  >(() => new Map());
+  const [loadingDocumentIds, setLoadingDocumentIds] = useState<Set<PublicId>>(() => new Set());
+  const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
+  useEffect(() => {
+    setDocumentChildren(new Map());
+    setExpandedDocumentIds(new Set());
+  }, [folderScope, searchValue, view]);
+
+  const loadDocumentChildren = async (
+    documentId: PublicId,
+    folderId: PublicId | null,
+  ): Promise<DocumentSummary[]> => {
+    let items = documentChildren.get(documentId);
+    if (!items) {
+      setLoadingDocumentIds((current) => new Set(current).add(documentId));
+      try {
+        items = await onLoadDocumentChildren(documentId);
+        setDocumentChildren((current) => new Map(current).set(documentId, items!));
+        setDocumentChildrenFolders((current) => new Map(current).set(documentId, folderId));
+      } finally {
+        setLoadingDocumentIds((current) => {
+          const next = new Set(current);
+          next.delete(documentId);
+          return next;
+        });
+      }
+    }
+    return items;
+  };
+
+  const toggleDocumentExpanded = async (documentId: PublicId, folderId: PublicId | null) => {
+    if (expandedDocumentIds.has(documentId)) {
+      setExpandedDocumentIds((current) => {
+        const next = new Set(current);
+        next.delete(documentId);
+        return next;
+      });
+      return;
+    }
+    setExpandedDocumentIds((current) => new Set(current).add(documentId));
+    try {
+      await loadDocumentChildren(documentId, folderId);
+    } catch {
+      setExpandedDocumentIds((current) => {
+        const next = new Set(current);
+        next.delete(documentId);
+        return next;
+      });
+    }
+  };
+
   const sectionTitle =
     view === 'documents'
       ? hasSearch
@@ -316,11 +388,12 @@ export function WorkspaceSidebar({
     : 0;
   const sectionSummary =
     view === 'documents' && currentFolder && !hasSearch
-      ? `${directChildFolderCount} 个文件夹 · ${currentFolder.documentCount} 篇文档`
+      ? `${directChildFolderCount} 个分组 · ${currentFolder.documentCount} 篇文档`
       : null;
   const documentsByFolder = new Map<PublicId, DocumentSummary[]>();
   const rootDocuments: DocumentSummary[] = [];
   for (const document of documents) {
+    if (document.parentId !== null) continue;
     if (document.folderId === null) {
       rootDocuments.push(document);
       continue;
@@ -329,6 +402,22 @@ export function WorkspaceSidebar({
     if (folderDocuments) folderDocuments.push(document);
     else documentsByFolder.set(document.folderId, [document]);
   }
+  for (const node of folders) {
+    const items = documentChildren.get(node.id);
+    if (!items || documentChildrenFolders.get(node.id) !== node.parentId) continue;
+    const topLevel = items.filter((document) => document.parentId === null);
+    if (topLevel.length > 0) {
+      documentsByFolder.set(node.id, [...(documentsByFolder.get(node.id) ?? []), ...topLevel]);
+    }
+  }
+  const getVisibleDocument = (document: DocumentSummary): DocumentSummary => {
+    const children = documentChildren.get(document.id);
+    const folderMatches = documentChildrenFolders.get(document.id) === document.folderId;
+    return {
+      ...document,
+      childCount: children && folderMatches ? children.length : document.childCount,
+    };
+  };
   const showDocumentTree = view === 'documents' && !hasSearch;
   const selectedDocuments = documents.filter((document) => selectedDocumentIds.has(document.id));
   const selectedIds = selectedDocuments.map((document) => document.id);
@@ -372,14 +461,14 @@ export function WorkspaceSidebar({
     return [
       {
         key: 'create-child',
-        label: '新建子文件夹',
+        label: '新建分组',
         icon: <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />,
       },
       ...(moveTargets.length
         ? [
             {
               key: 'move',
-              label: '移动到文件夹',
+              label: '移动到分组',
               icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
               children: moveTargets,
             },
@@ -387,8 +476,15 @@ export function WorkspaceSidebar({
         : []),
       { type: 'divider' as const },
       {
-        key: 'manage',
-        label: '重命名或删除',
+        key: 'rename',
+        label: '重命名',
+        icon: <Pencil aria-hidden="true" size={15} strokeWidth={1.8} />,
+      },
+      {
+        key: 'delete',
+        label: '删除',
+        danger: true,
+        icon: <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />,
       },
     ];
   };
@@ -398,8 +494,12 @@ export function WorkspaceSidebar({
       onCreateFolder(folder.id);
       return;
     }
-    if (key === 'manage') {
+    if (key === 'rename') {
       onEditFolder(folder);
+      return;
+    }
+    if (key === 'delete') {
+      onDeleteFolder(folder);
       return;
     }
     if (!key.startsWith('move:')) return;
@@ -412,18 +512,45 @@ export function WorkspaceSidebar({
     }
   };
 
-  const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
-    const moveTargets = [
-      ...(document.folderId === null ? [] : [{ key: 'move:none', label: '移出文件夹' }]),
-      ...folders
-        .filter((folder) => folder.id !== document.folderId)
-        .map((folder) => ({
-          key: `move:${folder.id}`,
-          label: getFolderPathLabel(folders, folder.id),
-        })),
+  const allChildDocuments = [...documentChildren.values()].flat();
+  const getDocumentMoveTargets = (document: DocumentSummary) => {
+    const blocked = new Set<PublicId>([document.id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const item of allChildDocuments) {
+        if (item.parentId && blocked.has(item.parentId) && !blocked.has(item.id)) {
+          blocked.add(item.id);
+          changed = true;
+        }
+      }
+    }
+    return [
+      ...(document.parentId === null && document.folderId === null
+        ? []
+        : [{ key: 'move:none', label: '根目录' }]),
+      ...folders.map((folder) => ({
+        key: `move:folder:${folder.id}`,
+        label: getFolderPathLabel(folders, folder.id),
+      })),
+      ...documents
+        .filter((target) => !blocked.has(target.id))
+        .map((target) => ({ key: `move:document:${target.id}`, label: target.title })),
+      ...allChildDocuments
+        .filter((target) => !blocked.has(target.id))
+        .map((target) => ({ key: `move:document:${target.id}`, label: target.title })),
     ];
+  };
+
+  const getDocumentMenuItems = (document: DocumentSummary): MenuProps['items'] => {
+    const moveTargets = getDocumentMoveTargets(document);
 
     return [
+      {
+        key: 'create-child',
+        label: '新建子文档',
+        icon: <Plus aria-hidden="true" size={15} strokeWidth={1.8} />,
+      },
       {
         key: 'pin',
         label: document.pinned ? '取消置顶' : '置顶文档',
@@ -445,7 +572,7 @@ export function WorkspaceSidebar({
         ? [
             {
               key: 'move',
-              label: '移动到文件夹',
+              label: '移动到',
               icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
               children: moveTargets,
             },
@@ -461,7 +588,8 @@ export function WorkspaceSidebar({
     ];
   };
 
-  const renderDocumentRow = (document: DocumentSummary) => {
+  const renderDocumentRow = (source: DocumentSummary, depth = 0) => {
+    const document = getVisibleDocument(source);
     if (view === 'trash') {
       return (
         <div className="swan-sidebar-doc is-trash" key={document.id}>
@@ -499,8 +627,16 @@ export function WorkspaceSidebar({
 
     return (
       <div
-        className={selectionMode ? 'swan-sidebar-doc-item is-selecting' : 'swan-sidebar-doc-item'}
+        className={[
+          'swan-sidebar-doc-item',
+          selectionMode ? 'is-selecting' : '',
+          document.childCount > 0 ? 'has-children' : '',
+          expandedDocumentIds.has(document.id) ? 'is-expanded' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         key={document.id}
+        style={depth ? ({ '--swan-doc-depth': depth } as CSSProperties) : undefined}
       >
         {selectionMode ? (
           <input
@@ -512,12 +648,30 @@ export function WorkspaceSidebar({
             onChange={() => onToggleDocumentSelection(document.id)}
           />
         ) : (
-          <DocumentDragHandle
-            document={document}
-            dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
-            onBeginDrag={beginDrag}
-            onDragEnd={resetDrag}
-          />
+          <>
+            <DocumentDragHandle
+              document={document}
+              dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
+              onBeginDrag={beginDrag}
+              onDragEnd={resetDrag}
+            />
+            {document.childCount > 0 && (
+              <button
+                type="button"
+                className={
+                  expandedDocumentIds.has(document.id)
+                    ? 'swan-document-toggle is-expanded'
+                    : 'swan-document-toggle'
+                }
+                aria-label={expandedDocumentIds.has(document.id) ? '收起子文档' : '展开子文档'}
+                aria-expanded={expandedDocumentIds.has(document.id)}
+                disabled={loadingDocumentIds.has(document.id)}
+                onClick={() => void toggleDocumentExpanded(document.id, document.folderId)}
+              >
+                <ChevronRight aria-hidden="true" size={12} strokeWidth={1.8} />
+              </button>
+            )}
+          </>
         )}
         <button
           type="button"
@@ -581,6 +735,10 @@ export function WorkspaceSidebar({
             menu={{
               items: getDocumentMenuItems(document),
               onClick: ({ key }) => {
+                if (key === 'create-child') {
+                  onCreateChildDocument(document);
+                  return;
+                }
                 if (key === 'pin') {
                   onTogglePinned(document);
                   return;
@@ -597,27 +755,46 @@ export function WorkspaceSidebar({
                 const target = key.slice('move:'.length);
                 if (target === 'none') {
                   onMoveDocument(document, null);
-                } else if (isPublicId(target)) {
-                  onMoveDocument(document, target);
+                } else if (target.startsWith('folder:')) {
+                  const folderId = target.slice('folder:'.length);
+                  if (isPublicId(folderId)) onMoveDocument(document, folderId);
+                } else if (target.startsWith('document:')) {
+                  const parentId = target.slice('document:'.length);
+                  const parent = [...documents, ...allChildDocuments].find(
+                    (item) => item.id === parentId,
+                  );
+                  if (parent) onMoveDocumentToParent(document, parent.folderId, parent.id);
                 }
               },
             }}
           >
-            <button
-              type="button"
-              className="swan-sidebar-doc-more"
-              aria-label={`更多操作 ${document.title}`}
-              disabled={saveState === 'saving' || deletingDocumentId === document.id}
-            >
-              <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
-            </button>
+            <div className="swan-sidebar-doc-actions">
+              <button
+                type="button"
+                className="swan-sidebar-doc-more"
+                aria-label={`更多操作 ${document.title}`}
+                disabled={saveState === 'saving' || deletingDocumentId === document.id}
+              >
+                <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
+              </button>
+            </div>
           </Dropdown>
         )}
+        {!selectionMode &&
+          expandedDocumentIds.has(document.id) &&
+          documentChildrenFolders.get(document.id) === document.folderId && (
+            <div className="swan-document-children">
+              {(documentChildren.get(document.id) ?? [])
+                .filter((child) => child.parentId === document.id)
+                .map((child) => renderDocumentRow(child, depth + 1))}
+            </div>
+          )}
       </div>
     );
   };
 
-  const renderDocumentRows = (items: DocumentSummary[]) => items.map(renderDocumentRow);
+  const renderDocumentRows = (items: DocumentSummary[], depth = 0) =>
+    items.map((document) => renderDocumentRow(document, depth));
 
   return (
     <aside className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}>
@@ -757,11 +934,11 @@ export function WorkspaceSidebar({
                 )}
                 {view === 'documents' && (
                   <>
-                    <Tooltip title="新建文件夹" placement="top">
+                    <Tooltip title="新建顶层分组" placement="top">
                       <button
                         type="button"
                         className="swan-sidebar-add"
-                        aria-label="新建文件夹"
+                        aria-label="新建顶层分组"
                         aria-expanded={creatingFolder}
                         onClick={() => onCreateFolder(null)}
                       >
@@ -834,7 +1011,7 @@ export function WorkspaceSidebar({
                 type="text"
                 size="small"
                 icon={<Folder aria-hidden="true" size={15} strokeWidth={1.8} />}
-                aria-label="批量移动到文件夹"
+                aria-label="批量移动到分组"
                 disabled={batchBusy || selectedCount === 0}
               />
             </Dropdown>
@@ -959,6 +1136,8 @@ export function WorkspaceSidebar({
                   onDragOverTarget={handleDragOverTarget}
                   onDropTarget={finishDrop}
                   onEditFolder={onEditFolder}
+                  onFolderCreateChild={(folder) => onCreateFolder(folder.id)}
+                  onFolderCreateDocument={(folder) => onFolderCreateDocument(folder)}
                   onFolderMenuAction={handleFolderMenuAction}
                   onFolderDraftChange={onFolderDraftChange}
                   onFolderSelect={selectFolderFromTree}

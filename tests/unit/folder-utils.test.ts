@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  buildDocumentTree,
   buildFolderTree,
   getFolderAncestors,
   getFolderPathLabel,
@@ -9,6 +10,7 @@ import {
 } from '../../src/client/folder-utils';
 import type { PublicId } from '../../src/shared/ids';
 import type { FolderSummary } from '../../src/shared/types';
+import type { DocumentSummary } from '../../src/shared/types';
 
 function folder(id: string, name: string, parentId: string | null = null): FolderSummary {
   return {
@@ -47,5 +49,39 @@ describe('folder utilities', () => {
     expect([...getFolderSubtreeIds(folders, 'a' as PublicId)]).toEqual(['a', 'b', 'c']);
     expect(isFolderInSubtree(folders, 'c' as PublicId, 'a' as PublicId)).toBe(true);
     expect(isFolderInSubtree(folders, 'd' as PublicId, 'a' as PublicId)).toBe(false);
+  });
+});
+
+function document(id: string, title: string, parentId: string | null = null): DocumentSummary {
+  return {
+    id: id as PublicId,
+    title,
+    excerpt: '',
+    folderId: null,
+    parentId: parentId as PublicId | null,
+    childCount: 0,
+    favorite: false,
+    pinned: false,
+    lastViewedAt: null,
+    shareId: null,
+    sharedAt: null,
+    version: 1,
+    createdAt: '2026-11-24T00:00:00.000Z',
+    updatedAt: '2026-11-24T00:00:00.000Z',
+    deletedAt: null,
+  };
+}
+
+describe('document tree utilities', () => {
+  test('nests direct child documents without duplicating them', () => {
+    const tree = buildDocumentTree([
+      document('root', '根文档'),
+      document('child', '子文档', 'root'),
+      document('grandchild', '孙文档', 'child'),
+    ]);
+    expect(tree).toHaveLength(1);
+    expect(tree[0].document.id).toBe('root');
+    expect(tree[0].children[0].document.id).toBe('child');
+    expect(tree[0].children[0].children[0].document.id).toBe('grandchild');
   });
 });

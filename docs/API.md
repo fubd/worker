@@ -7,7 +7,7 @@
 - 除健康检查、认证入口和只读分享外，接口都要求有效的 `yuyan_session` Cookie。
 - 请求和响应使用 JSON；附件上传使用 `multipart/form-data`。
 - 错误响应统一为 `{ "error": "可读错误信息" }`。
-- 文档、文件夹和附件 ID 都是 24 位不透明字符串，不能当作自增 ID 使用。
+- 文档、分组和附件 ID 都是 24 位不透明字符串，不能当作自增 ID 使用。
 - 未认证请求返回 `401`；资源不存在或不属于当前用户返回 `404`；版本冲突返回 `409`；限流返回 `429`。
 - 写请求受每用户限流。响应被限流时会带 `Retry-After` 秒数。
 - `Server-Timing` 会记录 D1 等关键阶段耗时。
@@ -53,14 +53,14 @@
 
 查询参数：
 
-| 参数         | 说明                                |
-| ------------ | ----------------------------------- |
-| `folder`     | 文件夹公开 ID；`unfiled` 表示未归档 |
-| `q`          | 标题和正文搜索，最多 100 个字符     |
-| `favorite=1` | 只返回收藏                          |
-| `recent=1`   | 只返回最近浏览                      |
-| `limit`      | 每页数量，默认 50，最大 100         |
-| `cursor`     | 上一页返回的 `nextCursor`           |
+| 参数         | 说明                              |
+| ------------ | --------------------------------- |
+| `folder`     | 分组公开 ID；`unfiled` 表示未归档 |
+| `q`          | 标题和正文搜索，最多 100 个字符   |
+| `favorite=1` | 只返回收藏                        |
+| `recent=1`   | 只返回最近浏览                    |
+| `limit`      | 每页数量，默认 50，最大 100       |
+| `cursor`     | 上一页返回的 `nextCursor`         |
 
 响应：
 
@@ -71,7 +71,7 @@
 }
 ```
 
-`nextCursor` 为 `null` 表示已到末页。游标绑定当前排序位置，不能在更换文件夹、搜索词或视图后复用。
+`nextCursor` 为 `null` 表示已到末页。游标绑定当前排序位置，不能在更换分组、搜索词或视图后复用。
 
 `GET /api/documents/trash` 使用相同分页结构，只返回回收站文档。
 
@@ -87,6 +87,7 @@
 | `POST`   | `/api/documents/:id/restore`   | 从回收站恢复                |
 | `DELETE` | `/api/documents/:id/permanent` | 永久删除回收站文档          |
 | `POST`   | `/api/documents/:id/duplicate` | 创建副本                    |
+| `GET`    | `/api/documents/:id/children`  | 读取直属子文档              |
 | `PATCH`  | `/api/documents/:id/folder`    | 移动文档                    |
 | `PATCH`  | `/api/documents/:id/favorite`  | 设置收藏                    |
 | `PATCH`  | `/api/documents/:id/pin`       | 设置置顶                    |
@@ -116,15 +117,21 @@
 | `POST` | `/api/documents/:id/versions`                  | 创建检查点   |
 | `POST` | `/api/documents/:id/versions/:version/restore` | 恢复历史版本 |
 
-## 文件夹
+## 分组
 
-| 方法     | 路径                    | 说明                           |
-| -------- | ----------------------- | ------------------------------ |
-| `GET`    | `/api/folders`          | 文件夹树和直属文档计数         |
-| `POST`   | `/api/folders`          | 新建文件夹                     |
-| `PATCH`  | `/api/folders/:id`      | 改名                           |
-| `PATCH`  | `/api/folders/:id/move` | 移动文件夹                     |
-| `DELETE` | `/api/folders/:id`      | 递归删除文件夹，文档移到未归档 |
+| 方法     | 路径                    | 说明                         |
+| -------- | ----------------------- | ---------------------------- |
+| `GET`    | `/api/folders`          | 分组树和直属文档计数         |
+| `POST`   | `/api/folders`          | 新建分组                     |
+| `PATCH`  | `/api/folders/:id`      | 改名                         |
+| `PATCH`  | `/api/folders/:id/move` | 移动分组                     |
+| `DELETE` | `/api/folders/:id`      | 递归删除分组，文档移到未归档 |
+
+分组和文档共同组成侧栏目录。`GET /api/documents` 只返回当前层级的根文档，直属子文档通过
+`GET /api/documents/:id/children` 读取。新建子文档时传入父文档的 `parentId`；移动文档时，
+`PATCH /api/documents/:id/folder` 同时接受 `folderId` 和 `parentId`，`parentId: null`
+表示移动到该分组的当前层级。子文档必须与父文档位于同一分组；移动到自身或自己的子文档会返回
+`409`。
 
 ## 附件
 

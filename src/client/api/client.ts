@@ -4,6 +4,7 @@ import type {
   DocumentAttachmentListResponse,
   DocumentBatchAction,
   DocumentBatchResponse,
+  DocumentChildrenResponse,
   DocumentImportInput,
   DocumentListResponse,
   DocumentRecord,
@@ -133,10 +134,20 @@ export const api = {
       signal: options.signal,
     }),
 
-  createDocument: (title = '无标题文档', folderId: PublicId | null = null) =>
+  listDocumentChildren: (id: PublicId, options: { signal?: AbortSignal } = {}) =>
+    request<DocumentChildrenResponse>(`/documents/${id}/children`, {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
+  createDocument: (
+    title = '无标题文档',
+    folderId: PublicId | null = null,
+    parentId: PublicId | null = null,
+  ) =>
     request<DocumentRecord>('/documents', {
       method: 'POST',
-      body: JSON.stringify({ title, folderId }),
+      body: JSON.stringify({ title, folderId, parentId }),
     }),
 
   importDocument: (input: DocumentImportInput) =>
@@ -203,10 +214,10 @@ export const api = {
       method: 'POST',
     }),
 
-  moveDocument: (id: PublicId, folderId: PublicId | null) =>
+  moveDocument: (id: PublicId, folderId: PublicId | null, parentId: PublicId | null = null) =>
     request<DocumentRecord>(`/documents/${id}/folder`, {
       method: 'PATCH',
-      body: JSON.stringify({ folderId }),
+      body: JSON.stringify({ folderId, parentId }),
     }),
 
   setDocumentFavorite: (id: PublicId, favorite: boolean) =>

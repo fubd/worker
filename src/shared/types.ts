@@ -7,6 +7,8 @@ export interface DocumentSummary {
   title: string;
   excerpt: string;
   folderId: PublicId | null;
+  parentId: PublicId | null;
+  childCount: number;
   favorite: boolean;
   pinned: boolean;
   lastViewedAt: string | null;
@@ -35,6 +37,10 @@ export interface DocumentImportInput {
 export interface DocumentListResponse {
   items: DocumentSummary[];
   nextCursor: string | null;
+}
+
+export interface DocumentChildrenResponse {
+  items: DocumentSummary[];
 }
 
 export type DocumentBatchAction = 'move' | 'favorite' | 'delete' | 'restore';

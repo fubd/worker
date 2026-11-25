@@ -185,7 +185,7 @@ export function CommandPalette({
           )}
 
           {matchingFolders.length > 0 && (
-            <Command.Group heading="文件夹">
+            <Command.Group heading="分组">
               {matchingFolders.map((folder) => (
                 <Command.Item
                   key={folder.id}

@@ -37,6 +37,9 @@ export interface DocumentRow {
   content_text: string;
   folder_id: number | null;
   folder_public_id: import('../shared/ids').PublicId | null;
+  parent_document_id: number | null;
+  parent_document_public_id: import('../shared/ids').PublicId | null;
+  child_count: number;
   is_favorite: number;
   is_pinned: number;
   last_viewed_at: string | null;
@@ -77,6 +80,7 @@ export type {
   AuthUser,
   DocumentAttachment,
   DocumentAttachmentListResponse,
+  DocumentChildrenResponse,
   DocumentImportInput,
   DocumentListResponse,
   DocumentRecord,
