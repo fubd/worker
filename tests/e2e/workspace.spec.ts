@@ -91,15 +91,19 @@ test('creating a group preserves the current workspace tree', async ({ page }) =
   await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
   await expect(page.locator('.swan-folder-row').filter({ hasText: '已有分组' })).toBeVisible();
-  await page.locator('.swan-folder-row').filter({ hasText: '已有分组' }).click();
+  await page.locator('.swan-folder-row.is-root').filter({ hasText: '已有分组' }).click();
+  await expect(page.getByRole('button', { name: '收起 分组 已有分组' })).toBeVisible();
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
   await expect(
     page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
   ).toBeVisible();
-
+  await page.getByRole('button', { name: '收起 分组 已有分组' }).click();
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('分组文档')).toHaveCount(0);
+  await page.locator('.swan-folder-row.is-root').filter({ hasText: '已有分组' }).click();
   await expect(
     page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
   ).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`folder=${folderId}`));
+  await expect(page).not.toHaveURL(/[?&]folder=/);
 
   await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
@@ -110,28 +114,23 @@ test('creating a group preserves the current workspace tree', async ({ page }) =
   await expect(page.getByText('分组已创建')).toBeVisible();
   await expect(page.locator('.swan-folder-row').filter({ hasText: '项目资料' })).toBeVisible();
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
-  await expect(
-    page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组文档' }),
-  ).toBeVisible();
-  await expect(page).not.toHaveURL(/[?&]folder=/);
-  const rootDocumentIcon = await page
-    .locator('.swan-sidebar-root-documents .swan-sidebar-doc-icon')
-    .boundingBox();
-  const rootFolderIcon = await page.locator('.swan-folder-row.is-root svg').first().boundingBox();
-  expect(rootFolderIcon?.x).toBeCloseTo(rootDocumentIcon?.x ?? Number.NaN, 0);
-
-  await page.getByRole('button', { name: '收起 已有分组' }).click();
-  await expect(page.getByRole('button', { name: '展开 已有分组' })).toBeVisible();
-  await page.getByRole('button', { name: '展开 已有分组' }).click();
-  await expect(page.getByRole('button', { name: '收起 已有分组' })).toBeVisible();
+  await page.getByRole('button', { name: '收起 分组 已有分组' }).click();
+  await expect(page.getByRole('button', { name: '展开 分组 已有分组' })).toBeVisible();
+  await page.getByRole('button', { name: '展开 分组 已有分组' }).click();
+  await expect(page.getByRole('button', { name: '收起 分组 已有分组' })).toBeVisible();
 
   await page.getByRole('button', { name: '在 已有分组 中新建' }).click();
   await page.getByRole('menuitem', { name: '新建文档' }).click();
   await page.getByPlaceholder('无标题文档').fill('分组内新建文档');
   await expect(page.getByText('已保存')).toBeVisible();
-  await page.locator('.swan-folder-row').filter({ hasText: '已有分组' }).click();
-  await expect(page).toHaveURL(new RegExp(`folder=${folderId}`));
-  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有分组' })).toBeVisible();
+  await page.locator('.swan-folder-row.is-root').filter({ hasText: '已有分组' }).click();
+  await expect(page).not.toHaveURL(new RegExp(`folder=${folderId}`));
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+  await expect(
+    page.locator('.swan-sidebar-root-documents').getByText('分组内新建文档'),
+  ).toHaveCount(0);
+  await page.locator('.swan-folder-row.is-root').filter({ hasText: '已有分组' }).click();
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
   await expect(
     page.locator('.swan-sidebar-doc-item').filter({ hasText: '分组内新建文档' }),
   ).toBeVisible();

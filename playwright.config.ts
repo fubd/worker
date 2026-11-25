@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: {
     command: 'bun run db:migrate:local && bun run db:reset:e2e && bun run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',

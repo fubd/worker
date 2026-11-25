@@ -82,7 +82,6 @@ interface WorkspaceSidebarProps {
   onEditFolder: (folder: FolderSummary) => void;
   onFolderCreateDocument: (folder: FolderSummary) => void;
   onFolderDraftChange: (value: string) => void;
-  onFolderSelect: (scope: FolderScope) => void;
   onImport: () => void;
   onLoadMore: () => void;
   onMoveDocument: (document: DocumentSummary, folderId: PublicId | null) => void;
@@ -188,7 +187,6 @@ export function WorkspaceSidebar({
   onEditFolder,
   onFolderCreateDocument,
   onFolderDraftChange,
-  onFolderSelect,
   onImport,
   onLoadMore,
   onMoveDocument,
@@ -244,21 +242,14 @@ export function WorkspaceSidebar({
     });
   }, [folderScope, folders]);
 
-  const toggleFolderExpanded = (folderId: PublicId) => {
+  const setFolderExpanded = (folderId: PublicId, expanded: boolean) => {
     setExpandedFolderIds((current) => {
+      if (current.has(folderId) === expanded) return current;
       const next = new Set(current);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
+      if (expanded) next.add(folderId);
+      else next.delete(folderId);
       return next;
     });
-  };
-
-  const selectFolderFromTree = (folderId: PublicId) => {
-    setExpandedFolderIds((current) => {
-      if (current.has(folderId)) return current;
-      return new Set([...current, folderId]);
-    });
-    onFolderSelect(folderId);
   };
 
   const beginDrag = (event: ReactDragEvent<HTMLElement>, payload: SidebarDragPayload) => {
@@ -1075,9 +1066,8 @@ export function WorkspaceSidebar({
                   onFolderCreateDocument={(folder) => onFolderCreateDocument(folder)}
                   onFolderMenuAction={handleFolderMenuAction}
                   onFolderDraftChange={onFolderDraftChange}
-                  onFolderSelect={selectFolderFromTree}
                   onSubmitFolderCreate={onSubmitFolderCreate}
-                  onToggleExpanded={toggleFolderExpanded}
+                  onSetExpanded={setFolderExpanded}
                   renderDocuments={renderDocumentRows}
                 />
               ))}

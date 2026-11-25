@@ -723,14 +723,7 @@ function DocsPageContent() {
 
     setCreating(true);
     try {
-      const folderId =
-        targetFolderId !== undefined
-          ? targetFolderId
-          : parent
-            ? parent.folderId
-            : folderScope === 'all' || folderScope === 'unfiled'
-              ? null
-              : folderScope;
+      const folderId = targetFolderId !== undefined ? targetFolderId : (parent?.folderId ?? null);
       const document = await api.createDocument('无标题文档', folderId, parent?.id ?? null);
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
@@ -1498,10 +1491,9 @@ function DocsPageContent() {
     const next = new URLSearchParams(searchParams);
     next.delete('view');
     next.delete('q');
-    next.delete('id');
     if (scope === 'all' || scope === 'unfiled') next.delete('folder');
     else next.set('folder', scope);
-    navigate(docsRoute(null, next));
+    navigate(docsRoute(activeId, next));
   };
 
   const savePendingForCommandPalette = async () => {
@@ -1879,7 +1871,6 @@ function DocsPageContent() {
           void createDocument(null, folder.id);
         }}
         onFolderDraftChange={setFolderName}
-        onFolderSelect={selectFolder}
         onImport={() => {
           setSidebarOpen(false);
           setImportOpen(true);

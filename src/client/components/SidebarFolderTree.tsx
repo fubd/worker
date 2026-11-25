@@ -72,9 +72,8 @@ interface FolderTreeItemProps {
   onEditFolder: (folder: FolderSummary) => void;
   onFolderMenuAction: (folder: FolderSummary, key: string) => void;
   onFolderDraftChange: (value: string) => void;
-  onFolderSelect: (folderId: PublicId) => void;
   onSubmitFolderCreate: () => void;
-  onToggleExpanded: (folderId: PublicId) => void;
+  onSetExpanded: (folderId: PublicId, expanded: boolean) => void;
   renderDocuments: (documents: DocumentSummary[], depth?: number) => ReactNode;
   onFolderCreateChild: (folder: FolderSummary) => void;
   onFolderCreateDocument: (folder: FolderSummary) => void;
@@ -105,9 +104,8 @@ export function FolderTreeItem({
   onFolderCreateDocument,
   onFolderMenuAction,
   onFolderDraftChange,
-  onFolderSelect,
   onSubmitFolderCreate,
-  onToggleExpanded,
+  onSetExpanded,
   renderDocuments,
 }: FolderTreeItemProps) {
   'use no memo';
@@ -158,14 +156,13 @@ export function FolderTreeItem({
           onDropTarget(event, folder.id);
         }}
       >
-        {(rootLevel ? hasContent : true) && (
+        {rootLevel && (
           <button
             type="button"
             className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
-            aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
+            aria-label={`${expanded ? '收起' : '展开'} 分组 ${folder.name}`}
             aria-expanded={expanded}
-            disabled={!hasContent}
-            onClick={() => onToggleExpanded(folder.id)}
+            onClick={() => onSetExpanded(folder.id, !expanded)}
           >
             <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
           </button>
@@ -174,7 +171,8 @@ export function FolderTreeItem({
           <button
             type="button"
             className={rootLevel ? 'swan-folder-row is-root' : 'swan-folder-row'}
-            onClick={() => onFolderSelect(folder.id)}
+            aria-expanded={hasContent ? expanded : undefined}
+            onClick={() => onSetExpanded(folder.id, !expanded)}
           >
             <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
             <OverflowText text={folder.name} />
@@ -277,9 +275,8 @@ export function FolderTreeItem({
               onFolderCreateDocument={onFolderCreateDocument}
               onFolderMenuAction={onFolderMenuAction}
               onFolderDraftChange={onFolderDraftChange}
-              onFolderSelect={onFolderSelect}
               onSubmitFolderCreate={onSubmitFolderCreate}
-              onToggleExpanded={onToggleExpanded}
+              onSetExpanded={onSetExpanded}
               renderDocuments={renderDocuments}
             />
           ))}
