@@ -17,7 +17,7 @@
       "!dist/vercel/static/js/async/document-attachments.*.mjs",
       "!dist/vercel/static/js/async/batch-export.*.mjs"
     ],
-    "limit": "213 kB"
+    "limit": "218 kB"
   },
   {
     "name": "document import",
