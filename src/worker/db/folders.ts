@@ -129,19 +129,19 @@ async function getFolderSummary(
          f.name,
          f.created_at,
          f.updated_at,
-         COUNT(d.id) AS document_count
+         (
+           SELECT COUNT(id)
+           FROM documents d
+           WHERE d.owner_id = ? AND d.folder_id = f.id AND d.deleted_at IS NULL
+         ) AS document_count
        FROM folders f
        LEFT JOIN folders p
          ON p.id = f.parent_id
         AND p.owner_id = f.owner_id
-       LEFT JOIN documents d
-         ON d.folder_id = f.id
-        AND d.owner_id = f.owner_id
-        AND d.deleted_at IS NULL
        WHERE f.owner_id = ? AND f.public_id = ?
-       GROUP BY f.id`,
+       LIMIT 1`,
     )
-    .bind(ownerId, publicId)
+    .bind(ownerId, ownerId, publicId)
     .first<FolderRow>();
   return row ? toFolder(row) : null;
 }
@@ -158,20 +158,19 @@ export async function listFolders(db: D1Database, ownerId: number) {
          f.name,
          f.created_at,
          f.updated_at,
-         COUNT(d.id) AS document_count
+         (
+           SELECT COUNT(id)
+           FROM documents d
+           WHERE d.owner_id = ? AND d.folder_id = f.id AND d.deleted_at IS NULL
+         ) AS document_count
        FROM folders f
        LEFT JOIN folders p
          ON p.id = f.parent_id
         AND p.owner_id = f.owner_id
-       LEFT JOIN documents d
-         ON d.folder_id = f.id
-        AND d.owner_id = f.owner_id
-        AND d.deleted_at IS NULL
        WHERE f.owner_id = ?
-       GROUP BY f.id
        ORDER BY f.name COLLATE NOCASE ASC, f.id ASC`,
     )
-    .bind(ownerId)
+    .bind(ownerId, ownerId)
     .all<FolderRow>();
 
   return { items: (result.results ?? []).map(toFolder) };

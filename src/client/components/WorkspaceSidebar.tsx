@@ -316,7 +316,7 @@ export function WorkspaceSidebar({
     : 0;
   const sectionSummary =
     view === 'documents' && currentFolder && !hasSearch
-      ? `${directChildFolderCount} 个文件夹 · ${documents.length} 篇文档`
+      ? `${directChildFolderCount} 个文件夹 · ${currentFolder.documentCount} 篇文档`
       : null;
   const documentsByFolder = new Map<PublicId, DocumentSummary[]>();
   const rootDocuments: DocumentSummary[] = [];
@@ -920,11 +920,21 @@ export function WorkspaceSidebar({
                 />
               )}
 
-              {rootDocuments.length > 0 && (
-                <div className="swan-sidebar-root-documents">
-                  {renderDocumentRows(rootDocuments)}
-                </div>
-              )}
+              <div
+                className={
+                  listLoading
+                    ? 'swan-sidebar-root-documents is-loading'
+                    : 'swan-sidebar-root-documents'
+                }
+              >
+                {listLoading && rootDocuments.length === 0 ? (
+                  <DocumentListSkeleton />
+                ) : rootDocuments.length > 0 ? (
+                  renderDocumentRows(rootDocuments)
+                ) : (
+                  <span className="swan-sidebar-empty">根目录还没有文档</span>
+                )}
+              </div>
 
               {folderTree.map((node) => (
                 <FolderTreeItem

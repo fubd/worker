@@ -73,13 +73,34 @@ test('creating a folder preserves the current workspace tree', async ({ page }) 
   await isolateClient(page);
   await registerByApi(page);
 
-  const created = await page.context().request.post('/api/documents', {
+  const createdDirectory = await page.context().request.post('/api/documents', {
     data: { title: '根目录文档', folderId: null },
   });
-  expect(created.status()).toBe(201);
+  expect(createdDirectory.status()).toBe(201);
+  const folderResponse = await page.context().request.post('/api/folders', {
+    data: { name: '已有文件夹', parentId: null },
+  });
+  expect(folderResponse.status()).toBe(201);
+  const folderId = ((await folderResponse.json()) as { id: string }).id;
+  const folderDocumentResponse = await page.context().request.post('/api/documents', {
+    data: { title: '文件夹文档', folderId },
+  });
+  expect(folderDocumentResponse.status()).toBe(201);
 
   await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' })).toBeVisible();
+  await page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' }).click();
+  await expect(
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
+  ).toBeVisible();
+
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '已有文件夹' })).toBeVisible();
+  await expect(
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]folder=/);
 
   await page.getByRole('button', { name: '新建文件夹' }).click();
   await page.getByLabel('新文件夹名称').fill('项目资料');
@@ -88,6 +109,9 @@ test('creating a folder preserves the current workspace tree', async ({ page }) 
   await expect(page.getByText('文件夹已创建')).toBeVisible();
   await expect(page.locator('.swan-folder-row').filter({ hasText: '项目资料' })).toBeVisible();
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+  await expect(
+    page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
+  ).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]folder=/);
 });
 

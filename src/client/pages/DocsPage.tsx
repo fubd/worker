@@ -1499,7 +1499,7 @@ function DocsPageContent() {
     next.delete('view');
     next.delete('q');
     next.delete('id');
-    if (scope === 'all') next.delete('folder');
+    if (scope === 'all' || view === 'documents') next.delete('folder');
     else next.set('folder', scope);
     navigate(docsRoute(null, next));
   };
