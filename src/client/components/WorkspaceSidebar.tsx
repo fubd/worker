@@ -541,25 +541,35 @@ export function WorkspaceSidebar({
           }
         >
           <span className="swan-sidebar-doc-title-row">
-            {document.favorite && (
-              <Star
-                className="swan-sidebar-doc-favorite"
-                aria-label="已收藏"
-                size={12}
-                strokeWidth={1.8}
-                fill="currentColor"
-              />
-            )}
-            {document.pinned && (
-              <Pin
-                className="swan-sidebar-doc-pinned"
-                aria-label="已置顶"
-                size={11}
-                strokeWidth={1.8}
-                fill="currentColor"
-              />
-            )}
+            <FileText
+              className="swan-sidebar-doc-icon"
+              aria-hidden="true"
+              size={14}
+              strokeWidth={1.7}
+            />
             <OverflowText text={document.title} className="swan-sidebar-doc-title" />
+            {(document.favorite || document.pinned) && (
+              <span className="swan-sidebar-doc-markers">
+                {document.favorite && (
+                  <Star
+                    className="swan-sidebar-doc-favorite"
+                    aria-label="已收藏"
+                    size={11}
+                    strokeWidth={1.8}
+                    fill="currentColor"
+                  />
+                )}
+                {document.pinned && (
+                  <Pin
+                    className="swan-sidebar-doc-pinned"
+                    aria-label="已置顶"
+                    size={10}
+                    strokeWidth={1.8}
+                    fill="currentColor"
+                  />
+                )}
+              </span>
+            )}
             <time>{formatUpdatedAt(document.updatedAt)}</time>
           </span>
           <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
