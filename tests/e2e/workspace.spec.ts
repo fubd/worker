@@ -113,6 +113,16 @@ test('creating a folder preserves the current workspace tree', async ({ page }) 
     page.locator('.swan-sidebar-doc-item').filter({ hasText: '文件夹文档' }),
   ).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]folder=/);
+  const rootDocumentIcon = await page
+    .locator('.swan-sidebar-root-documents .swan-sidebar-doc-icon')
+    .boundingBox();
+  const rootFolderIcon = await page.locator('.swan-folder-row.is-root svg').first().boundingBox();
+  expect(rootFolderIcon?.x).toBeCloseTo(rootDocumentIcon?.x ?? Number.NaN, 0);
+
+  await page.getByRole('button', { name: '收起 已有文件夹' }).click();
+  await expect(page.getByRole('button', { name: '展开 已有文件夹' })).toBeVisible();
+  await page.getByRole('button', { name: '展开 已有文件夹' }).click();
+  await expect(page.getByRole('button', { name: '收起 已有文件夹' })).toBeVisible();
 });
 
 test('paginates documents, enforces create limits, and isolates ownership', async ({ browser }) => {

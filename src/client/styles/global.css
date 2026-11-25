@@ -628,6 +628,22 @@ input {
   transition: opacity 0.15s ease;
 }
 
+.swan-folder-meta {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.swan-folder-item:has(.swan-folder-row.is-root) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.swan-folder-row.is-root {
+  padding-left: 8px;
+  padding-right: 40px;
+}
+
 .swan-folder-create {
   display: grid;
   height: 36px;
@@ -733,8 +749,8 @@ input {
   pointer-events: auto;
 }
 
-.swan-folder-item:hover .swan-folder-row small,
-.swan-folder-item:focus-within .swan-folder-row small {
+.swan-folder-item:hover .swan-folder-row:not(.is-root) small,
+.swan-folder-item:focus-within .swan-folder-row:not(.is-root) small {
   opacity: 0;
 }
 
@@ -2479,6 +2495,19 @@ input {
   .swan-folder-item {
     min-height: 44px;
     grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .swan-folder-item:has(.swan-folder-row.is-root) {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .swan-folder-item > .swan-folder-toggle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .swan-folder-item:has(.swan-folder-row.is-root) > .swan-folder-toggle {
+    grid-column: 2;
   }
 
   .swan-folder-toggle,

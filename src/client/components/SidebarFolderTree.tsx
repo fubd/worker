@@ -62,6 +62,7 @@ interface FolderTreeItemProps {
   folderSaving: boolean;
   getFolderMenuItems: (folder: FolderSummary) => MenuProps['items'];
   node: FolderTreeNode;
+  rootLevel?: boolean;
   onBeginDrag: (event: ReactDragEvent<HTMLElement>, payload: SidebarDragPayload) => void;
   onCancelFolderCreate: () => void;
   onDragEnd: () => void;
@@ -90,6 +91,7 @@ export function FolderTreeItem({
   folderSaving,
   getFolderMenuItems,
   node,
+  rootLevel = false,
   onBeginDrag,
   onCancelFolderCreate,
   onDragEnd,
@@ -128,6 +130,7 @@ export function FolderTreeItem({
       <div
         className={[
           'swan-folder-item',
+          expanded ? 'is-expanded' : '',
           activeFolderId === folder.id ? 'is-selected' : '',
           isOver ? 'is-drop-target' : '',
         ]
@@ -151,20 +154,39 @@ export function FolderTreeItem({
           onDropTarget(event, folder.id);
         }}
       >
+        {!rootLevel && (
+          <button
+            type="button"
+            className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
+            aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
+            aria-expanded={expanded}
+            disabled={!hasContent}
+            onClick={() => onToggleExpanded(folder.id)}
+          >
+            <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+          </button>
+        )}
+        {rootLevel && hasContent && (
+          <button
+            type="button"
+            className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
+            aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
+            aria-expanded={expanded}
+            onClick={() => onToggleExpanded(folder.id)}
+          >
+            <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
+          </button>
+        )}
         <button
           type="button"
-          className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
-          aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
-          aria-expanded={expanded}
-          disabled={!hasContent}
-          onClick={() => onToggleExpanded(folder.id)}
+          className={rootLevel ? 'swan-folder-row is-root' : 'swan-folder-row'}
+          onClick={() => onFolderSelect(folder.id)}
         >
-          <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-        </button>
-        <button type="button" className="swan-folder-row" onClick={() => onFolderSelect(folder.id)}>
           <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
           <OverflowText text={folder.name} />
-          <small>{folder.documentCount}</small>
+          <span className="swan-folder-meta">
+            <small>{folder.documentCount}</small>
+          </span>
         </button>
         <button
           type="button"
@@ -223,6 +245,7 @@ export function FolderTreeItem({
               folderSaving={folderSaving}
               getFolderMenuItems={getFolderMenuItems}
               node={child}
+              rootLevel={false}
               onBeginDrag={onBeginDrag}
               onCancelFolderCreate={onCancelFolderCreate}
               onDragEnd={onDragEnd}

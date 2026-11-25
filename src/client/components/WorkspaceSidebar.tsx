@@ -951,6 +951,7 @@ export function WorkspaceSidebar({
                   folderSaving={folderSaving}
                   getFolderMenuItems={getFolderMenuItems}
                   node={node}
+                  rootLevel
                   onBeginDrag={beginDrag}
                   onCancelFolderCreate={onCancelFolderCreate}
                   onDragEnd={resetDrag}
