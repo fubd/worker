@@ -330,6 +330,8 @@ export function WorkspaceSidebar({
     else documentsByFolder.set(document.folderId, [document]);
   }
   const showDocumentTree = view === 'documents' && !hasSearch;
+  const showUnfiled =
+    unfiledDocuments.length > 0 || (view === 'documents' && folderScope === 'unfiled');
   const selectedDocuments = documents.filter((document) => selectedDocumentIds.has(document.id));
   const selectedIds = selectedDocuments.map((document) => document.id);
   const selectedCount = selectedDocuments.length;
@@ -920,20 +922,23 @@ export function WorkspaceSidebar({
                 />
               )}
 
-              <UnfiledDropRow
-                draggingItem={draggingItem}
-                dropTargetId={dropTargetId}
-                selected={folderScope === 'unfiled'}
-                onDragLeaveTarget={handleDragLeaveTarget}
-                onDragOverTarget={handleDragOverTarget}
-                onDropTarget={finishDrop}
-                onSelect={() => onFolderSelect('unfiled')}
-              />
-
-              {unfiledDocuments.length > 0 && (
-                <div className="swan-folder-children swan-unfiled-children">
-                  {renderDocumentRows(unfiledDocuments)}
-                </div>
+              {showUnfiled && (
+                <>
+                  <UnfiledDropRow
+                    draggingItem={draggingItem}
+                    dropTargetId={dropTargetId}
+                    selected={folderScope === 'unfiled'}
+                    onDragLeaveTarget={handleDragLeaveTarget}
+                    onDragOverTarget={handleDragOverTarget}
+                    onDropTarget={finishDrop}
+                    onSelect={() => onFolderSelect('unfiled')}
+                  />
+                  {unfiledDocuments.length > 0 && (
+                    <div className="swan-folder-children swan-unfiled-children">
+                      {renderDocumentRows(unfiledDocuments)}
+                    </div>
+                  )}
+                </>
               )}
 
               {folderTree.map((node) => (
