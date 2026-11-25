@@ -1,9 +1,9 @@
-import type { DragEvent as ReactDragEvent } from 'react';
+import type { DragEvent as ReactDragEvent, ReactNode } from 'react';
 import { Dropdown, type MenuProps } from 'antd';
 import { Check, ChevronRight, Folder, GripVertical, MoreHorizontal, X } from 'lucide-react';
 
 import type { PublicId } from '@/shared/ids';
-import type { FolderSummary } from '@/shared/types';
+import type { DocumentSummary, FolderSummary } from '@/shared/types';
 import { isFolderInSubtree, type FolderTreeNode } from '../folder-utils';
 import type { SidebarDragPayload } from '../sidebar-drag';
 import { OverflowText } from './OverflowText';
@@ -53,6 +53,7 @@ interface FolderTreeItemProps {
   activeFolderId: PublicId | null;
   creatingFolder: boolean;
   creatingFolderParentId: PublicId | null;
+  documentsByFolder: ReadonlyMap<PublicId, DocumentSummary[]>;
   draggingItem: SidebarDragPayload | null;
   dropTargetId: string | null;
   expandedFolderIds: Set<PublicId>;
@@ -73,12 +74,14 @@ interface FolderTreeItemProps {
   onFolderSelect: (folderId: PublicId) => void;
   onSubmitFolderCreate: () => void;
   onToggleExpanded: (folderId: PublicId) => void;
+  renderDocuments: (documents: DocumentSummary[]) => ReactNode;
 }
 
 export function FolderTreeItem({
   activeFolderId,
   creatingFolder,
   creatingFolderParentId,
+  documentsByFolder,
   draggingItem,
   dropTargetId,
   expandedFolderIds,
@@ -99,12 +102,17 @@ export function FolderTreeItem({
   onFolderSelect,
   onSubmitFolderCreate,
   onToggleExpanded,
+  renderDocuments,
 }: FolderTreeItemProps) {
   'use no memo';
 
   const { folder, children } = node;
+  const documents = documentsByFolder.get(folder.id) ?? [];
   const expanded = expandedFolderIds.has(folder.id);
-  const hasChildren = children.length > 0;
+  const hasContent =
+    children.length > 0 ||
+    documents.length > 0 ||
+    (creatingFolder && creatingFolderParentId === folder.id);
   const targetId = `folder:${folder.id}`;
   const isOver = dropTargetId === targetId;
   const isDragging = draggingItem?.kind === 'folder' && draggingItem.id === folder.id;
@@ -148,7 +156,7 @@ export function FolderTreeItem({
           className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
           aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
           aria-expanded={expanded}
-          disabled={!hasChildren}
+          disabled={!hasContent}
           onClick={() => onToggleExpanded(folder.id)}
         >
           <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
@@ -188,7 +196,7 @@ export function FolderTreeItem({
         </Dropdown>
       </div>
 
-      {expanded && (hasChildren || (creatingFolder && creatingFolderParentId === folder.id)) && (
+      {expanded && hasContent && (
         <div className="swan-folder-children">
           {creatingFolder && creatingFolderParentId === folder.id && (
             <FolderCreateForm
@@ -199,12 +207,14 @@ export function FolderTreeItem({
               onSubmit={onSubmitFolderCreate}
             />
           )}
+          {renderDocuments(documents)}
           {children.map((child) => (
             <FolderTreeItem
               key={child.folder.id}
               activeFolderId={activeFolderId}
               creatingFolder={creatingFolder}
               creatingFolderParentId={creatingFolderParentId}
+              documentsByFolder={documentsByFolder}
               draggingItem={draggingItem}
               dropTargetId={dropTargetId}
               expandedFolderIds={expandedFolderIds}
@@ -225,6 +235,7 @@ export function FolderTreeItem({
               onFolderSelect={onFolderSelect}
               onSubmitFolderCreate={onSubmitFolderCreate}
               onToggleExpanded={onToggleExpanded}
+              renderDocuments={renderDocuments}
             />
           ))}
         </div>

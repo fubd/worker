@@ -112,6 +112,7 @@ input {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
+  overflow: hidden;
   padding: 24px 18px 18px;
   border-right: 1px solid var(--swan-border);
   background: var(--swan-sidebar);
@@ -313,6 +314,37 @@ input {
   font-weight: 650;
 }
 
+.swan-sidebar-scroll {
+  min-height: 0;
+  margin: 0 -2px;
+  padding: 0 2px 8px;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
+}
+
+.swan-sidebar-scroll > .swan-sidebar-section-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0;
+  padding: 18px 8px 8px;
+  background: linear-gradient(
+    to bottom,
+    var(--swan-sidebar) 0,
+    var(--swan-sidebar) calc(100% - 7px),
+    rgba(247, 248, 248, 0) 100%
+  );
+}
+
+.swan-sidebar-scroll > .swan-sidebar-section-head.is-drop-target {
+  border-radius: 7px;
+  background: rgba(47, 111, 232, 0.08);
+  color: var(--swan-brand);
+}
+
 .swan-sidebar-section-head {
   display: flex;
   min-width: 0;
@@ -337,12 +369,16 @@ input {
 }
 
 .swan-sidebar-section-copy small {
+  display: block;
+  overflow: hidden;
   color: var(--swan-text-muted);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.25;
+  text-overflow: ellipsis;
   text-transform: none;
+  white-space: nowrap;
 }
 
 .swan-sidebar-selection-copy {
@@ -472,24 +508,9 @@ input {
   white-space: nowrap;
 }
 
-.swan-sidebar-folders {
-  max-height: min(34vh, 320px);
-  margin: 0 -2px;
-  padding: 0 2px 5px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
-}
-
-.swan-sidebar-folders .swan-sidebar-section-head {
-  margin-top: 18px;
-  margin-bottom: 4px;
-}
-
-.swan-sidebar-folders .swan-sidebar-section-head.is-drop-target {
-  border-radius: 6px;
-  background: rgba(47, 111, 232, 0.08);
-  color: var(--swan-brand);
+.swan-sidebar-tree {
+  display: grid;
+  gap: 2px;
 }
 
 .swan-folder-tree-node {
@@ -498,8 +519,8 @@ input {
 
 .swan-folder-children {
   position: relative;
-  margin-left: 16px;
-  padding-left: 5px;
+  margin-left: 14px;
+  padding-left: 4px;
 }
 
 .swan-folder-children::before {
@@ -719,13 +740,26 @@ input {
 }
 
 .swan-sidebar-doc-list {
-  flex: 1;
   min-height: 0;
-  margin: 0 -2px;
-  padding: 0 2px 12px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(92, 102, 112, 0.18) transparent;
+  margin: 0;
+  padding: 0 0 12px;
+}
+
+.swan-sidebar-doc-list.is-tree {
+  padding-top: 1px;
+}
+
+.swan-sidebar-tree .swan-sidebar-doc {
+  gap: 4px;
+  padding: 8px 9px 7px;
+}
+
+.swan-sidebar-tree .swan-sidebar-doc-excerpt {
+  -webkit-line-clamp: 1;
+}
+
+.swan-unfiled-children {
+  margin-bottom: 3px;
 }
 
 .swan-sidebar-doc-item {
@@ -2456,6 +2490,10 @@ input {
 
   .swan-sidebar-select-all {
     min-height: 44px;
+  }
+
+  .swan-sidebar-scroll > .swan-sidebar-section-head .swan-sidebar-section-copy small {
+    display: none;
   }
 
   .swan-sidebar-batch-actions {
