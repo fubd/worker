@@ -1552,7 +1552,6 @@ function DocsPageContent() {
       setCreatingFolderParentId(null);
       setFolderName('');
       refreshWorkspace();
-      selectFolder(folder.id);
       message.success('文件夹已创建');
     } catch (error) {
       if (isUnauthorized(error)) {

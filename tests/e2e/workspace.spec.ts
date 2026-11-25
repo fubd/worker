@@ -69,6 +69,28 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await expect(page.getByText('未归档')).toHaveCount(0);
 });
 
+test('creating a folder preserves the current workspace tree', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+
+  const created = await page.context().request.post('/api/documents', {
+    data: { title: '根目录文档', folderId: null },
+  });
+  expect(created.status()).toBe(201);
+
+  await page.goto('/docs');
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+
+  await page.getByRole('button', { name: '新建文件夹' }).click();
+  await page.getByLabel('新文件夹名称').fill('项目资料');
+  await page.getByRole('button', { name: '创建文件夹' }).click();
+
+  await expect(page.getByText('文件夹已创建')).toBeVisible();
+  await expect(page.locator('.swan-folder-row').filter({ hasText: '项目资料' })).toBeVisible();
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
+  await expect(page).not.toHaveURL(/[?&]folder=/);
+});
+
 test('paginates documents, enforces create limits, and isolates ownership', async ({ browser }) => {
   const healthContext = await browser.newContext();
   const healthResponse = await healthContext.request.get('/api/health/db');
