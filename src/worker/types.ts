@@ -82,6 +82,7 @@ export type {
   DocumentAttachmentListResponse,
   DocumentChildrenResponse,
   DocumentImportInput,
+  DocumentListSort,
   DocumentListResponse,
   DocumentRecord,
   DocumentSummary,

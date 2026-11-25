@@ -38,6 +38,7 @@ import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 import FolderDialog from '../components/FolderDialog';
+import { sortDocumentSummaries } from '../document-order';
 import {
   DocumentOutline,
   DocumentSkeleton,
@@ -126,17 +127,6 @@ function toSummary(document: DocumentRecord): DocumentSummary {
     updatedAt: document.updatedAt,
     deletedAt: document.deletedAt,
   };
-}
-
-function sortDocumentSummaries(items: DocumentSummary[]): DocumentSummary[] {
-  return [...items].sort(
-    (left, right) =>
-      Number(right.pinned) - Number(left.pinned) ||
-      Number(right.favorite) - Number(left.favorite) ||
-      Date.parse(right.lastViewedAt ?? right.updatedAt) -
-        Date.parse(left.lastViewedAt ?? left.updatedAt) ||
-      right.id.localeCompare(left.id),
-  );
 }
 
 function parseFolderScope(value: string | null): FolderScope {
@@ -506,6 +496,7 @@ function DocsPageContent() {
               query: searchQuery,
               favoriteOnly: view === 'favorites',
               recentOnly: view === 'recent',
+              sort: view === 'recent' ? 'activity' : 'edited',
               cursor: nextCursor,
             });
 
@@ -931,6 +922,7 @@ function DocsPageContent() {
         .filter((document) => !removedIds.has(document.id))
         .map((document) => updates.get(document.id) ?? document)
         .filter(matchesCurrentDocumentList),
+      view === 'recent' ? 'activity' : 'edited',
     );
     setDocuments(nextDocuments);
 
@@ -1722,7 +1714,7 @@ function DocsPageContent() {
       setDocuments((items) => {
         const next = items.filter((item) => item.id !== updated.id);
         if (updated.favorite || view !== 'favorites') next.push(toSummary(updated));
-        return sortDocumentSummaries(next);
+        return sortDocumentSummaries(next, view === 'recent' ? 'activity' : 'edited');
       });
       message.success('已更新');
     } catch (error) {
@@ -1744,6 +1736,7 @@ function DocsPageContent() {
       setDocuments((items) =>
         sortDocumentSummaries(
           items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
+          view === 'recent' ? 'activity' : 'edited',
         ),
       );
       message.success(updated.pinned ? '文档已置顶' : '已取消置顶');

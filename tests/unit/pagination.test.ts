@@ -14,6 +14,16 @@ describe('document list cursor', () => {
     expect(decodeDocumentListCursor(encodeDocumentListCursor(cursor))).toEqual(cursor);
   });
 
+  test('supports pagination by last edit time', () => {
+    const cursor = {
+      pinned: false,
+      favorite: false,
+      activityAt: '2026-11-24T12:34:56.789Z',
+      id: 42,
+    };
+    expect(decodeDocumentListCursor(encodeDocumentListCursor(cursor, 'updatedAt'))).toEqual(cursor);
+  });
+
   test('rejects malformed cursors', () => {
     expect(decodeDocumentListCursor('not-base64')).toBeNull();
     expect(decodeDocumentListCursor(btoa('[]'))).toBeNull();

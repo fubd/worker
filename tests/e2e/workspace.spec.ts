@@ -205,6 +205,69 @@ test('creates and nests documents under existing documents', async ({ page }) =>
   await expect(page.getByPlaceholder('无标题文档')).toBeVisible();
 });
 
+test('keeps document list order stable while browsing documents', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+
+  const titles = ['第一份文档', '第二份文档', '第三份文档'];
+  const rankedTitles = [...titles].reverse();
+  for (const title of rankedTitles) {
+    const response = await page.context().request.post('/api/documents', {
+      data: { title, folderId: null },
+    });
+    expect(response.status()).toBe(201);
+  }
+
+  const initialList = await page.context().request.get('/api/documents?sort=edited');
+  expect(initialList.status()).toBe(200);
+  const initialOrder = (
+    (await initialList.json()) as { items: Array<{ id: string; title: string }> }
+  ).items.map((document) => document.id);
+  expect(initialOrder).toHaveLength(3);
+
+  await page.goto('/docs');
+  await page.waitForTimeout(25);
+  const rows = page.locator('.swan-sidebar-root-documents .swan-sidebar-doc');
+  await expect(rows).toHaveCount(3);
+  const titlesInOrder = async () =>
+    await rows.evaluateAll((items) => items.map((item) => item.textContent));
+  const orderBefore = await titlesInOrder();
+  const rowTitles = await rows.evaluateAll((items) =>
+    items.map((item) => item.textContent?.match(/^(.*?)\d\d\/\d\d\s/)?.[1] ?? ''),
+  );
+  expect([...rowTitles].sort()).toEqual([...titles].sort());
+
+  for (const index of [0, 2, 1]) {
+    const title = rowTitles[index];
+    const row = rows.filter({ hasText: title });
+    await row.click();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(row).toHaveClass(/is-selected/);
+    await expect.poll(titlesInOrder).toEqual(orderBefore);
+  }
+
+  const editedList = await page.context().request.get('/api/documents?sort=edited');
+  expect(editedList.status()).toBe(200);
+  expect(
+    ((await editedList.json()) as { items: Array<{ id: string }> }).items.map(
+      (document) => document.id,
+    ),
+  ).toEqual(initialOrder);
+
+  const recentList = await page.context().request.get('/api/documents?recent=1&sort=activity');
+  expect(recentList.status()).toBe(200);
+  const recentItems = (
+    (await recentList.json()) as { items: Array<{ lastViewedAt: string | null }> }
+  ).items;
+  expect(recentItems).toHaveLength(3);
+  expect(recentItems.every((document) => document.lastViewedAt !== null)).toBe(true);
+
+  await page.getByRole('link', { name: '最近浏览' }).click();
+  const recentRows = page.locator('.swan-sidebar-doc-list .swan-sidebar-doc');
+  await expect(recentRows).toHaveCount(3);
+  await expect(recentRows.first()).toHaveClass(/is-selected/);
+});
+
 test('moves documents between folders and document parents', async ({ page }) => {
   await isolateClient(page);
   await registerByApi(page);

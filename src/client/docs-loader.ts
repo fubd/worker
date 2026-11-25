@@ -59,6 +59,7 @@ export async function loadDocsRouteData(request: Request): Promise<DocsRouteData
             query: searchQuery,
             favoriteOnly: view === 'favorites',
             recentOnly: view === 'recent',
+            sort: view === 'recent' ? 'activity' : 'edited',
           }),
       activeId
         ? api

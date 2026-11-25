@@ -20,6 +20,8 @@ export interface DocumentSummary {
   deletedAt: string | null;
 }
 
+export type DocumentListSort = 'activity' | 'edited';
+
 export interface DocumentRecord extends DocumentSummary {
   content: Record<string, unknown>;
   contentHtml: string;

@@ -1,5 +1,6 @@
 import type {
   DocumentImportInput,
+  DocumentListSort,
   DocumentRecord,
   DocumentRow,
   DocumentSummary,
@@ -53,7 +54,7 @@ interface VersionSourceRow {
 
 function toIso(value: string): string {
   if (value.includes('T')) return value;
-  return `${value.replace(' ', 'T')}Z`;
+  return /\.\d{3}$/.test(value) ? `${value.replace(' ', 'T')}Z` : `${value.replace(' ', 'T')}.000Z`;
 }
 
 function parseContent(value: string): Record<string, unknown> {
@@ -133,6 +134,7 @@ export async function listDocuments(
     query?: string;
     favoriteOnly?: boolean;
     recentOnly?: boolean;
+    sort?: DocumentListSort;
     cursor?: DocumentListCursor | null;
   } = {},
 ) {
@@ -161,14 +163,17 @@ export async function listDocuments(
     conditions.push('d.last_viewed_at IS NOT NULL');
   }
 
+  const editedOrder = options.sort === 'edited';
   if (options.cursor) {
     conditions.push(
-      `(
-         d.is_pinned,
-         d.is_favorite,
-         COALESCE(d.last_viewed_at, d.updated_at),
-         d.id
-       ) < (?, ?, ?, ?)`,
+      editedOrder
+        ? '(d.is_pinned, d.is_favorite, d.updated_at, d.id) < (?, ?, ?, ?)'
+        : `(
+             d.is_pinned,
+             d.is_favorite,
+             COALESCE(d.last_viewed_at, d.updated_at),
+             d.id
+           ) < (?, ?, ?, ?)`,
     );
     params.push(
       options.cursor.pinned ? 1 : 0,
@@ -195,7 +200,7 @@ export async function listDocuments(
        ORDER BY
          d.is_pinned DESC,
          d.is_favorite DESC,
-         COALESCE(d.last_viewed_at, d.updated_at) DESC,
+         ${editedOrder ? 'd.updated_at DESC' : 'COALESCE(d.last_viewed_at, d.updated_at) DESC'},
          d.id DESC
        LIMIT ? OFFSET ?`,
     )
@@ -209,12 +214,15 @@ export async function listDocuments(
     items: pageRows.map(toSummary),
     nextCursor:
       rows.length > limit && last
-        ? encodeDocumentListCursor({
-            pinned: last.is_pinned === 1,
-            favorite: last.is_favorite === 1,
-            activityAt: last.last_viewed_at ?? last.updated_at,
-            id: last.id,
-          })
+        ? encodeDocumentListCursor(
+            {
+              pinned: last.is_pinned === 1,
+              favorite: last.is_favorite === 1,
+              activityAt: editedOrder ? last.updated_at : (last.last_viewed_at ?? last.updated_at),
+              id: last.id,
+            },
+            editedOrder ? 'updatedAt' : 'activityAt',
+          )
         : null,
   };
 }

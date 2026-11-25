@@ -9,6 +9,7 @@ import { apiRateLimit, documentCreateRateLimit } from '../rate-limit';
 import { DOCUMENT_TITLE_MAX_LENGTH } from '../../shared/limits';
 import { isPublicId, type PublicId } from '../../shared/ids';
 import { decodeDocumentListCursor } from '../../shared/pagination';
+import type { DocumentListSort } from '../../shared/types';
 import type { AppEnv } from '../types';
 
 export const documentRoutes = new Hono<AppEnv>();
@@ -72,6 +73,7 @@ documentRoutes.get('/', async (c) => {
   }
   const favoriteOnly = c.req.query('favorite') === '1';
   const recentOnly = c.req.query('recent') === '1';
+  const sort: DocumentListSort = c.req.query('sort') === 'edited' ? 'edited' : 'activity';
   const cursorValue = c.req.query('cursor');
   const cursor = cursorValue ? decodeDocumentListCursor(cursorValue) : null;
   if (cursorValue && !cursor) return c.json({ error: 'cursor 非法' }, 400);
@@ -86,6 +88,7 @@ documentRoutes.get('/', async (c) => {
       query,
       favoriteOnly,
       recentOnly,
+      sort,
       cursor,
     }),
   );

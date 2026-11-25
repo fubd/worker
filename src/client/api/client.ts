@@ -6,6 +6,7 @@ import type {
   DocumentBatchResponse,
   DocumentChildrenResponse,
   DocumentImportInput,
+  DocumentListSort,
   DocumentListResponse,
   DocumentRecord,
   DocumentVersionListResponse,
@@ -101,6 +102,7 @@ export const api = {
       query?: string;
       favoriteOnly?: boolean;
       recentOnly?: boolean;
+      sort?: DocumentListSort;
       cursor?: string;
     } = {},
   ) => {
@@ -110,6 +112,7 @@ export const api = {
     if (options.query?.trim()) params.set('q', options.query.trim());
     if (options.favoriteOnly) params.set('favorite', '1');
     if (options.recentOnly) params.set('recent', '1');
+    if (options.sort === 'edited') params.set('sort', 'edited');
     if (options.cursor) params.set('cursor', options.cursor);
     const search = params.size > 0 ? `?${params}` : '';
     return request<DocumentListResponse>(`/documents${search}`, {
