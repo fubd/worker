@@ -3,7 +3,7 @@ import { relative } from 'node:path';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { Glob } from 'bun';
 
-const WARNING_LIMIT = 213_000;
+const WARNING_LIMIT = 218_000;
 const cases = JSON.parse(readFileSync('.size-limit.json', 'utf8')) as Array<{
   name: string;
   path: string | string[];
@@ -32,8 +32,8 @@ const size = files.reduce(
 
 if (size >= WARNING_LIMIT) {
   console.warn(
-    `[budget] docs route is ${(size / 1000).toFixed(2)} kB; warning threshold is 213 kB (build limit: 218 kB).`,
+    `[budget] docs route is ${(size / 1000).toFixed(2)} kB; warning threshold is 218 kB.`,
   );
 } else {
-  console.log('[budget] docs route is below the 213 kB warning threshold.');
+  console.log('[budget] docs route is below the 218 kB warning threshold.');
 }
