@@ -37,6 +37,7 @@ import {
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
+import FolderDialog from '../components/FolderDialog';
 import {
   DocumentOutline,
   DocumentSkeleton,
@@ -77,7 +78,6 @@ const EMPTY_CONTENT: JSONContent = {
   content: [{ type: 'paragraph' }],
 };
 
-const RenameFolderDialog = lazy(() => import('../components/FolderDialog'));
 const ImportDocumentModal = lazy(
   () => import(/* webpackChunkName: "document-import" */ '../components/ImportDocumentModal'),
 );
@@ -403,9 +403,7 @@ function DocsPageContent() {
     onUpdate: markDirty,
   });
 
-  useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
+  editorRef.current = editor;
 
   useEffect(() => {
     if (!editor) return;
@@ -1444,9 +1442,7 @@ function DocsPageContent() {
       return;
     }
 
-    if (key === 'delete') {
-      requestDeleteDocument(activeDocument);
-    }
+    if (key === 'delete') requestDeleteDocument(activeDocument);
   };
 
   const restoreDocument = async (document: DocumentSummary) => {
@@ -1516,20 +1512,30 @@ function DocsPageContent() {
     navigate(docsRoute(null, next));
   };
 
-  const navigateFromCommandPalette = async (path: string) => {
+  const savePendingForCommandPalette = async () => {
     if (saveState === 'conflict') {
       message.error('请先处理当前文档的保存冲突');
-      return;
+      return false;
     }
     if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
       const saved = await saveDocument();
       if (!saved) {
         message.error('当前文档保存失败，请重试后再切换');
-        return;
+        return false;
       }
     }
+    return true;
+  };
+
+  const navigateFromCommandPalette = async (path: string) => {
+    if (!(await savePendingForCommandPalette())) return;
     setCommandPaletteOpen(false);
     navigate(path);
+  };
+
+  const createFromCommandPalette = async () => {
+    setCommandPaletteOpen(false);
+    if (await savePendingForCommandPalette()) await createDocument();
   };
 
   const openCreateFolder = (parentId: PublicId | null = null) => {
@@ -2273,10 +2279,7 @@ function DocsPageContent() {
           <CommandPalette
             open={commandPaletteOpen}
             onClose={() => setCommandPaletteOpen(false)}
-            onCreateDocument={() => {
-              setCommandPaletteOpen(false);
-              void createDocument();
-            }}
+            onCreateDocument={() => void createFromCommandPalette()}
             onNavigate={(path) => void navigateFromCommandPalette(path)}
             onOpenDocument={(id) => {
               setCommandPaletteOpen(false);
@@ -2306,18 +2309,16 @@ function DocsPageContent() {
       )}
 
       {folderDialog && (
-        <Suspense fallback={null}>
-          <RenameFolderDialog
-            key={`rename-${folderDialog.folder.id}`}
-            name={folderName}
-            saving={folderSaving}
-            onChange={setFolderName}
-            onClose={() => {
-              if (!folderSaving) setFolderDialog(null);
-            }}
-            onSubmit={() => void renameFolder()}
-          />
-        </Suspense>
+        <FolderDialog
+          key={`rename-${folderDialog.folder.id}`}
+          name={folderName}
+          saving={folderSaving}
+          onChange={setFolderName}
+          onClose={() => {
+            if (!folderSaving) setFolderDialog(null);
+          }}
+          onSubmit={() => void renameFolder()}
+        />
       )}
     </div>
   );

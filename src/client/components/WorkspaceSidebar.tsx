@@ -213,7 +213,11 @@ export function WorkspaceSidebar({
   'use no memo';
 
   const linkedProviders = user.linkedProviders;
-  const folderTree = buildFolderTree(folders);
+  const [documentChildren, setDocumentChildren] = useState<Map<PublicId, DocumentSummary[]>>(
+    () => new Map(),
+  );
+  const [loadingDocumentIds, setLoadingDocumentIds] = useState<Set<PublicId>>(() => new Set());
+  const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
   const [draggingItem, setDraggingItem] = useState<SidebarDragPayload | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<PublicId>>(() => {
@@ -239,19 +243,6 @@ export function WorkspaceSidebar({
       return new Set([...current, ...ancestorIds]);
     });
   }, [folderScope, folders]);
-
-  useEffect(() => {
-    if (!creatingFolder || !isPublicId(creatingFolderParentId)) return;
-    const parentId = creatingFolderParentId;
-    const ancestorIds = [
-      ...getFolderAncestors(folders, parentId).map((folder) => folder.id),
-      parentId,
-    ];
-    setExpandedFolderIds((current) => {
-      if (ancestorIds.every((id) => current.has(id))) return current;
-      return new Set([...current, ...ancestorIds]);
-    });
-  }, [creatingFolder, creatingFolderParentId, folders]);
 
   const toggleFolderExpanded = (folderId: PublicId) => {
     setExpandedFolderIds((current) => {
@@ -312,30 +303,13 @@ export function WorkspaceSidebar({
   };
 
   const hasSearch = searchValue.trim().length > 0;
-  const [documentChildren, setDocumentChildren] = useState<Map<PublicId, DocumentSummary[]>>(
-    () => new Map(),
-  );
-  const [documentChildrenFolders, setDocumentChildrenFolders] = useState<
-    Map<PublicId, PublicId | null>
-  >(() => new Map());
-  const [loadingDocumentIds, setLoadingDocumentIds] = useState<Set<PublicId>>(() => new Set());
-  const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
-  useEffect(() => {
-    setDocumentChildren(new Map());
-    setExpandedDocumentIds(new Set());
-  }, [folderScope, searchValue, view]);
-
-  const loadDocumentChildren = async (
-    documentId: PublicId,
-    folderId: PublicId | null,
-  ): Promise<DocumentSummary[]> => {
+  const loadDocumentChildren = async (documentId: PublicId) => {
     let items = documentChildren.get(documentId);
     if (!items) {
       setLoadingDocumentIds((current) => new Set(current).add(documentId));
       try {
         items = await onLoadDocumentChildren(documentId);
         setDocumentChildren((current) => new Map(current).set(documentId, items!));
-        setDocumentChildrenFolders((current) => new Map(current).set(documentId, folderId));
       } finally {
         setLoadingDocumentIds((current) => {
           const next = new Set(current);
@@ -346,25 +320,16 @@ export function WorkspaceSidebar({
     }
     return items;
   };
-
-  const toggleDocumentExpanded = async (documentId: PublicId, folderId: PublicId | null) => {
+  const toggleDocumentExpanded = async (documentId: PublicId) => {
     if (expandedDocumentIds.has(documentId)) {
-      setExpandedDocumentIds((current) => {
-        const next = new Set(current);
-        next.delete(documentId);
-        return next;
-      });
+      setExpandedDocumentIds(new Set([...expandedDocumentIds].filter((id) => id !== documentId)));
       return;
     }
-    setExpandedDocumentIds((current) => new Set(current).add(documentId));
+    setExpandedDocumentIds(new Set(expandedDocumentIds).add(documentId));
     try {
-      await loadDocumentChildren(documentId, folderId);
+      await loadDocumentChildren(documentId);
     } catch {
-      setExpandedDocumentIds((current) => {
-        const next = new Set(current);
-        next.delete(documentId);
-        return next;
-      });
+      setExpandedDocumentIds(new Set([...expandedDocumentIds].filter((id) => id !== documentId)));
     }
   };
 
@@ -404,20 +369,13 @@ export function WorkspaceSidebar({
   }
   for (const node of folders) {
     const items = documentChildren.get(node.id);
-    if (!items || documentChildrenFolders.get(node.id) !== node.parentId) continue;
+    if (!items) continue;
     const topLevel = items.filter((document) => document.parentId === null);
     if (topLevel.length > 0) {
       documentsByFolder.set(node.id, [...(documentsByFolder.get(node.id) ?? []), ...topLevel]);
     }
   }
-  const getVisibleDocument = (document: DocumentSummary): DocumentSummary => {
-    const children = documentChildren.get(document.id);
-    const folderMatches = documentChildrenFolders.get(document.id) === document.folderId;
-    return {
-      ...document,
-      childCount: children && folderMatches ? children.length : document.childCount,
-    };
-  };
+  const folderTree = buildFolderTree(folders);
   const showDocumentTree = view === 'documents' && !hasSearch;
   const selectedDocuments = documents.filter((document) => selectedDocumentIds.has(document.id));
   const selectedIds = selectedDocuments.map((document) => document.id);
@@ -427,22 +385,9 @@ export function WorkspaceSidebar({
     selectedCount > 0 && selectedDocuments.every((document) => document.favorite);
   const someSelectedFavorite = selectedDocuments.some((document) => document.favorite);
 
-  const batchMoveItems: MenuProps['items'] = [
-    {
-      key: 'move:none',
-      label: '根目录',
-      icon: <FileText aria-hidden="true" size={15} strokeWidth={1.8} />,
-    },
-    ...folders.map((folder) => ({
-      key: `move:${folder.id}`,
-      label: getFolderPathLabel(folders, folder.id),
-      icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
-    })),
-  ];
-
-  const getFolderMoveTargets = (folder: FolderSummary) => [
-    ...(folder.parentId === null ? [] : [{ key: 'move:none', label: '顶层' }]),
-    ...folders
+  const getFolderMoveTargets = (folder: FolderSummary) => {
+    if (folder.parentId === null) return [];
+    return folders
       .filter(
         (target) =>
           target.id !== folder.id &&
@@ -452,11 +397,14 @@ export function WorkspaceSidebar({
       .map((target) => ({
         key: `move:${target.id}`,
         label: getFolderPathLabel(folders, target.id),
-      })),
-  ];
+      }));
+  };
 
   const getFolderMenuItems = (folder: FolderSummary): MenuProps['items'] => {
-    const moveTargets = getFolderMoveTargets(folder);
+    const moveTargets = [
+      ...(folder.parentId === null ? [] : [{ key: 'move:none', label: '顶层' }]),
+      ...getFolderMoveTargets(folder),
+    ];
 
     return [
       {
@@ -489,6 +437,18 @@ export function WorkspaceSidebar({
     ];
   };
 
+  const batchMoveItems: MenuProps['items'] = [
+    { key: 'move:none', label: '根目录' },
+    ...folders.map((folder) => ({
+      key: `move:${folder.id}`,
+      label: getFolderPathLabel(folders, folder.id),
+    })),
+  ].map(({ key, label }) => ({
+    key,
+    label,
+    icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
+  }));
+
   const handleFolderMenuAction = (folder: FolderSummary, key: string) => {
     if (key === 'create-child') {
       onCreateFolder(folder.id);
@@ -514,17 +474,6 @@ export function WorkspaceSidebar({
 
   const allChildDocuments = [...documentChildren.values()].flat();
   const getDocumentMoveTargets = (document: DocumentSummary) => {
-    const blocked = new Set<PublicId>([document.id]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const item of allChildDocuments) {
-        if (item.parentId && blocked.has(item.parentId) && !blocked.has(item.id)) {
-          blocked.add(item.id);
-          changed = true;
-        }
-      }
-    }
     return [
       ...(document.parentId === null && document.folderId === null
         ? []
@@ -534,10 +483,10 @@ export function WorkspaceSidebar({
         label: getFolderPathLabel(folders, folder.id),
       })),
       ...documents
-        .filter((target) => !blocked.has(target.id))
+        .filter((target) => target.id !== document.id)
         .map((target) => ({ key: `move:document:${target.id}`, label: target.title })),
       ...allChildDocuments
-        .filter((target) => !blocked.has(target.id))
+        .filter((target) => target.id !== document.id)
         .map((target) => ({ key: `move:document:${target.id}`, label: target.title })),
     ];
   };
@@ -589,7 +538,7 @@ export function WorkspaceSidebar({
   };
 
   const renderDocumentRow = (source: DocumentSummary, depth = 0) => {
-    const document = getVisibleDocument(source);
+    const document = source;
     if (view === 'trash') {
       return (
         <div className="swan-sidebar-doc is-trash" key={document.id}>
@@ -638,6 +587,22 @@ export function WorkspaceSidebar({
         key={document.id}
         style={depth ? ({ '--swan-doc-depth': depth } as CSSProperties) : undefined}
       >
+        {!selectionMode && document.childCount > 0 && (
+          <button
+            type="button"
+            className={
+              expandedDocumentIds.has(document.id)
+                ? 'swan-document-toggle is-expanded'
+                : 'swan-document-toggle'
+            }
+            aria-label={expandedDocumentIds.has(document.id) ? '收起子文档' : '展开子文档'}
+            aria-expanded={expandedDocumentIds.has(document.id)}
+            disabled={loadingDocumentIds.has(document.id)}
+            onClick={() => void toggleDocumentExpanded(document.id)}
+          >
+            <ChevronRight aria-hidden="true" size={12} strokeWidth={1.8} />
+          </button>
+        )}
         {selectionMode ? (
           <input
             className="swan-sidebar-doc-checkbox"
@@ -648,30 +613,12 @@ export function WorkspaceSidebar({
             onChange={() => onToggleDocumentSelection(document.id)}
           />
         ) : (
-          <>
-            <DocumentDragHandle
-              document={document}
-              dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
-              onBeginDrag={beginDrag}
-              onDragEnd={resetDrag}
-            />
-            {document.childCount > 0 && (
-              <button
-                type="button"
-                className={
-                  expandedDocumentIds.has(document.id)
-                    ? 'swan-document-toggle is-expanded'
-                    : 'swan-document-toggle'
-                }
-                aria-label={expandedDocumentIds.has(document.id) ? '收起子文档' : '展开子文档'}
-                aria-expanded={expandedDocumentIds.has(document.id)}
-                disabled={loadingDocumentIds.has(document.id)}
-                onClick={() => void toggleDocumentExpanded(document.id, document.folderId)}
-              >
-                <ChevronRight aria-hidden="true" size={12} strokeWidth={1.8} />
-              </button>
-            )}
-          </>
+          <DocumentDragHandle
+            document={document}
+            dragging={draggingItem?.kind === 'document' && draggingItem.id === document.id}
+            onBeginDrag={beginDrag}
+            onDragEnd={resetDrag}
+          />
         )}
         <button
           type="button"
@@ -729,46 +676,47 @@ export function WorkspaceSidebar({
           <span className="swan-sidebar-doc-excerpt">{document.excerpt || '空白文档'}</span>
         </button>
         {!selectionMode && (
-          <Dropdown
-            trigger={['click']}
-            placement="bottomRight"
-            menu={{
-              items: getDocumentMenuItems(document),
-              onClick: ({ key }) => {
-                if (key === 'create-child') {
-                  onCreateChildDocument(document);
-                  return;
-                }
-                if (key === 'pin') {
-                  onTogglePinned(document);
-                  return;
-                }
-                if (key === 'favorite') {
-                  onToggleFavorite(document);
-                  return;
-                }
-                if (key === 'delete') {
-                  onDeleteDocument(document);
-                  return;
-                }
-                if (!key.startsWith('move:')) return;
-                const target = key.slice('move:'.length);
-                if (target === 'none') {
-                  onMoveDocument(document, null);
-                } else if (target.startsWith('folder:')) {
-                  const folderId = target.slice('folder:'.length);
-                  if (isPublicId(folderId)) onMoveDocument(document, folderId);
-                } else if (target.startsWith('document:')) {
-                  const parentId = target.slice('document:'.length);
-                  const parent = [...documents, ...allChildDocuments].find(
-                    (item) => item.id === parentId,
-                  );
-                  if (parent) onMoveDocumentToParent(document, parent.folderId, parent.id);
-                }
-              },
-            }}
-          >
-            <div className="swan-sidebar-doc-actions">
+          <div className="swan-sidebar-doc-actions">
+            {document.childCount > 0 && <span aria-hidden="true" />}
+            <Dropdown
+              trigger={['click']}
+              placement="bottomRight"
+              menu={{
+                items: getDocumentMenuItems(document),
+                onClick: ({ key }) => {
+                  if (key === 'create-child') {
+                    onCreateChildDocument(document);
+                    return;
+                  }
+                  if (key === 'pin') {
+                    onTogglePinned(document);
+                    return;
+                  }
+                  if (key === 'favorite') {
+                    onToggleFavorite(document);
+                    return;
+                  }
+                  if (key === 'delete') {
+                    onDeleteDocument(document);
+                    return;
+                  }
+                  if (!key.startsWith('move:')) return;
+                  const target = key.slice('move:'.length);
+                  if (target === 'none') {
+                    onMoveDocument(document, null);
+                  } else if (target.startsWith('folder:')) {
+                    const folderId = target.slice('folder:'.length);
+                    if (isPublicId(folderId)) onMoveDocument(document, folderId);
+                  } else if (target.startsWith('document:')) {
+                    const parentId = target.slice('document:'.length);
+                    const parent = [...documents, ...allChildDocuments].find(
+                      (item) => item.id === parentId,
+                    );
+                    if (parent) onMoveDocumentToParent(document, parent.folderId, parent.id);
+                  }
+                },
+              }}
+            >
               <button
                 type="button"
                 className="swan-sidebar-doc-more"
@@ -777,18 +725,16 @@ export function WorkspaceSidebar({
               >
                 <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
               </button>
-            </div>
-          </Dropdown>
+            </Dropdown>
+          </div>
         )}
-        {!selectionMode &&
-          expandedDocumentIds.has(document.id) &&
-          documentChildrenFolders.get(document.id) === document.folderId && (
-            <div className="swan-document-children">
-              {(documentChildren.get(document.id) ?? [])
-                .filter((child) => child.parentId === document.id)
-                .map((child) => renderDocumentRow(child, depth + 1))}
-            </div>
-          )}
+        {!selectionMode && expandedDocumentIds.has(document.id) && (
+          <div className="swan-document-children">
+            {(documentChildren.get(document.id) ?? [])
+              .filter((child) => child.parentId === document.id)
+              .map((child) => renderDocumentRow(child, depth + 1))}
+          </div>
+        )}
       </div>
     );
   };
@@ -1083,7 +1029,7 @@ export function WorkspaceSidebar({
         <div
           className={showDocumentTree ? 'swan-sidebar-doc-list is-tree' : 'swan-sidebar-doc-list'}
         >
-          {listLoading ? (
+          {listLoading && documents.length === 0 ? (
             <DocumentListSkeleton />
           ) : showDocumentTree ? (
             <div className="swan-sidebar-tree">
@@ -1097,21 +1043,7 @@ export function WorkspaceSidebar({
                 />
               )}
 
-              <div
-                className={
-                  listLoading
-                    ? 'swan-sidebar-root-documents is-loading'
-                    : 'swan-sidebar-root-documents'
-                }
-              >
-                {listLoading && rootDocuments.length === 0 ? (
-                  <DocumentListSkeleton />
-                ) : rootDocuments.length > 0 ? (
-                  renderDocumentRows(rootDocuments)
-                ) : (
-                  <span className="swan-sidebar-empty">根目录还没有文档</span>
-                )}
-              </div>
+              <div className="swan-sidebar-root-documents">{renderDocumentRows(rootDocuments)}</div>
 
               {folderTree.map((node) => (
                 <FolderTreeItem
@@ -1136,7 +1068,10 @@ export function WorkspaceSidebar({
                   onDragOverTarget={handleDragOverTarget}
                   onDropTarget={finishDrop}
                   onEditFolder={onEditFolder}
-                  onFolderCreateChild={(folder) => onCreateFolder(folder.id)}
+                  onFolderCreateChild={(folder) => {
+                    setExpandedFolderIds((current) => new Set(current).add(folder.id));
+                    onCreateFolder(folder.id);
+                  }}
                   onFolderCreateDocument={(folder) => onFolderCreateDocument(folder)}
                   onFolderMenuAction={handleFolderMenuAction}
                   onFolderDraftChange={onFolderDraftChange}

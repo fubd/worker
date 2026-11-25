@@ -1,14 +1,9 @@
 import type { PublicId } from '@/shared/ids';
-import type { DocumentSummary, FolderSummary } from '@/shared/types';
+import type { FolderSummary } from '@/shared/types';
 
 export interface FolderTreeNode {
   folder: FolderSummary;
   children: FolderTreeNode[];
-}
-
-export interface DocumentTreeNode {
-  document: DocumentSummary;
-  children: DocumentTreeNode[];
 }
 
 function sortFolders(items: FolderSummary[]): FolderSummary[] {
@@ -36,27 +31,6 @@ export function buildFolderTree(folders: FolderSummary[]): FolderTreeNode[] {
   return build(null);
 }
 
-export function buildDocumentTree(documents: DocumentSummary[]): DocumentTreeNode[] {
-  const ids = new Set(documents.map((document) => document.id));
-  const byParent = new Map<PublicId | null, DocumentSummary[]>();
-  for (const document of documents) {
-    const parentId = document.parentId && ids.has(document.parentId) ? document.parentId : null;
-    const siblings = byParent.get(parentId) ?? [];
-    siblings.push(document);
-    byParent.set(parentId, siblings);
-  }
-
-  const visited = new Set<PublicId>();
-  const build = (parentId: PublicId | null): DocumentTreeNode[] =>
-    (byParent.get(parentId) ?? []).flatMap((document) => {
-      if (visited.has(document.id)) return [];
-      visited.add(document.id);
-      return [{ document, children: build(document.id) }];
-    });
-
-  return build(null);
-}
-
 export function getFolderAncestors(folders: FolderSummary[], folderId: PublicId): FolderSummary[] {
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const result: FolderSummary[] = [];
@@ -72,13 +46,13 @@ export function getFolderAncestors(folders: FolderSummary[], folderId: PublicId)
   return result.reverse();
 }
 
-export function getFolderPath(folders: FolderSummary[], folderId: PublicId): string[] {
-  return getFolderAncestors(folders, folderId).map((folder) => folder.name);
-}
-
 export function getFolderPathLabel(folders: FolderSummary[], folderId: PublicId | null): string {
   if (!folderId) return '根目录';
-  return getFolderPath(folders, folderId).join(' / ') || '根目录';
+  return (
+    getFolderAncestors(folders, folderId)
+      .map((folder) => folder.name)
+      .join(' / ') || '根目录'
+  );
 }
 
 export function getFolderSubtreeIds(folders: FolderSummary[], folderId: PublicId): Set<PublicId> {

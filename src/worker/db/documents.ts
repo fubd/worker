@@ -894,18 +894,49 @@ export async function moveDocumentsToFolder(
 ): Promise<PublicId[]> {
   if (ids.length === 0) return [];
   const placeholders = ids.map(() => '?').join(', ');
-  const result = await db
+  const owners = await db
     .prepare(
-      `UPDATE documents
+      `SELECT d.id, parent.public_id AS parent_public_id
+       FROM documents d
+       LEFT JOIN documents parent ON parent.id = d.parent_document_id
+       WHERE d.owner_id = ? AND d.deleted_at IS NULL AND d.public_id IN (${placeholders})`,
+    )
+    .bind(ownerId, ...ids)
+    .all<{ id: number; parent_public_id: PublicId | null }>();
+  const movingIds = new Set(ids);
+  const detachIds = (owners.results ?? [])
+    .filter((row) => row.parent_public_id && movingIds.has(row.parent_public_id))
+    .map((row) => row.id);
+  // A group has no document hierarchy. Moved children follow their moved parent.
+  const update = db.prepare(
+    `UPDATE documents
        SET folder_id = (
          SELECT id FROM folders WHERE owner_id = ? AND public_id = ?
-       ),
-       parent_document_id = NULL
+       )
        WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})
        RETURNING public_id`,
-    )
-    .bind(ownerId, folderId, ownerId, ...ids)
-    .all<{ public_id: PublicId }>();
+  );
+  const statements = [
+    detachIds.length > 0
+      ? db
+          .prepare(
+            `UPDATE documents SET parent_document_id = NULL
+             WHERE owner_id = ? AND id IN (${detachIds.map(() => '?').join(', ')})`,
+          )
+          .bind(ownerId, ...detachIds)
+      : null,
+    update.bind(ownerId, folderId, ownerId, ...ids),
+    folderId === null
+      ? db
+          .prepare(
+            `UPDATE documents SET parent_document_id = NULL
+             WHERE owner_id = ? AND deleted_at IS NULL AND public_id IN (${placeholders})`,
+          )
+          .bind(ownerId, ...ids)
+      : null,
+  ].filter((statement) => statement !== null);
+  const batchResult = await db.batch<{ public_id: PublicId }>(statements);
+  const result = batchResult[detachIds.length > 0 ? 1 : 0];
   return (result.results ?? []).map((row) => row.public_id);
 }
 

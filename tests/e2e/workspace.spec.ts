@@ -252,14 +252,31 @@ test('moves documents between folders and document parents', async ({ page }) =>
   });
   expect(response.status()).toBe(409);
 
-  response = await page.context().request.patch(`/api/documents/${child.id}/folder`, {
-    data: { folderId: null, parentId: null },
+  response = await page.context().request.post('/api/documents/batch', {
+    data: { ids: [parent.id], action: 'move', folderId },
   });
   expect(response.status()).toBe(200);
-  expect(await response.json()).toMatchObject({ folderId: null, parentId: null });
+  expect(await response.json()).toMatchObject({ updatedCount: 1 });
+  expect(
+    await (await page.context().request.get(`/api/documents/${parent.id}`)).json(),
+  ).toMatchObject({ folderId, parentId: null });
+  expect(
+    await (await page.context().request.get(`/api/documents/${child.id}`)).json(),
+  ).toMatchObject({ folderId, parentId: parent.id });
+  response = await page.context().request.post('/api/documents/batch', {
+    data: { ids: [parent.id, child.id], action: 'move', folderId },
+  });
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ updatedCount: 2 });
+  expect(
+    await (await page.context().request.get(`/api/documents/${parent.id}`)).json(),
+  ).toMatchObject({ folderId, parentId: null });
+  expect(
+    await (await page.context().request.get(`/api/documents/${child.id}`)).json(),
+  ).toMatchObject({ folderId, parentId: null });
 
   await page.goto('/docs');
-  await expect(page.locator('.swan-sidebar-root-documents').getByText('移动子文档')).toBeVisible();
+  await expect(page.locator('.swan-sidebar-root-documents').getByText('移动子文档')).toHaveCount(0);
   await expect(page.locator('.swan-folder-row').filter({ hasText: '移动目标' })).toBeVisible();
   await page.getByRole('button', { name: '分组操作 移动目标' }).click();
   const renameItem = page.getByRole('menuitem', { name: '重命名' });

@@ -1,14 +1,6 @@
 import { useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react';
 import { Dropdown, type MenuProps } from 'antd';
-import {
-  Check,
-  ChevronRight,
-  FileText,
-  Folder,
-  GripVertical,
-  MoreHorizontal,
-  X,
-} from 'lucide-react';
+import { Check, ChevronRight, FileText, Folder, MoreHorizontal, X } from 'lucide-react';
 
 import type { PublicId } from '@/shared/ids';
 import type { DocumentSummary, FolderSummary } from '@/shared/types';
@@ -122,7 +114,6 @@ export function FolderTreeItem({
 
   const { folder, children } = node;
   const documents = documentsByFolder.get(folder.id) ?? [];
-  const hasDocumentChildren = documents.some((document) => document.childCount > 0);
   const expanded = expandedFolderIds.has(folder.id);
   const hasContent =
     children.length > 0 ||
@@ -130,7 +121,6 @@ export function FolderTreeItem({
     (creatingFolder && creatingFolderParentId === folder.id);
   const targetId = `folder:${folder.id}`;
   const isOver = dropTargetId === targetId;
-  const isDragging = draggingItem?.kind === 'folder' && draggingItem.id === folder.id;
   const canDrop =
     Boolean(draggingItem) &&
     !(
@@ -168,24 +158,13 @@ export function FolderTreeItem({
           onDropTarget(event, folder.id);
         }}
       >
-        {!rootLevel && (
+        {(rootLevel ? hasContent : true) && (
           <button
             type="button"
             className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
             aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
             aria-expanded={expanded}
             disabled={!hasContent}
-            onClick={() => onToggleExpanded(folder.id)}
-          >
-            <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
-          </button>
-        )}
-        {rootLevel && hasContent && (
-          <button
-            type="button"
-            className={expanded ? 'swan-folder-toggle is-expanded' : 'swan-folder-toggle'}
-            aria-label={expanded ? `收起 ${folder.name}` : `展开 ${folder.name}`}
-            aria-expanded={expanded}
             onClick={() => onToggleExpanded(folder.id)}
           >
             <ChevronRight aria-hidden="true" size={13} strokeWidth={1.8} />
@@ -224,11 +203,8 @@ export function FolderTreeItem({
               ],
               onClick: ({ key }) => {
                 setCreateMenuOpen(false);
-                if (key === 'document') {
-                  onFolderCreateDocument(folder);
-                } else if (key === 'group') {
-                  onFolderCreateChild(folder);
-                }
+                if (key === 'document') onFolderCreateDocument(folder);
+                else onFolderCreateChild(folder);
               },
             }}
           >
@@ -240,18 +216,6 @@ export function FolderTreeItem({
               +
             </button>
           </Dropdown>
-          <button
-            type="button"
-            className={isDragging ? 'swan-folder-drag is-dragging' : 'swan-folder-drag'}
-            aria-label={`拖动分组 ${folder.name}`}
-            draggable
-            onDragStart={(event) =>
-              onBeginDrag(event, { kind: 'folder', id: folder.id, label: folder.name })
-            }
-            onDragEnd={onDragEnd}
-          >
-            <GripVertical aria-hidden="true" size={14} strokeWidth={1.8} />
-          </button>
           <Dropdown
             trigger={['click']}
             placement="bottomRight"
@@ -283,13 +247,7 @@ export function FolderTreeItem({
               onSubmit={onSubmitFolderCreate}
             />
           )}
-          <div
-            className={
-              hasDocumentChildren
-                ? 'swan-folder-documents has-document-children'
-                : 'swan-folder-documents'
-            }
-          >
+          <div className="swan-folder-documents">
             {renderDocuments(documents, rootLevel ? 0 : 1)}
           </div>
           {children.map((child) => (
