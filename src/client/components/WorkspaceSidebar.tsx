@@ -1086,7 +1086,7 @@ export function WorkspaceSidebar({
                 <div className="swan-sidebar-empty">这里还没有文档</div>
               )}
             </div>
-          ) : documents.length === 0 ? (
+          ) : !listLoading && documents.length === 0 ? (
             <div className="swan-sidebar-empty">
               {view === 'trash'
                 ? '回收站是空的'
