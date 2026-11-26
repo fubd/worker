@@ -503,7 +503,7 @@ input {
   position: relative;
   display: grid;
   min-height: 34px;
-  grid-template-columns: 18px minmax(0, 1fr) 24px;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
   border-radius: 6px;
   transition:
@@ -603,23 +603,20 @@ input {
   gap: 2px;
 }
 
-.swan-folder-item:has(.swan-folder-row.is-root) {
-  grid-template-columns: minmax(0, 1fr) 24px;
-}
-
 .swan-folder-row.is-root {
   padding-left: 8px;
   padding-right: 57px;
 }
 
 .swan-folder-create {
+  position: relative;
   display: grid;
   height: 36px;
   margin-bottom: 3px;
-  grid-template-columns: 16px minmax(0, 1fr) 24px 24px;
+  grid-template-columns: 16px minmax(0, 1fr) 24px;
   align-items: center;
-  gap: 7px;
-  padding: 0 5px 0 9px;
+  gap: 8px;
+  padding: 0 8px 0 10px;
   border: 1px solid rgba(47, 111, 232, 0.38);
   border-radius: 7px;
   background: #fff;
@@ -627,13 +624,37 @@ input {
   color: var(--swan-text-muted);
 }
 
+.swan-folder-create:focus-within {
+  border-color: rgba(47, 111, 232, 0.7);
+  box-shadow: 0 0 0 3px rgba(47, 111, 232, 0.12);
+}
+
+.swan-folder-create:focus-within > svg {
+  color: var(--swan-brand);
+}
+
+.swan-folder-create:focus-within::after {
+  position: absolute;
+  top: 50%;
+  right: 38px;
+  color: #8a939a;
+  content: '↵';
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .swan-folder-create input {
+  width: 100%;
+  height: 34px;
   min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--swan-text);
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 .swan-folder-create input::placeholder {
@@ -648,19 +669,23 @@ input {
   padding: 0;
   border: 0;
   border-radius: 5px;
-  background: transparent;
-  color: var(--swan-text-muted);
+  background: var(--swan-brand);
+  color: #fff;
   cursor: pointer;
 }
 
-.swan-folder-create button:hover {
-  background: #eef0f1;
-  color: var(--swan-text);
+.swan-folder-create button:hover:not(:disabled) {
+  background: var(--swan-brand-deep);
+  color: #fff;
 }
 
 .swan-folder-create button:disabled {
-  cursor: default;
-  opacity: 0.35;
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.swan-folder-create > button[aria-label='取消新建分组'] {
+  display: none;
 }
 
 .swan-folder-item.is-selected,
@@ -2540,7 +2565,7 @@ input {
 
   .swan-folder-create {
     min-height: 52px;
-    grid-template-columns: 16px minmax(0, 1fr) 44px 44px;
+    grid-template-columns: 16px minmax(0, 1fr) 44px;
   }
 
   .swan-folder-create button {

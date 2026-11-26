@@ -22,6 +22,7 @@ function FolderCreateForm({ draft, saving, onCancel, onChange, onSubmit }: Folde
   return (
     <form
       className="swan-folder-create"
+      data-saving={saving ? 'true' : 'false'}
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();

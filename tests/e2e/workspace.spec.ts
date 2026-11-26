@@ -118,7 +118,24 @@ test('creating a group preserves the current workspace tree', async ({ page }) =
   await page.getByRole('button', { name: '创建分组' }).click();
 
   await expect(page.getByText('分组已创建')).toBeVisible();
-  await expect(page.locator('.swan-folder-row').filter({ hasText: '项目资料' })).toBeVisible();
+  const projectFolder = page
+    .locator('.swan-folder-row')
+    .filter({ has: page.locator('.swan-overflow-text', { hasText: /^项目资料$/ }) });
+  await expect(projectFolder.locator('.swan-overflow-text')).toHaveText('项目资料');
+  await expect(page.getByLabel('新分组名称')).toHaveCount(0);
+  await page.reload();
+  const reloaded = page
+    .locator('.swan-folder-row')
+    .filter({ has: page.locator('.swan-overflow-text', { hasText: /^项目资料$/ }) });
+  await expect(reloaded.locator('.swan-overflow-text')).toHaveText('项目资料');
+  expect(
+    await reloaded.locator('.swan-overflow-text').evaluate((element) => element.clientWidth),
+  ).toBeGreaterThan(32);
+  expect(
+    await reloaded.evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length,
+    ),
+  ).toBe(3);
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
   await page.getByRole('button', { name: '收起 分组 已有分组' }).click();
   await expect(page.getByRole('button', { name: '展开 分组 已有分组' })).toBeVisible();
