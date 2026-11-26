@@ -78,6 +78,24 @@ const EMPTY_CONTENT: JSONContent = {
   content: [{ type: 'paragraph' }],
 };
 const isStaticRender = typeof window === 'undefined';
+const EDITOR_MODE_STORAGE_KEY = 'swan:document-modes';
+
+function loadDocumentModes(): Map<PublicId, DocumentMode> {
+  if (isStaticRender) return new Map();
+  try {
+    const stored = JSON.parse(
+      window.sessionStorage.getItem(EDITOR_MODE_STORAGE_KEY) ?? '{}',
+    ) as Record<string, unknown> | null;
+    if (!stored || typeof stored !== 'object') return new Map();
+    return new Map(
+      Object.entries(stored).filter(
+        (entry): entry is [PublicId, 'edit'] => isPublicId(entry[0]) && entry[1] === 'edit',
+      ),
+    );
+  } catch {
+    return new Map();
+  }
+}
 
 const ImportDocumentModal = lazy(
   () => import(/* webpackChunkName: "document-import" */ '../components/ImportDocumentModal'),
@@ -381,7 +399,7 @@ function DocsPageContent() {
   const saveQueuedRef = useRef(false);
   const navigateRef = useRef(navigate);
   const createdDocumentIdRef = useRef<PublicId | null>(null);
-  const documentModesRef = useRef(new Map<PublicId, DocumentMode>());
+  const documentModesRef = useRef(loadDocumentModes());
   const listIdentityRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
   const documentChildrenActivityRef = useRef(new Map<PublicId, number>());
@@ -396,6 +414,17 @@ function DocsPageContent() {
   loaderDataRef.current = loaderData;
   routeIdentityRef.current = { view, folderScope, searchQuery };
   const listIdentity = `${view}:${folderScope}:${searchQuery}`;
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        EDITOR_MODE_STORAGE_KEY,
+        JSON.stringify(Object.fromEntries(documentModesRef.current)),
+      );
+    } catch {
+      // The active page still retains its edit mode when session storage is unavailable.
+    }
+  }, [activeId, loaderData, saveState]);
 
   const clearSaveTimer = () => {
     if (saveTimerRef.current === null) return;
@@ -835,7 +864,10 @@ function DocsPageContent() {
     if (authUnavailable || view === 'trash' || !activeId) {
       clearSaveTimer();
       requestIdRef.current += 1;
-      if (authUnavailable) documentModesRef.current.clear();
+      if (authUnavailable) {
+        documentModesRef.current.clear();
+        window.sessionStorage.removeItem(EDITOR_MODE_STORAGE_KEY);
+      }
       activeIdRef.current = null;
       loadingDocumentIdRef.current = null;
       selectingDocumentRef.current = false;

@@ -71,8 +71,8 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await expect(page.getByText('已保存')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole('button', { name: '编辑', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'M5 自动化验收' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '完成', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '无标题文档' })).toHaveValue('M5 自动化验收');
   await expect(page.getByRole('textbox', { name: '文档正文' })).toContainText(
     '自动保存与刷新恢复正常。',
   );
@@ -80,7 +80,7 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await page.goto('/docs');
   await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9]{24}$/);
   await page.goto(bookmarkedUrl);
-  await expect(page.getByRole('heading', { name: 'M5 自动化验收' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '无标题文档' })).toHaveValue('M5 自动化验收');
   await expect(
     page.locator('.swan-sidebar-root-documents').getByText('M5 自动化验收'),
   ).toBeVisible();
@@ -376,6 +376,11 @@ test('keeps list order stable while editing and loads one document on switch', a
     '验证保存不会改变列表顺序。',
   );
   await expect.poll(order).toEqual(orderBefore);
+  await page.reload();
+  await expect(page.getByRole('button', { name: '完成', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '文档正文' })).toContainText(
+    '验证保存不会改变列表顺序。',
+  );
 
   const documentRequests: Array<{ path: string; preview: boolean }> = [];
   const listRequests: string[] = [];
