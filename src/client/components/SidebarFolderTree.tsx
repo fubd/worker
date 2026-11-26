@@ -192,12 +192,26 @@ export function FolderTreeItem({
                 {
                   key: 'document',
                   label: '新建文档',
-                  icon: <FileText aria-hidden="true" size={15} strokeWidth={1.8} />,
+                  icon: (
+                    <FileText
+                      className="swan-menu-icon is-document"
+                      aria-hidden="true"
+                      size={15}
+                      strokeWidth={1.8}
+                    />
+                  ),
                 },
                 {
                   key: 'group',
                   label: '新建分组',
-                  icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
+                  icon: (
+                    <Folder
+                      className="swan-menu-icon is-folder"
+                      aria-hidden="true"
+                      size={15}
+                      strokeWidth={1.8}
+                    />
+                  ),
                 },
               ],
               onClick: ({ key }) => {

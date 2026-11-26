@@ -39,7 +39,6 @@ import {
 } from '../folder-utils';
 import { OverflowText } from './OverflowText';
 import { FolderCreateForm, FolderTreeItem } from './SidebarFolderTree';
-import type { IconColorMode } from '../layouts/workspace-context';
 import { beginSidebarDrag, readSidebarDrag, type SidebarDragPayload } from '../sidebar-drag';
 import {
   formatUpdatedAt,
@@ -61,7 +60,6 @@ interface WorkspaceSidebarProps {
   folderSaving: boolean;
   folders: FolderSummary[];
   hasMore: boolean;
-  iconColorMode?: IconColorMode;
   isOpen: boolean;
   listLoading: boolean;
   loadingMore: boolean;
@@ -167,7 +165,6 @@ export function WorkspaceSidebar({
   folderSaving,
   folders,
   hasMore,
-  iconColorMode,
   isOpen,
   listLoading,
   loadingMore,
@@ -774,10 +771,7 @@ export function WorkspaceSidebar({
     items.map((document) => renderDocumentRow(document, depth));
 
   return (
-    <aside
-      className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}
-      data-icon-colors={iconColorMode}
-    >
+    <aside className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}>
       <div className="swan-sidebar-brand">
         <span className="swan-sidebar-brand-mark">
           <BrandMark size={34} />

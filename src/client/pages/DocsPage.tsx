@@ -285,7 +285,7 @@ function DocsPageContent() {
   const { status, markUnauthenticated } = useAuth();
   const loaderData = useLoaderData() as DocsRouteData | undefined;
   const revalidator = useRevalidator();
-  const { user, iconColorMode, bindProvider, openPasswordSettings, signOut } =
+  const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
   const { documentId } = useParams<{ documentId?: string }>();
   const [searchParams] = useSearchParams();
@@ -1835,7 +1835,6 @@ function DocsPageContent() {
         folderScope={folderScope}
         folderSaving={folderSaving}
         folders={folders}
-        iconColorMode={iconColorMode}
         isOpen={sidebarOpen}
         listLoading={listLoading}
         loadingMore={loadingMore}

@@ -3,17 +3,10 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../auth/AuthProvider';
-import type { IconColorMode, WorkspaceOutletContext } from './workspace-context';
+import type { WorkspaceOutletContext } from './workspace-context';
 
 const enableSpeedInsights = import.meta.env.PROD;
 const PasswordSettingsModal = lazy(() => import('../components/PasswordSettingsModal'));
-
-function previewIconColorMode(): IconColorMode | undefined {
-  if (import.meta.env.PROD) return undefined;
-  const value = new URLSearchParams(window.location.search).get('icons');
-  if (value === 'categorical') return value;
-  return value === 'color' ? 'balanced' : undefined;
-}
 
 export default function RootLayout() {
   const location = useLocation();
@@ -36,7 +29,6 @@ export default function RootLayout() {
 
   const context: WorkspaceOutletContext = {
     user,
-    iconColorMode: previewIconColorMode(),
     openPasswordSettings,
     bindProvider,
     signOut: handleSignOut,
