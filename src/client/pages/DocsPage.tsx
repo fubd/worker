@@ -798,7 +798,10 @@ function DocsPageContent() {
     const startedAt = Date.now();
     const { items } = await api.listDocumentTree(documentId);
     const updatedAt = documentChildrenActivityRef.current.get(documentId) ?? 0;
-    if (updatedAt > startedAt) return documentChildrenRef.current[documentId] ?? items;
+    if (updatedAt > startedAt) {
+      const current = documentChildrenRef.current[documentId];
+      if (current) return current;
+    }
     const nextItems = [...items];
     const nextByParent = new Map<PublicId, DocumentSummary[]>();
     for (const item of nextItems) {
@@ -864,6 +867,7 @@ function DocsPageContent() {
     if (authUnavailable || view === 'trash' || !activeId) {
       clearSaveTimer();
       requestIdRef.current += 1;
+      documentChildrenActivityRef.current.clear();
       if (authUnavailable) {
         documentModesRef.current.clear();
         window.sessionStorage.removeItem(EDITOR_MODE_STORAGE_KEY);
