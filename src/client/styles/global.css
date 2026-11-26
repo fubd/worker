@@ -442,29 +442,6 @@ input {
   opacity: 0.45;
 }
 
-.swan-sidebar-select-entry {
-  padding: 4px 5px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--swan-text-muted);
-  cursor: pointer;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.swan-sidebar-select-entry:hover {
-  background: #e7eaec;
-  color: var(--swan-text);
-}
-
-.swan-sidebar-select-entry:disabled {
-  cursor: wait;
-  opacity: 0.45;
-}
-
 .swan-sidebar-batch-actions {
   display: flex;
   min-height: 36px;
@@ -477,7 +454,7 @@ input {
   background: #eef0f1;
 }
 
-.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button {
+.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-more {
   width: 28px;
   height: 28px;
   padding: 0;
@@ -485,18 +462,9 @@ input {
   color: var(--swan-text-soft);
 }
 
-.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button:hover:not(:disabled) {
+.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-more:hover:not(:disabled) {
   background: var(--swan-list-action);
   color: var(--swan-text);
-}
-
-.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button.is-danger {
-  color: #b54a43;
-}
-
-.swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button.is-danger:hover:not(:disabled) {
-  background: rgba(181, 74, 67, 0.09);
-  color: #9f3933;
 }
 
 .swan-sidebar-batch-status {
@@ -2626,17 +2594,9 @@ input {
   }
 
   .swan-sidebar-search button,
-  .swan-sidebar-add,
-  .swan-sidebar-select-entry {
+  .swan-sidebar-add {
     width: 44px;
     height: 44px;
-  }
-
-  .swan-sidebar-select-entry {
-    display: grid;
-    place-items: center;
-    padding: 0;
-    font-size: 10px;
   }
 
   .swan-sidebar-select-all {
@@ -2651,7 +2611,7 @@ input {
     min-height: 52px;
   }
 
-  .swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-button {
+  .swan-sidebar-batch-actions .ant-btn.swan-sidebar-batch-more {
     width: 44px;
     height: 44px;
   }

@@ -22,6 +22,11 @@ async function registerByApi(page: Page): Promise<{ username: string; password: 
   return { username, password };
 }
 
+async function createDocumentFromSidebar(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '新建或导入' }).click();
+  await page.getByRole('menuitem', { name: '新建文档' }).click();
+}
+
 async function expectVisibleTouchTargets(page: Page, selectors: string[]): Promise<void> {
   for (const selector of selectors) {
     const elements = page.locator(selector);
@@ -52,7 +57,7 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await page.getByRole('button', { name: '创建并进入' }).click();
 
   await expect(page).toHaveURL(/\/docs(?:\?|$)/);
-  await page.getByLabel('新建文档').click();
+  await createDocumentFromSidebar(page);
   await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9]{24}/);
 
   await page.getByPlaceholder('无标题文档').fill('M5 自动化验收');
@@ -107,7 +112,8 @@ test('creating a group preserves the current workspace tree', async ({ page }) =
 
   await page.goto('/docs');
   await expect(page.locator('.swan-sidebar-root-documents').getByText('根目录文档')).toBeVisible();
-  await page.getByRole('button', { name: '新建顶层分组' }).click();
+  await page.getByRole('button', { name: '新建或导入' }).click();
+  await page.getByRole('menuitem', { name: '新建分组' }).click();
   await page.getByLabel('新分组名称').fill('项目资料');
   await page.getByRole('button', { name: '创建分组' }).click();
 
@@ -265,6 +271,41 @@ test('keeps document list order stable while browsing documents', async ({ page 
   const recentRows = page.locator('.swan-sidebar-doc-list .swan-sidebar-doc');
   await expect(recentRows).toHaveCount(3);
   await expect(recentRows.first()).toHaveClass(/is-selected/);
+});
+
+test('groups document creation and batch actions into compact menus', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+
+  for (const title of ['批量文档一', '批量文档二']) {
+    const response = await page.context().request.post('/api/documents', {
+      data: { title, folderId: null },
+    });
+    expect(response.status()).toBe(201);
+  }
+
+  await page.goto('/docs');
+  await expect(page.getByRole('button', { name: '新建或导入' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: '新建文档' })).toHaveCount(0);
+  await expect(page.getByLabel('导入文档')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '批量选择' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: '新建或导入' }).click();
+  const createMenu = page.getByRole('menu');
+  await expect(createMenu.getByRole('menuitem', { name: '新建文档' })).toBeVisible();
+  await expect(createMenu.getByRole('menuitem', { name: '新建分组' })).toBeVisible();
+  await expect(createMenu.getByRole('menuitem', { name: '导入文档' })).toBeVisible();
+  await createMenu.getByRole('menuitem', { name: '批量选择' }).click();
+
+  await page.getByRole('checkbox', { name: '选择文档 批量文档一' }).check();
+  await page.getByRole('button', { name: '所选文档操作' }).click();
+  const batchMenu = page.getByRole('menu').last();
+  for (const name of ['移动到', '收藏', '导出', '移入回收站']) {
+    await expect(batchMenu.getByRole('menuitem', { name })).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '退出批量选择' }).click();
+  await expect(page.getByRole('button', { name: '新建或导入' })).toBeVisible();
 });
 
 test('moves documents between folders and document parents', async ({ page }) => {
@@ -427,7 +468,7 @@ test('mobile workspace keeps the topbar readable and primary targets at least 44
   await isolateClient(page);
   await registerByApi(page);
   await page.goto('/docs');
-  await page.getByLabel('新建文档').click();
+  await createDocumentFromSidebar(page);
   await page.getByPlaceholder('无标题文档').fill('移动端走查');
   await page.getByRole('textbox', { name: '文档正文' }).fill('移动端正文');
   await expect(page.getByText('已保存')).toBeVisible();
@@ -453,12 +494,12 @@ test('mobile workspace keeps the topbar readable and primary targets at least 44
   await expect(page.locator('.swan-format-secondary').first()).toBeHidden();
 
   await page.getByRole('button', { name: '打开菜单' }).click();
-  for (const name of ['导入文档', '新建文档', '批量选择']) {
-    const box = await page.getByRole('button', { name, exact: true }).boundingBox();
-    expect(box).not.toBeNull();
-    expect(Math.round(box?.width ?? 0)).toBeGreaterThanOrEqual(44);
-    expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
-  }
+  const addButton = page.getByRole('button', { name: '新建或导入' });
+  await expect(addButton).toHaveCount(1);
+  const addButtonBox = await addButton.boundingBox();
+  expect(addButtonBox).not.toBeNull();
+  expect(Math.round(addButtonBox?.width ?? 0)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(addButtonBox?.height ?? 0)).toBeGreaterThanOrEqual(44);
 });
 
 test('mobile public entry controls keep 44px touch targets', async ({ page }) => {

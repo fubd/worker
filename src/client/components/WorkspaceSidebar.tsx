@@ -4,15 +4,18 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  CheckSquare,
+  FileDown,
   FileUp,
   FileText,
   Folder,
+  FolderInput,
   FolderPlus,
   GripVertical,
   Link2,
   LockKeyhole,
   LogOut,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Pin,
   Plus,
@@ -440,6 +443,40 @@ export function WorkspaceSidebar({
     icon: <Folder aria-hidden="true" size={15} strokeWidth={1.8} />,
   }));
 
+  const batchMenuItems: MenuProps['items'] = [
+    {
+      key: 'move',
+      label: '移动到',
+      icon: <FolderInput aria-hidden="true" size={15} strokeWidth={1.8} />,
+      children: batchMoveItems,
+    },
+    {
+      key: 'favorite',
+      label: allSelectedFavorite ? '取消收藏' : '收藏',
+      icon: (
+        <Star
+          aria-hidden="true"
+          size={15}
+          strokeWidth={1.8}
+          fill={allSelectedFavorite ? 'currentColor' : 'none'}
+        />
+      ),
+      disabled: !allSelectedFavorite && !someSelectedFavorite,
+    },
+    {
+      key: 'export',
+      label: '导出',
+      icon: <FileDown aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+    { type: 'divider' },
+    {
+      key: 'delete',
+      label: '移入回收站',
+      danger: true,
+      icon: <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+    },
+  ];
+
   const handleFolderMenuAction = (folder: FolderSummary, key: string) => {
     if (key === 'create-child') {
       onCreateFolder(folder.id);
@@ -714,7 +751,7 @@ export function WorkspaceSidebar({
                 aria-label={`更多操作 ${document.title}`}
                 disabled={saveState === 'saving' || deletingDocumentId === document.id}
               >
-                <MoreHorizontal aria-hidden="true" size={15} strokeWidth={1.8} />
+                <MoreVertical aria-hidden="true" size={16} strokeWidth={1.8} />
               </button>
             </Dropdown>
           </div>
@@ -870,52 +907,60 @@ export function WorkspaceSidebar({
                   </span>
                 )}
                 {view === 'documents' && (
-                  <>
-                    <Tooltip title="新建顶层分组" placement="top">
-                      <button
-                        type="button"
-                        className="swan-sidebar-add"
-                        aria-label="新建顶层分组"
-                        aria-expanded={creatingFolder}
-                        onClick={() => onCreateFolder(null)}
-                      >
-                        <FolderPlus aria-hidden="true" size={15} strokeWidth={1.8} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip title="导入文档" placement="top">
-                      <button
-                        type="button"
-                        className="swan-sidebar-add"
-                        aria-label="导入文档"
-                        disabled={creating || saveState === 'conflict'}
-                        onClick={onImport}
-                      >
-                        <FileUp aria-hidden="true" size={15} strokeWidth={1.8} />
-                      </button>
-                    </Tooltip>
+                  <Dropdown
+                    trigger={['click']}
+                    placement="bottomRight"
+                    destroyOnHidden
+                    menu={{
+                      items: [
+                        {
+                          key: 'document',
+                          label: '新建文档',
+                          icon: <FileText aria-hidden="true" size={16} strokeWidth={1.8} />,
+                          disabled: creating || saveState === 'conflict',
+                        },
+                        {
+                          key: 'folder',
+                          label: '新建分组',
+                          icon: <FolderPlus aria-hidden="true" size={16} strokeWidth={1.8} />,
+                        },
+                        {
+                          key: 'import',
+                          label: '导入文档',
+                          icon: <FileUp aria-hidden="true" size={16} strokeWidth={1.8} />,
+                          disabled: creating || saveState === 'conflict',
+                        },
+                        ...(documents.length > 0
+                          ? [
+                              { type: 'divider' as const },
+                              {
+                                key: 'select',
+                                label: '批量选择',
+                                icon: (
+                                  <CheckSquare aria-hidden="true" size={16} strokeWidth={1.8} />
+                                ),
+                                disabled: listLoading,
+                              },
+                            ]
+                          : []),
+                      ],
+                      onClick: ({ key }) => {
+                        if (key === 'document') onCreate();
+                        if (key === 'folder') onCreateFolder(null);
+                        if (key === 'import') onImport();
+                        if (key === 'select') onToggleSelectionMode();
+                      },
+                    }}
+                  >
                     <button
                       type="button"
                       className="swan-sidebar-add"
-                      aria-label="新建文档"
-                      disabled={creating || saveState === 'conflict'}
-                      onClick={onCreate}
+                      aria-label="新建或导入"
+                      aria-haspopup="menu"
                     >
-                      <Plus aria-hidden="true" size={15} strokeWidth={1.8} />
+                      <Plus aria-hidden="true" size={16} strokeWidth={1.9} />
                     </button>
-                  </>
-                )}
-                {view !== 'trash' && documents.length > 0 && (
-                  <Tooltip title="批量选择">
-                    <button
-                      type="button"
-                      className="swan-sidebar-select-entry"
-                      aria-label="批量选择"
-                      disabled={listLoading}
-                      onClick={onToggleSelectionMode}
-                    >
-                      选择
-                    </button>
-                  </Tooltip>
+                  </Dropdown>
                 )}
               </>
             )}
@@ -931,88 +976,29 @@ export function WorkspaceSidebar({
             <Dropdown
               trigger={['click']}
               placement="bottomLeft"
+              destroyOnHidden
               disabled={batchBusy || selectedCount === 0}
               menu={{
-                items: batchMoveItems,
+                items: batchMenuItems,
                 onClick: ({ key }) => {
-                  const target = key.slice('move:'.length);
-                  onBatchMove(
-                    selectedIds,
-                    target === 'none' ? null : isPublicId(target) ? target : null,
-                  );
+                  if (key === 'favorite') {
+                    onBatchFavorite(selectedIds, !allSelectedFavorite);
+                  }
+                  if (key === 'export') onBatchExport(selectedIds);
+                  if (key === 'delete') onBatchDelete(selectedIds);
                 },
               }}
             >
               <Button
-                className="swan-sidebar-batch-button"
+                className="swan-sidebar-batch-more"
                 type="text"
-                size="small"
-                icon={<Folder aria-hidden="true" size={15} strokeWidth={1.8} />}
-                aria-label="批量移动到分组"
+                icon={<MoreVertical aria-hidden="true" size={16} strokeWidth={1.8} />}
+                aria-label="所选文档操作"
                 disabled={batchBusy || selectedCount === 0}
               />
             </Dropdown>
-            <Dropdown
-              trigger={['click']}
-              placement="bottomLeft"
-              disabled={batchBusy || selectedCount === 0}
-              menu={{
-                items: [
-                  {
-                    key: 'favorite',
-                    label: '收藏',
-                    icon: <Star aria-hidden="true" size={15} strokeWidth={1.8} />,
-                    disabled: allSelectedFavorite,
-                  },
-                  {
-                    key: 'unfavorite',
-                    label: '取消收藏',
-                    icon: (
-                      <Star aria-hidden="true" size={15} strokeWidth={1.8} fill="currentColor" />
-                    ),
-                    disabled: !someSelectedFavorite,
-                  },
-                ],
-                onClick: ({ key }) => onBatchFavorite(selectedIds, key === 'favorite'),
-              }}
-            >
-              <Button
-                className="swan-sidebar-batch-button"
-                type="text"
-                size="small"
-                icon={
-                  <Star
-                    aria-hidden="true"
-                    size={15}
-                    strokeWidth={1.8}
-                    fill={allSelectedFavorite ? 'currentColor' : 'none'}
-                  />
-                }
-                aria-label="批量收藏操作"
-                disabled={batchBusy || selectedCount === 0}
-              />
-            </Dropdown>
-            <Button
-              className="swan-sidebar-batch-button"
-              type="text"
-              size="small"
-              icon={<FileText aria-hidden="true" size={15} strokeWidth={1.8} />}
-              aria-label="导出所选文档"
-              disabled={batchBusy || selectedCount === 0}
-              onClick={() => onBatchExport(selectedIds)}
-            />
-            <Button
-              className="swan-sidebar-batch-button is-danger"
-              type="text"
-              size="small"
-              danger
-              icon={<Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />}
-              aria-label="批量移入回收站"
-              disabled={batchBusy || selectedCount === 0}
-              onClick={() => onBatchDelete(selectedIds)}
-            />
             <span className="swan-sidebar-batch-status" aria-live="polite">
-              {batchBusy ? '处理中…' : `${selectedCount} 项`}
+              {batchBusy ? '处理中…' : `已选 ${selectedCount} 项`}
             </span>
           </div>
         )}
