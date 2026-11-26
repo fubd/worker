@@ -39,6 +39,7 @@ import {
 } from '../folder-utils';
 import { OverflowText } from './OverflowText';
 import { FolderCreateForm, FolderTreeItem } from './SidebarFolderTree';
+import type { IconColorMode } from '../layouts/workspace-context';
 import { beginSidebarDrag, readSidebarDrag, type SidebarDragPayload } from '../sidebar-drag';
 import {
   formatUpdatedAt,
@@ -60,6 +61,7 @@ interface WorkspaceSidebarProps {
   folderSaving: boolean;
   folders: FolderSummary[];
   hasMore: boolean;
+  iconColorMode?: IconColorMode;
   isOpen: boolean;
   listLoading: boolean;
   loadingMore: boolean;
@@ -165,6 +167,7 @@ export function WorkspaceSidebar({
   folderSaving,
   folders,
   hasMore,
+  iconColorMode,
   isOpen,
   listLoading,
   loadingMore,
@@ -771,7 +774,10 @@ export function WorkspaceSidebar({
     items.map((document) => renderDocumentRow(document, depth));
 
   return (
-    <aside className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}>
+    <aside
+      className={isOpen ? 'swan-sidebar is-open' : 'swan-sidebar'}
+      data-icon-colors={iconColorMode}
+    >
       <div className="swan-sidebar-brand">
         <span className="swan-sidebar-brand-mark">
           <BrandMark size={34} />
@@ -812,7 +818,12 @@ export function WorkspaceSidebar({
           to="/docs"
           onClick={onNavigate}
         >
-          <FileText aria-hidden="true" size={16} strokeWidth={1.8} />
+          <FileText
+            className="swan-nav-icon is-documents"
+            aria-hidden="true"
+            size={16}
+            strokeWidth={1.8}
+          />
           <span>全部文档</span>
         </Link>
         <Link
@@ -820,7 +831,12 @@ export function WorkspaceSidebar({
           to="/docs?view=recent"
           onClick={onNavigate}
         >
-          <Clock3 aria-hidden="true" size={16} strokeWidth={1.8} />
+          <Clock3
+            className="swan-nav-icon is-recent"
+            aria-hidden="true"
+            size={16}
+            strokeWidth={1.8}
+          />
           <span>最近浏览</span>
         </Link>
         <Link
@@ -828,7 +844,12 @@ export function WorkspaceSidebar({
           to="/docs?view=favorites"
           onClick={onNavigate}
         >
-          <Star aria-hidden="true" size={16} strokeWidth={1.8} />
+          <Star
+            className="swan-nav-icon is-favorites"
+            aria-hidden="true"
+            size={16}
+            strokeWidth={1.8}
+          />
           <span>收藏</span>
         </Link>
         <Link
@@ -836,7 +857,12 @@ export function WorkspaceSidebar({
           to="/docs?view=trash"
           onClick={onNavigate}
         >
-          <Trash2 aria-hidden="true" size={16} strokeWidth={1.8} />
+          <Trash2
+            className="swan-nav-icon is-trash"
+            aria-hidden="true"
+            size={16}
+            strokeWidth={1.8}
+          />
           <span>回收站</span>
         </Link>
       </nav>
@@ -916,18 +942,39 @@ export function WorkspaceSidebar({
                         {
                           key: 'document',
                           label: '新建文档',
-                          icon: <FileText aria-hidden="true" size={16} strokeWidth={1.8} />,
+                          icon: (
+                            <FileText
+                              className="swan-menu-icon is-document"
+                              aria-hidden="true"
+                              size={16}
+                              strokeWidth={1.8}
+                            />
+                          ),
                           disabled: creating || saveState === 'conflict',
                         },
                         {
                           key: 'folder',
                           label: '新建分组',
-                          icon: <FolderPlus aria-hidden="true" size={16} strokeWidth={1.8} />,
+                          icon: (
+                            <FolderPlus
+                              className="swan-menu-icon is-folder"
+                              aria-hidden="true"
+                              size={16}
+                              strokeWidth={1.8}
+                            />
+                          ),
                         },
                         {
                           key: 'import',
                           label: '导入文档',
-                          icon: <FileUp aria-hidden="true" size={16} strokeWidth={1.8} />,
+                          icon: (
+                            <FileUp
+                              className="swan-menu-icon is-import"
+                              aria-hidden="true"
+                              size={16}
+                              strokeWidth={1.8}
+                            />
+                          ),
                           disabled: creating || saveState === 'conflict',
                         },
                         ...(documents.length > 0
