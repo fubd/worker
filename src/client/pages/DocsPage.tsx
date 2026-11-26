@@ -29,7 +29,6 @@ import {
   useNavigate,
   useOutletContext,
   useParams,
-  useRevalidator,
   useSearchParams,
   type LoaderFunction,
 } from 'react-router';
@@ -78,6 +77,7 @@ const EMPTY_CONTENT: JSONContent = {
   type: 'doc',
   content: [{ type: 'paragraph' }],
 };
+const isStaticRender = typeof window === 'undefined';
 
 const ImportDocumentModal = lazy(
   () => import(/* webpackChunkName: "document-import" */ '../components/ImportDocumentModal'),
@@ -100,10 +100,35 @@ const CommandPalette = lazy(() =>
 );
 
 type HydratingLoader = LoaderFunction & { hydrate?: boolean };
+type ActiveDocumentLoader = {
+  listIdentity: string;
+  requestId: number;
+  controller: AbortController;
+  promise: Promise<DocumentRecord | null>;
+};
+type RouteIdentity = { view: DocumentView; folderScope: FolderScope; searchQuery: string };
+type SelectFolder = (scope: FolderScope) => Promise<void>;
 
 export const loader: HydratingLoader = async ({ request }) =>
   typeof window === 'undefined' ? emptyDocsRouteData(request) : loadDocsRouteData(request);
-loader.hydrate = true;
+
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+  formMethod,
+}: {
+  currentUrl: URL;
+  nextUrl: URL;
+  defaultShouldRevalidate: boolean;
+  formMethod?: string;
+}) {
+  if (formMethod) return defaultShouldRevalidate;
+  const currentPath = currentUrl.pathname.replace(/^\/docs\/[^/]+\/?$/, '/docs');
+  const nextPath = nextUrl.pathname.replace(/^\/docs\/[^/]+\/?$/, '/docs');
+  if (currentPath === nextPath && currentUrl.search === nextUrl.search) return false;
+  return defaultShouldRevalidate;
+}
 
 function parsePublicId(value: string | null | undefined): PublicId | null {
   return isPublicId(value) ? value : null;
@@ -284,7 +309,6 @@ function DocsPageContent() {
   const { message, modal, notification } = App.useApp();
   const { status, markUnauthenticated } = useAuth();
   const loaderData = useLoaderData() as DocsRouteData | undefined;
-  const revalidator = useRevalidator();
   const { user, bindProvider, openPasswordSettings, signOut } =
     useOutletContext<WorkspaceOutletContext>();
   const { documentId } = useParams<{ documentId?: string }>();
@@ -292,6 +316,7 @@ function DocsPageContent() {
   const navigate = useNavigate();
   const view: DocumentView = parseDocumentView(searchParams.get('view'));
   const activeId = view !== 'trash' ? parsePublicId(documentId) : null;
+  const hydratedDocumentRef = useRef<{ id: PublicId; data: DocumentRecord } | null>(null);
   const folderScope = parseFolderScope(searchParams.get('folder'));
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
@@ -300,6 +325,13 @@ function DocsPageContent() {
   const [nextCursor, setNextCursor] = useState<string | null>(loaderData?.nextCursor ?? null);
   const [folders, setFolders] = useState<FolderSummary[]>(loaderData?.folders ?? []);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
+  const [pendingContent, setPendingContent] = useState<JSONContent | null>(
+    () => (loaderData?.document?.content as JSONContent | undefined) ?? EMPTY_CONTENT,
+  );
+  const pendingContentDocumentIdRef = useRef<PublicId | null>(loaderData?.document?.id ?? null);
+  const [editorTitle, setEditorTitle] = useState('');
+  const [documentChildren, setDocumentChildren] = useState(loaderData?.documentChildren ?? {});
+  const documentChildrenRef = useRef(documentChildren);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<PublicId>>(() => new Set());
   const [batchBusy, setBatchBusy] = useState(false);
@@ -307,6 +339,7 @@ function DocsPageContent() {
   const [listLoading, setListLoading] = useState(!loaderData);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRevision, setListRevision] = useState(0);
+  const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
   const [editorLoading, setEditorLoading] = useState(false);
   const [showDocumentLoading, setShowDocumentLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -316,6 +349,7 @@ function DocsPageContent() {
   const [restoringId, setRestoringId] = useState<PublicId | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const documentsRef = useRef(documents);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null);
@@ -331,7 +365,10 @@ function DocsPageContent() {
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
 
   const activeDocumentRef = useRef<DocumentRecord | null>(null);
-  const activeIdRef = useRef<PublicId | null>(activeId);
+  const activeIdRef = useRef<PublicId | null>(null);
+  const loadingDocumentIdRef = useRef<PublicId | null>(null);
+  const selectingDocumentRef = useRef(false);
+  const activeDocumentLoaderRef = useRef<ActiveDocumentLoader | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const titleRef = useRef('');
   const revisionRef = useRef(0);
@@ -339,38 +376,232 @@ function DocsPageContent() {
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
+  const scheduleSaveRef = useRef<() => void>(() => {});
+  const markDirtyRef = useRef<() => void>(() => {});
+  const saveQueuedRef = useRef(false);
   const navigateRef = useRef(navigate);
   const createdDocumentIdRef = useRef<PublicId | null>(null);
   const documentModesRef = useRef(new Map<PublicId, DocumentMode>());
   const listIdentityRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
+  const documentChildrenActivityRef = useRef(new Map<PublicId, number>());
+  const routeIdentityRef = useRef<RouteIdentity>({ view, folderScope, searchQuery });
+  const selectFolderRef = useRef<SelectFolder>(async () => {});
+  const loaderDataRef = useRef(loaderData);
 
   activeIdRef.current = activeId;
   navigateRef.current = navigate;
+  documentChildrenRef.current = documentChildren;
+  documentsRef.current = documents;
+  loaderDataRef.current = loaderData;
+  routeIdentityRef.current = { view, folderScope, searchQuery };
   const listIdentity = `${view}:${folderScope}:${searchQuery}`;
 
-  const clearSaveTimer = useCallback(() => {
+  const clearSaveTimer = () => {
     if (saveTimerRef.current === null) return;
     window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
-  }, []);
+  };
 
-  const refreshWorkspace = useCallback(() => {
-    void revalidator.revalidate();
-  }, [revalidator]);
+  const refreshWorkspace = async () => {
+    const data = await loadDocsRouteData(
+      new Request(new URL(`/docs/${activeIdRef.current ?? ''}`, window.location.origin)),
+    );
+    if (data.unauthorized) {
+      markUnauthenticated();
+      return;
+    }
+    if (data.error) {
+      message.error(data.error);
+      return;
+    }
+    setFolders(data.folders);
+    setDocumentChildren((current) => {
+      const merged = { ...current, ...data.documentChildren };
+      documentChildrenRef.current = merged;
+      return merged;
+    });
+  };
 
-  const scheduleSave = useCallback(() => {
+  const applyDocument = (document: DocumentRecord, requestId?: number) => {
+    if (
+      requestId !== undefined &&
+      (requestIdRef.current !== requestId || activeIdRef.current !== document.id)
+    ) {
+      return;
+    }
+    if (activeIdRef.current !== document.id) return;
+    const current = activeDocumentRef.current;
+    const hasUnsavedChanges =
+      current?.id === document.id &&
+      (revisionRef.current > savedRevisionRef.current ||
+        saveQueuedRef.current ||
+        savePromiseRef.current !== null);
+    if (hasUnsavedChanges && requestId !== undefined) return;
+    if (
+      requestId === undefined &&
+      current?.id === document.id &&
+      current.version === document.version
+    ) {
+      return;
+    }
+    hydratedDocumentRef.current = { id: document.id, data: document };
+
+    activeDocumentRef.current = document;
+    activeIdRef.current = document.id;
+    revisionRef.current = 0;
+    savedRevisionRef.current = 0;
+    if (!hasUnsavedChanges && requestId === undefined) setSaveState('idle');
+    setActiveDocument(document);
+    if (!hasUnsavedChanges && requestId === undefined && hydratedDocumentRef.current) {
+      hydratedDocumentRef.current = { id: document.id, data: document };
+    }
+    const known = documentsRef.current.some((item) => item.id === document.id);
+    documentsRef.current = known
+      ? documentsRef.current
+      : [toSummary(document), ...documentsRef.current];
+    titleRef.current = document.title;
+    setEditorTitle(document.title);
+    const openInEdit = documentModesRef.current.get(document.id) === 'edit';
+    documentModesRef.current.set(document.id, openInEdit ? 'edit' : 'read');
+    setDocumentMode(openInEdit ? 'edit' : 'read');
+    setDocuments((items) => {
+      const updated = items.map((item) =>
+        item.id === document.id
+          ? {
+              ...item,
+              title: document.title,
+              excerpt: document.contentText.trim().slice(0, 140),
+            }
+          : item,
+      );
+      if (updated.some((item) => item.id === document.id)) return updated;
+      return [toSummary(document), ...updated];
+    });
+    if (!hasUnsavedChanges) saveQueuedRef.current = false;
+    setEditorLoading(false);
+    if (!hasUnsavedChanges) {
+      pendingContentDocumentIdRef.current = document.id;
+      setPendingContent(document.content as JSONContent);
+    }
+    setDocumentChildren((current) =>
+      current[document.id]
+        ? current
+        : {
+            ...current,
+            [document.id]: [],
+          },
+    );
+  };
+  const applyDocumentRef = useRef(applyDocument);
+  applyDocumentRef.current = applyDocument;
+  const loadActiveDocument = useCallback(
+    async (id: PublicId): Promise<DocumentRecord | null> => {
+      const loader = activeDocumentLoaderRef.current;
+      if (loader?.requestId === requestIdRef.current && loader.listIdentity === listIdentity) {
+        return loader.promise;
+      }
+
+      if (loader) loader.controller.abort();
+      const controller = new AbortController();
+      const requestId = requestIdRef.current;
+      const promise: Promise<DocumentRecord | null> = api
+        .getDocument(id, { signal: controller.signal })
+        .then((document) => {
+          if (
+            controller.signal.aborted ||
+            activeIdRef.current !== id ||
+            requestId !== requestIdRef.current
+          ) {
+            return null;
+          }
+          applyDocumentRef.current(document, requestId);
+          return document;
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return null;
+          throw error;
+        })
+        .finally(() => {
+          const currentLoader = activeDocumentLoaderRef.current;
+          if (currentLoader?.promise === promise) {
+            activeDocumentLoaderRef.current = null;
+            loadingDocumentIdRef.current = null;
+          }
+        });
+      activeDocumentLoaderRef.current = { listIdentity, requestId, controller, promise };
+      return promise;
+    },
+    [listIdentity],
+  );
+  const selectDocumentCallback = async (id: PublicId) => {
+    if (id === activeIdRef.current) return;
+    if (saveState === 'conflict') {
+      message.error('请先处理当前文档的保存冲突');
+      return;
+    }
+    if (
+      revisionRef.current > savedRevisionRef.current ||
+      saveQueuedRef.current ||
+      savePromiseRef.current
+    ) {
+      void markDirtyRef.current();
+      const saved = await saveDocumentRef.current();
+      if (!saved) {
+        message.error('当前文档保存失败，请重试后再切换');
+        return;
+      }
+    }
+
+    const requestId = ++requestIdRef.current;
+    activeDocumentLoaderRef.current?.controller.abort();
+    activeIdRef.current = id;
+    loadingDocumentIdRef.current = id;
+    selectingDocumentRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('view');
+    next.delete('q');
+    next.delete('id');
+    navigate(docsRoute(id, next));
+
+    try {
+      await loadActiveDocument(id);
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      if (requestIdRef.current === requestId) {
+        activeIdRef.current = null;
+        setEditorLoading(false);
+        message.error(errorMessage(error, '文档加载失败'));
+      }
+    } finally {
+      if (requestIdRef.current === requestId) {
+        loadingDocumentIdRef.current = null;
+        selectingDocumentRef.current = false;
+      }
+    }
+  };
+  const selectDocument = (id: PublicId) => selectDocumentCallback(id);
+
+  const scheduleSave = () => {
     clearSaveTimer();
+    saveQueuedRef.current = true;
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
       void saveDocumentRef.current();
     }, 900);
-  }, [clearSaveTimer]);
+  };
 
-  const markDirty = useCallback(() => {
+  scheduleSaveRef.current = scheduleSave;
+
+  const markDirty = () => {
     revisionRef.current += 1;
     setSaveState((current) => (current === 'saving' || current === 'conflict' ? current : 'dirty'));
-    scheduleSave();
-  }, [scheduleSave]);
+    scheduleSaveRef.current();
+  };
+  markDirtyRef.current = markDirty;
 
   const editor = useEditor({
     extensions: [
@@ -379,8 +610,11 @@ function DocsPageContent() {
         placeholder: '开始写点什么，内容会自动保存。',
       }),
     ],
-    content: EMPTY_CONTENT,
+    content: pendingContent ?? EMPTY_CONTENT,
     immediatelyRender: false,
+    onDestroy: () => {
+      editorRef.current = null;
+    },
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: {
@@ -390,18 +624,31 @@ function DocsPageContent() {
         spellcheck: 'false',
       },
     },
-    onUpdate: markDirty,
+    onUpdate: () => markDirty(),
   });
 
   editorRef.current = editor;
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    if (activeDocument?.id !== activeId) activeDocumentRef.current = null;
+  }, [activeDocument, activeId]);
+
+  useEffect(() => {
+    if (!editor || !pendingContent) return;
+    editor.commands.setContent(pendingContent, { emitUpdate: false });
+    pendingContentDocumentIdRef.current = null;
+    setPendingContent(null);
+    if (activeIdRef.current) {
+      documentChildrenActivityRef.current.set(activeIdRef.current, Date.now());
+    }
+  }, [editor, pendingContent]);
 
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(documentMode === 'edit', false);
     editor.view.dom.setAttribute('aria-readonly', String(documentMode !== 'edit'));
   }, [documentMode, editor]);
-
-  useEffect(() => clearSaveTimer, [clearSaveTimer]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -456,31 +703,33 @@ function DocsPageContent() {
 
     setFolders(loaderData.folders);
     if (listIdentityRef.current !== listIdentity) {
+      const firstVisit = listIdentityRef.current === null;
       listIdentityRef.current = listIdentity;
-      setDocuments(loaderData.documents);
-      setNextCursor(loaderData.nextCursor);
-    } else {
-      setDocuments((current) => {
-        if (current.length <= loaderData.documents.length) return loaderData.documents;
-        const freshIds = new Set(loaderData.documents.map((document) => document.id));
-        return [
-          ...loaderData.documents,
-          ...current.filter((document) => !freshIds.has(document.id)),
-        ];
+      setDocumentChildren((current) => {
+        const merged = firstVisit
+          ? { ...loaderData.documentChildren, ...current }
+          : { ...current, ...loaderData.documentChildren };
+        documentChildrenRef.current = merged;
+        return merged;
       });
-      setNextCursor((current) => (loaderData.nextCursor === null ? null : current));
+      setDocuments(loaderData.documents);
+      documentsRef.current = loaderData.documents;
+      setNextCursor(loaderData.nextCursor);
     }
     setListLoading(false);
     setLoadError(loaderData.error);
+    selectingDocumentRef.current = false;
 
-    if (loaderData.view === 'trash' || searchQuery || loaderData.activeId) return;
+    if (loaderData.view === 'trash' || searchQuery || activeId) return;
+    if (loaderData.view === 'favorites' || loaderData.view === 'recent') return;
+    if (view === 'favorites' || view === 'recent') return;
+    if (listIdentityRef.current !== listIdentity) return;
     const firstDocument = loaderData.documents[0];
     if (!firstDocument) return;
     const next = new URLSearchParams(searchParams);
     next.delete('id');
     navigateRef.current(docsRoute(firstDocument.id, next), { replace: true });
-  }, [listIdentity, loaderData, markUnauthenticated, navigate, searchParams, searchQuery]);
-
+  }, [activeId, loaderData, markUnauthenticated, searchParams]);
   const loadMoreDocuments = async () => {
     if (!nextCursor || listLoading || loadingMore) return;
 
@@ -516,8 +765,61 @@ function DocsPageContent() {
     }
   };
 
+  const loadDocumentChildren = async (documentId: PublicId): Promise<DocumentSummary[]> => {
+    const startedAt = Date.now();
+    const { items } = await api.listDocumentTree(documentId);
+    const updatedAt = documentChildrenActivityRef.current.get(documentId) ?? 0;
+    if (updatedAt > startedAt) return documentChildrenRef.current[documentId] ?? items;
+    const nextItems = [...items];
+    const nextByParent = new Map<PublicId, DocumentSummary[]>();
+    for (const item of nextItems) {
+      if (!item.parentId) continue;
+      const siblings = nextByParent.get(item.parentId) ?? [];
+      siblings.push(item);
+      nextByParent.set(item.parentId, siblings);
+    }
+    for (const item of items) {
+      if (documentChildrenRef.current[item.id] !== undefined) {
+        nextByParent.delete(item.id);
+      }
+    }
+    const next = {
+      ...documentChildrenRef.current,
+      [documentId]: items.filter((item) => item.parentId === documentId),
+      ...Object.fromEntries(nextByParent),
+    };
+    documentChildrenRef.current = next;
+    setDocumentChildren(next);
+    return nextItems;
+  };
+
+  const toggleDocumentExpanded = async (documentId: PublicId) => {
+    if (expandedDocumentIds.has(documentId)) {
+      setExpandedDocumentIds((current) => {
+        const next = new Set(current);
+        next.delete(documentId);
+        return next;
+      });
+      return;
+    }
+    setExpandedDocumentIds((current) => new Set(current).add(documentId));
+    try {
+      await loadDocumentChildren(documentId);
+    } catch (error) {
+      setExpandedDocumentIds((current) => {
+        const next = new Set(current);
+        next.delete(documentId);
+        return next;
+      });
+      if (isUnauthorized(error)) {
+        markUnauthenticated();
+        return;
+      }
+      message.error(errorMessage(error, '子文档加载失败'));
+    }
+  };
+
   useEffect(() => {
-    clearSaveTimer();
     setDocumentInfoOpen(false);
     setHistoryOpen(false);
     setAttachmentsOpen(false);
@@ -528,68 +830,70 @@ function DocsPageContent() {
       activeId !== null &&
       (createdDocumentIdRef.current === activeId ||
         documentModesRef.current.get(activeId) === 'edit');
-    setDocumentMode(openInEdit ? 'edit' : 'read');
+    if (activeId) setDocumentMode(openInEdit ? 'edit' : 'read');
 
     if (authUnavailable || view === 'trash' || !activeId) {
+      clearSaveTimer();
+      requestIdRef.current += 1;
       if (authUnavailable) documentModesRef.current.clear();
       activeIdRef.current = null;
+      loadingDocumentIdRef.current = null;
+      selectingDocumentRef.current = false;
       activeDocumentRef.current = null;
       setActiveDocument(null);
       titleRef.current = '';
+      setEditorTitle('');
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
       setSaveState('idle');
+      setPendingContent(null);
       editor?.commands.setContent(EMPTY_CONTENT, { emitUpdate: false });
       return;
     }
 
-    setEditorLoading(true);
     setLoadError(null);
-  }, [activeId, authUnavailable, clearSaveTimer, editor, view]);
+  }, [activeId, authUnavailable, editor, view]);
 
   useEffect(() => {
-    if (!loaderData) return;
-    if (loaderData.unauthorized) {
-      markUnauthenticated();
-      return;
-    }
-    if (loaderData.error) {
-      setEditorLoading(false);
-      if (loaderData.activeId === activeId) {
-        activeDocumentRef.current = null;
-        setActiveDocument(null);
-        setLoadError(loaderData.error);
+    if (activeId || view === 'trash') return;
+    if (selectingDocumentRef.current) return;
+    const firstDocument = documentsRef.current[0];
+    if (!firstDocument) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    navigate(docsRoute(firstDocument.id, next), { replace: true });
+  }, [activeId, navigate, searchParams, searchQuery, view]);
+
+  useEffect(() => {
+    if (!activeId || view === 'trash') return;
+    if (selectingDocumentRef.current) return;
+    const hydrated = hydratedDocumentRef.current;
+    if (hydrated?.id === activeId) {
+      if (hydrated.data !== activeDocumentRef.current) {
+        applyDocumentRef.current(hydrated.data);
       }
       return;
     }
-    if (view === 'trash' || !activeId) {
-      setEditorLoading(false);
-      return;
-    }
+    loadingDocumentIdRef.current = activeId;
+    let cancelled = false;
+    void loadActiveDocument(activeId)
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (isUnauthorized(error)) {
+          markUnauthenticated();
+          return;
+        }
+        setLoadError(errorMessage(error, '文档加载失败'));
+      })
+      .finally(() => {
+        if (loadingDocumentIdRef.current === activeId) loadingDocumentIdRef.current = null;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, loadActiveDocument, markUnauthenticated, view]);
 
-    const document = loaderData.document;
-    if (!document || document.id !== activeId) return;
-
-    const current = activeDocumentRef.current;
-    const hasUnsavedChanges =
-      current?.id === document.id &&
-      (revisionRef.current > savedRevisionRef.current || savePromiseRef.current !== null);
-    setEditorLoading(false);
-    if (hasUnsavedChanges) return;
-
-    activeDocumentRef.current = document;
-    setActiveDocument(document);
-    titleRef.current = document.title;
-    revisionRef.current = 0;
-    savedRevisionRef.current = 0;
-    setSaveState('idle');
-    editor?.commands.setContent(document.content as JSONContent, { emitUpdate: false });
-    if (createdDocumentIdRef.current === activeId) {
-      createdDocumentIdRef.current = null;
-    }
-  }, [activeId, editor, loaderData, markUnauthenticated, view]);
-
-  const saveDocument = useCallback(async (): Promise<boolean> => {
+  saveDocumentRef.current = async (): Promise<boolean> => {
     const pending = savePromiseRef.current;
     if (pending) return pending;
 
@@ -605,25 +909,32 @@ function DocsPageContent() {
     }
 
     clearSaveTimer();
+    saveQueuedRef.current = false;
     setSaveState('saving');
 
     const task = (async () => {
       try {
         const updated = await api.updateDocument(document.id, {
           version: document.version,
-          ...(nextTitle !== document.title ? { title: nextTitle } : {}),
+          title: nextTitle,
           content: currentEditor.getJSON() as Record<string, unknown>,
           contentHtml: currentEditor.getHTML(),
           contentText: currentEditor.getText(),
         });
 
-        setDocuments((items) =>
-          items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
-        );
+        setDocuments((items) => {
+          const next = items.map((item) => (item.id === updated.id ? toSummary(updated) : item));
+          documentsRef.current = next;
+          return next;
+        });
 
         if (activeIdRef.current === document.id) {
           activeDocumentRef.current = updated;
           setActiveDocument(updated);
+          if (revisionRef.current > revision) {
+            hydratedDocumentRef.current = { id: updated.id, data: updated };
+          }
+          if (titleRef.current.trim()) setEditorTitle(titleRef.current);
           savedRevisionRef.current = revision;
           if (revisionRef.current > revision) {
             setSaveState('dirty');
@@ -651,12 +962,16 @@ function DocsPageContent() {
     } finally {
       if (savePromiseRef.current === task) savePromiseRef.current = null;
     }
-  }, [clearSaveTimer, markUnauthenticated, scheduleSave]);
+  };
 
-  saveDocumentRef.current = saveDocument;
+  const saveDocument = () => saveDocumentRef.current();
 
   const savePendingChanges = async (): Promise<boolean> => {
-    while (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
+    while (
+      revisionRef.current > savedRevisionRef.current ||
+      saveQueuedRef.current ||
+      savePromiseRef.current
+    ) {
       const saved = await saveDocument();
       if (!saved) return false;
     }
@@ -671,6 +986,7 @@ function DocsPageContent() {
       activeDocumentRef.current = document;
       setActiveDocument(document);
       titleRef.current = document.title;
+      setEditorTitle(document.title);
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
       setSaveState('idle');
@@ -687,33 +1003,16 @@ function DocsPageContent() {
     }
   };
 
-  const selectDocument = async (id: PublicId) => {
-    if (id === activeId) return;
-    if (saveState === 'conflict') {
-      message.error('请先处理当前文档的保存冲突');
-      return;
-    }
-    if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
-      const saved = await saveDocument();
-      if (!saved) {
-        message.error('当前文档保存失败，请重试后再切换');
-        return;
-      }
-    }
-
-    activeIdRef.current = id;
-    const next = new URLSearchParams(searchParams);
-    if (view === 'documents') next.delete('view');
-    next.delete('id');
-    navigate(docsRoute(id, next));
-  };
-
   const createDocument = async (
     parent: Pick<DocumentSummary, 'id' | 'folderId'> | null = null,
     targetFolderId?: PublicId | null,
   ) => {
     if (creating || saveState === 'conflict') return;
-    if (revisionRef.current > savedRevisionRef.current || savePromiseRef.current) {
+    if (
+      revisionRef.current > savedRevisionRef.current ||
+      saveQueuedRef.current ||
+      savePromiseRef.current
+    ) {
       const saved = await saveDocument();
       if (!saved) {
         message.error('当前文档保存失败，请重试后再新建');
@@ -727,14 +1026,61 @@ function DocsPageContent() {
       const document = await api.createDocument('无标题文档', folderId, parent?.id ?? null);
       createdDocumentIdRef.current = document.id;
       documentModesRef.current.set(document.id, 'edit');
-      setDocuments((items) => [toSummary(document), ...items]);
+      if (parent) {
+        setExpandedDocumentIds((items) => new Set(items).add(parent.id));
+      }
+      setDocuments((items) => {
+        const additions = [toSummary(document)];
+        const current = activeDocumentRef.current;
+        if (folderId && !parent && current && !items.some((item) => item.id === current.id)) {
+          const currentSummary = toSummary(current);
+          additions.push({
+            ...currentSummary,
+            folderId,
+            parentId: null,
+            childCount: 0,
+          });
+        }
+        return [
+          ...additions,
+          ...items.filter((item) => !additions.some(({ id }) => id === item.id)),
+        ];
+      });
       activeIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
       next.delete('view');
       next.delete('q');
       next.delete('id');
       navigate(docsRoute(document.id, next));
-      window.setTimeout(refreshWorkspace, 0);
+      setDocumentMode('edit');
+      setDocumentChildren((items) => {
+        const key = parent?.id ?? folderId;
+        if (!key) return items;
+        const siblings = items[key] ?? [];
+        const summary = toSummary(document);
+        return {
+          ...items,
+          [key]: [
+            summary,
+            ...siblings
+              .filter((item) => item.id !== summary.id)
+              .map((item) => {
+                const count = item.parentId === parent?.id ? item.childCount + 1 : item.childCount;
+                return { ...item, childCount: count };
+              }),
+          ],
+        };
+      });
+      if (parent) {
+        setDocumentChildren((items) => {
+          const updated = {
+            ...items,
+            [parent.id]: [toSummary(document), ...(items[parent.id] ?? [])],
+          };
+          documentChildrenRef.current = updated;
+          return updated;
+        });
+      }
       setSearchInput('');
       message.success('已新建文档');
     } catch (error) {
@@ -841,7 +1187,6 @@ function DocsPageContent() {
       if (duplicate.folderId) next.set('folder', duplicate.folderId);
       else next.delete('folder');
       navigate(docsRoute(duplicate.id, next));
-      window.setTimeout(refreshWorkspace, 0);
       setSearchInput('');
       message.success('副本已创建');
     } catch (error) {
@@ -1127,6 +1472,7 @@ function DocsPageContent() {
       activeDocumentRef.current = restored;
       setActiveDocument(restored);
       titleRef.current = restored.title;
+      setEditorTitle(restored.title);
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
       setSaveState('idle');
@@ -1485,16 +1831,54 @@ function DocsPageContent() {
   };
 
   const selectFolder = (scope: FolderScope) => {
+    void selectFolderRef.current(scope);
+  };
+  const selectFolderAsync = async (scope: FolderScope) => {
+    if (
+      revisionRef.current > savedRevisionRef.current ||
+      saveQueuedRef.current ||
+      savePromiseRef.current
+    ) {
+      void markDirtyRef.current();
+      if (!(await saveDocumentRef.current())) {
+        message.error('当前文档保存失败，请重试后再切换');
+        return;
+      }
+    }
+    const route = routeIdentityRef.current;
+    const next = new URLSearchParams();
+    if (scope === 'all' || scope === 'unfiled') {
+      if (scope === 'unfiled') next.set('folder', 'unfiled');
+    } else next.set('folder', scope);
+    if (route.view === 'favorites' || route.view === 'recent') next.set('view', route.view);
+    if (route.searchQuery) next.set('q', route.searchQuery);
+
+    let nextId = activeIdRef.current;
+    if (nextId && route.view !== 'trash') {
+      const current = documentsRef.current.find((document) => document.id === nextId);
+      if (
+        current &&
+        ((scope === 'unfiled'
+          ? current.folderId !== null
+          : scope !== 'all' && current.folderId !== scope) ||
+          !loaderDataRef.current?.documents.some(
+            (document) =>
+              document.id !== nextId ||
+              !(scope === 'unfiled'
+                ? document.folderId === null
+                : scope === 'all' || document.folderId === scope),
+          ))
+      ) {
+        nextId = null;
+      }
+    }
+    if (nextId === activeIdRef.current) nextId = null;
     setSidebarOpen(false);
     setCreatingFolder(false);
     setSearchInput('');
-    const next = new URLSearchParams(searchParams);
-    next.delete('view');
-    next.delete('q');
-    if (scope === 'all' || scope === 'unfiled') next.delete('folder');
-    else next.set('folder', scope);
-    navigate(docsRoute(activeId, next));
+    navigate(docsRoute(nextId, next));
   };
+  selectFolderRef.current = selectFolderAsync;
 
   const savePendingForCommandPalette = async () => {
     if (saveState === 'conflict') {
@@ -1684,6 +2068,9 @@ function DocsPageContent() {
       );
       refreshWorkspace();
       setListRevision((value) => value + 1);
+      if (updated.parentId) {
+        void loadDocumentChildren(updated.parentId);
+      }
       message.success(folderId === null ? '文档已移到根目录' : '文档已移动');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -1741,13 +2128,24 @@ function DocsPageContent() {
     }
   };
 
-  const handleTitleChange = useCallback(
-    (value: string) => {
-      titleRef.current = value;
-      markDirty();
-    },
-    [markDirty],
-  );
+  const handleTitleChange = (value: string) => {
+    titleRef.current = value;
+    setEditorTitle(value);
+    setDocuments((items) =>
+      items.map((document) =>
+        document.id === activeIdRef.current
+          ? { ...document, title: value.trim() || '无标题文档' }
+          : document,
+      ),
+    );
+    const current = activeDocumentRef.current;
+    if (current) {
+      const next = { ...current, title: value.trim() || '无标题文档' };
+      activeDocumentRef.current = next;
+      setActiveDocument(next);
+    }
+    markDirtyRef.current();
+  };
 
   const enterEditMode = () => {
     if (saveState === 'conflict') {
@@ -1779,9 +2177,13 @@ function DocsPageContent() {
 
   const documentPending =
     !loadError &&
-    (activeId === null
-      ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
-      : activeDocument?.id !== activeId);
+    (pendingContentDocumentIdRef.current !== null && activeId !== null
+      ? pendingContentDocumentIdRef.current !== activeId
+      : activeId === null
+        ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
+        : activeDocument?.id !== activeId);
+
+  if (isStaticRender) return <HydrateFallback />;
 
   useEffect(() => {
     if (!documentPending || activeDocument !== null) {
@@ -1793,8 +2195,8 @@ function DocsPageContent() {
     return () => window.clearTimeout(timer);
   }, [activeDocument, documentPending]);
 
-  if (status === 'loading') return <HydrateFallback />;
-  if (status === 'unauthenticated' || !user) return <Navigate to="/login" replace />;
+  if (status === 'unauthenticated') return <Navigate to="/login" replace />;
+  if (!user) return <HydrateFallback />;
 
   const selectedFolder =
     folderScope === 'all' || folderScope === 'unfiled'
@@ -1831,6 +2233,8 @@ function DocsPageContent() {
         creatingFolderParentId={creatingFolderParentId}
         deletingDocumentId={deletingDocumentId}
         documents={documents}
+        documentChildren={documentChildren}
+        expandedDocumentIds={expandedDocumentIds}
         folderDraft={folderName}
         folderScope={folderScope}
         folderSaving={folderSaving}
@@ -1880,7 +2284,6 @@ function DocsPageContent() {
         onMoveDocumentToParent={(document, folderId, parentId) =>
           void moveDocument(document, folderId, parentId)
         }
-        onLoadDocumentChildren={(id) => api.listDocumentChildren(id).then(({ items }) => items)}
         onMoveFolder={(folder, parentId) => void moveFolder(folder, parentId)}
         onNavigate={() => setSidebarOpen(false)}
         onOpenPasswordSettings={openPasswordSettings}
@@ -1902,6 +2305,7 @@ function DocsPageContent() {
         onSignOut={() => void signOut()}
         onSubmitFolderCreate={() => void createFolder()}
         onToggleFavorite={(document) => void toggleFavorite(document)}
+        onToggleDocumentExpanded={(id) => void toggleDocumentExpanded(id)}
         onTogglePinned={(document) => void togglePinned(document)}
         onToggleDocumentSelection={toggleDocumentSelection}
         onToggleSelectAll={toggleSelectAllDocuments}
@@ -2164,7 +2568,7 @@ function DocsPageContent() {
                 <span className="swan-editor-kicker">私人笔记 · 写作</span>
                 <DocumentTitleInput
                   key={activeDocument.id}
-                  initialValue={activeDocument.title}
+                  value={editorTitle}
                   mode={documentMode}
                   onChange={handleTitleChange}
                 />

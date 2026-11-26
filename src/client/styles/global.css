@@ -637,6 +637,10 @@ input {
   white-space: nowrap;
 }
 
+.swan-folder-row .swan-overflow-text {
+  min-width: 0;
+}
+
 .swan-folder-row small {
   color: #8a939a;
   font-size: 9.5px;

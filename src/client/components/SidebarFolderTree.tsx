@@ -114,10 +114,6 @@ export function FolderTreeItem({
   const { folder, children } = node;
   const documents = documentsByFolder.get(folder.id) ?? [];
   const expanded = expandedFolderIds.has(folder.id);
-  const hasContent =
-    children.length > 0 ||
-    documents.length > 0 ||
-    (creatingFolder && creatingFolderParentId === folder.id);
   const targetId = `folder:${folder.id}`;
   const isOver = dropTargetId === targetId;
   const canDrop =
@@ -172,7 +168,7 @@ export function FolderTreeItem({
           <button
             type="button"
             className={rootLevel ? 'swan-folder-row is-root' : 'swan-folder-row'}
-            aria-expanded={hasContent ? expanded : undefined}
+            aria-expanded={expanded}
             onClick={() => onSetExpanded(folder.id, !expanded)}
           >
             <Folder aria-hidden="true" size={15} strokeWidth={1.8} />
@@ -249,7 +245,7 @@ export function FolderTreeItem({
         </div>
       </div>
 
-      {expanded && hasContent && (
+      {(expanded || (creatingFolder && creatingFolderParentId === folder.id)) && (
         <div className="swan-folder-children">
           {creatingFolder && creatingFolderParentId === folder.id && (
             <FolderCreateForm
@@ -260,9 +256,11 @@ export function FolderTreeItem({
               onSubmit={onSubmitFolderCreate}
             />
           )}
-          <div className="swan-folder-documents">
-            {renderDocuments(documents, rootLevel ? 0 : 1)}
-          </div>
+          {documents.length > 0 && (
+            <div className="swan-folder-documents">
+              {renderDocuments(documents, rootLevel ? 0 : 1)}
+            </div>
+          )}
           {children.map((child) => (
             <FolderTreeItem
               key={child.folder.id}

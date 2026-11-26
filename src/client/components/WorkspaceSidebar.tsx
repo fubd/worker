@@ -55,6 +55,8 @@ interface WorkspaceSidebarProps {
   creatingFolderParentId: PublicId | null;
   deletingDocumentId: PublicId | null;
   documents: DocumentSummary[];
+  documentChildren: Record<PublicId, DocumentSummary[]>;
+  expandedDocumentIds: ReadonlySet<PublicId>;
   folderDraft: string;
   folderScope: FolderScope;
   folderSaving: boolean;
@@ -93,7 +95,6 @@ interface WorkspaceSidebarProps {
     folderId: PublicId | null,
     parentId: PublicId | null,
   ) => void;
-  onLoadDocumentChildren: (documentId: PublicId) => Promise<DocumentSummary[]>;
   onMoveFolder: (folder: FolderSummary, parentId: PublicId | null) => void;
   onNavigate: () => void;
   onOpenPasswordSettings: () => void;
@@ -105,6 +106,7 @@ interface WorkspaceSidebarProps {
   onSignOut: () => void;
   onSubmitFolderCreate: () => void;
   onToggleFavorite: (document: DocumentSummary) => void;
+  onToggleDocumentExpanded: (documentId: PublicId) => void;
   onTogglePinned: (document: DocumentSummary) => void;
   onToggleDocumentSelection: (id: PublicId) => void;
   onToggleSelectAll: (selected: boolean) => void;
@@ -160,6 +162,8 @@ export function WorkspaceSidebar({
   creatingFolderParentId,
   deletingDocumentId,
   documents,
+  documentChildren: initialDocumentChildren,
+  expandedDocumentIds,
   folderDraft,
   folderScope,
   folderSaving,
@@ -194,7 +198,6 @@ export function WorkspaceSidebar({
   onLoadMore,
   onMoveDocument,
   onMoveDocumentToParent,
-  onLoadDocumentChildren,
   onMoveFolder,
   onNavigate,
   onOpenPasswordSettings,
@@ -206,6 +209,7 @@ export function WorkspaceSidebar({
   onSignOut,
   onSubmitFolderCreate,
   onToggleFavorite,
+  onToggleDocumentExpanded,
   onTogglePinned,
   onToggleDocumentSelection,
   onToggleSelectAll,
@@ -214,11 +218,7 @@ export function WorkspaceSidebar({
   'use no memo';
 
   const linkedProviders = user.linkedProviders;
-  const [documentChildren, setDocumentChildren] = useState<Map<PublicId, DocumentSummary[]>>(
-    () => new Map(),
-  );
-  const [loadingDocumentIds, setLoadingDocumentIds] = useState<Set<PublicId>>(() => new Set());
-  const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
+  const hasSearch = searchValue.trim().length > 0;
   const [draggingItem, setDraggingItem] = useState<SidebarDragPayload | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<PublicId>>(() => {
@@ -235,15 +235,24 @@ export function WorkspaceSidebar({
   useEffect(() => {
     window.localStorage.setItem('swan:expanded-folders', JSON.stringify([...expandedFolderIds]));
   }, [expandedFolderIds]);
-
   useEffect(() => {
-    if (!isPublicId(folderScope)) return;
-    const ancestorIds = getFolderAncestors(folders, folderScope).map((folder) => folder.id);
+    if (view !== 'documents' || searchValue.trim()) return;
     setExpandedFolderIds((current) => {
-      if (ancestorIds.every((id) => current.has(id))) return current;
-      return new Set([...current, ...ancestorIds]);
+      const wanted = new Set(
+        isPublicId(folderScope)
+          ? getFolderAncestors(folders, folderScope).map((folder) => folder.id)
+          : [],
+      );
+      for (const document of documents) {
+        if (document.id !== activeId || !document.folderId) continue;
+        for (const folder of getFolderAncestors(folders, document.folderId)) {
+          wanted.add(folder.id);
+        }
+      }
+      if ([...wanted].every((id) => current.has(id))) return current;
+      return new Set([...current, ...wanted]);
     });
-  }, [folderScope, folders]);
+  }, [activeId, documents, folderScope, folders, searchValue, view]);
 
   const setFolderExpanded = (folderId: PublicId, expanded: boolean) => {
     setExpandedFolderIds((current) => {
@@ -296,37 +305,6 @@ export function WorkspaceSidebar({
     setDropTargetId((current) => (current === targetId ? null : current));
   };
 
-  const hasSearch = searchValue.trim().length > 0;
-  const loadDocumentChildren = async (documentId: PublicId) => {
-    let items = documentChildren.get(documentId);
-    if (!items) {
-      setLoadingDocumentIds((current) => new Set(current).add(documentId));
-      try {
-        items = await onLoadDocumentChildren(documentId);
-        setDocumentChildren((current) => new Map(current).set(documentId, items!));
-      } finally {
-        setLoadingDocumentIds((current) => {
-          const next = new Set(current);
-          next.delete(documentId);
-          return next;
-        });
-      }
-    }
-    return items;
-  };
-  const toggleDocumentExpanded = async (documentId: PublicId) => {
-    if (expandedDocumentIds.has(documentId)) {
-      setExpandedDocumentIds(new Set([...expandedDocumentIds].filter((id) => id !== documentId)));
-      return;
-    }
-    setExpandedDocumentIds(new Set(expandedDocumentIds).add(documentId));
-    try {
-      await loadDocumentChildren(documentId);
-    } catch {
-      setExpandedDocumentIds(new Set([...expandedDocumentIds].filter((id) => id !== documentId)));
-    }
-  };
-
   const sectionTitle =
     view === 'documents'
       ? hasSearch
@@ -362,11 +340,16 @@ export function WorkspaceSidebar({
     else documentsByFolder.set(document.folderId, [document]);
   }
   for (const node of folders) {
-    const items = documentChildren.get(node.id);
+    const items = initialDocumentChildren[node.id];
     if (!items) continue;
     const topLevel = items.filter((document) => document.parentId === null);
     if (topLevel.length > 0) {
-      documentsByFolder.set(node.id, [...(documentsByFolder.get(node.id) ?? []), ...topLevel]);
+      const known = documentsByFolder.get(node.id) ?? [];
+      const folderItems = [
+        ...known,
+        ...topLevel.filter((item) => !known.some((document) => document.id === item.id)),
+      ];
+      documentsByFolder.set(node.id, view === 'documents' ? folderItems : known);
     }
   }
   const folderTree = buildFolderTree(folders);
@@ -500,7 +483,7 @@ export function WorkspaceSidebar({
     }
   };
 
-  const allChildDocuments = [...documentChildren.values()].flat();
+  const allChildDocuments = Object.values(initialDocumentChildren).flat();
   const getDocumentMoveTargets = (document: DocumentSummary) => {
     return [
       ...(document.parentId === null && document.folderId === null
@@ -625,8 +608,7 @@ export function WorkspaceSidebar({
             }
             aria-label={expandedDocumentIds.has(document.id) ? '收起子文档' : '展开子文档'}
             aria-expanded={expandedDocumentIds.has(document.id)}
-            disabled={loadingDocumentIds.has(document.id)}
-            onClick={() => void toggleDocumentExpanded(document.id)}
+            onClick={() => onToggleDocumentExpanded(document.id)}
           >
             <ChevronRight aria-hidden="true" size={12} strokeWidth={1.8} />
           </button>
@@ -758,7 +740,7 @@ export function WorkspaceSidebar({
         )}
         {!selectionMode && expandedDocumentIds.has(document.id) && (
           <div className="swan-document-children">
-            {(documentChildren.get(document.id) ?? [])
+            {(initialDocumentChildren[document.id] ?? [])
               .filter((child) => child.parentId === document.id)
               .map((child) => renderDocumentRow(child, depth + 1))}
           </div>

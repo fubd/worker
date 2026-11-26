@@ -105,18 +105,16 @@ export function SaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: 
 }
 
 export function DocumentTitleInput({
-  initialValue,
+  value: currentValue,
   mode,
   onChange,
 }: {
-  initialValue: string;
+  value: string;
   mode: DocumentMode;
   onChange: (value: string) => void;
 }) {
-  const [value, setValue] = useState(initialValue);
-
   if (mode === 'read') {
-    return <h1 className="swan-doc-title-display">{value.trim() || '无标题文档'}</h1>;
+    return <h1 className="swan-doc-title-display">{currentValue.trim() || '无标题文档'}</h1>;
   }
 
   return (
@@ -124,14 +122,13 @@ export function DocumentTitleInput({
       variant="borderless"
       className="swan-doc-title-input"
       autoSize={{ minRows: 1 }}
-      value={value}
+      value={currentValue}
       maxLength={DOCUMENT_TITLE_MAX_LENGTH}
       placeholder="无标题文档"
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.preventDefault();
       }}
       onChange={(event) => {
-        setValue(event.target.value);
         onChange(event.target.value);
       }}
     />

@@ -367,6 +367,18 @@ documentRoutes.get('/:id', async (c) => {
   return c.json(document);
 });
 
+documentRoutes.get('/:id/tree', async (c) => {
+  const id = parsePublicId(c.req.param('id'));
+  if (!id) return c.json({ error: 'id 非法' }, 400);
+  const children = await wrapTime(
+    c,
+    'db',
+    repo.listDescendantDocuments(c.env.DB, c.get('user').id, id),
+  );
+  if (!children) return c.json({ error: '文档不存在' }, 404);
+  return c.json({ items: children.items });
+});
+
 documentRoutes.post('/', documentCreateRateLimit, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     title?: unknown;

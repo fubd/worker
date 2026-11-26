@@ -332,6 +332,43 @@ export async function listDocumentChildren(
   return { items: (result.results ?? []).map(toSummary) };
 }
 
+export async function listDescendantDocuments(
+  db: D1Database,
+  ownerId: number,
+  rootId: PublicId,
+): Promise<{ items: DocumentSummary[] } | null> {
+  const root = await db
+    .prepare(
+      `SELECT id FROM documents
+       WHERE owner_id = ? AND public_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(ownerId, rootId)
+    .first<{ id: number }>();
+  if (!root) return null;
+
+  const result = await db
+    .prepare(
+      `WITH RECURSIVE document_tree(id) AS (
+         SELECT id FROM documents
+         WHERE owner_id = ? AND parent_document_id = ? AND deleted_at IS NULL
+         UNION ALL
+         SELECT child.id
+         FROM documents child
+         JOIN document_tree parent ON child.parent_document_id = parent.id
+         WHERE child.owner_id = ? AND child.deleted_at IS NULL
+       )
+       SELECT ${LIST_COLUMNS}
+       FROM documents d
+       ${DOCUMENT_JOINS}
+       WHERE d.owner_id = ? AND d.deleted_at IS NULL
+         AND d.id IN (SELECT id FROM document_tree)
+       ORDER BY d.is_pinned DESC, d.is_favorite DESC, d.updated_at DESC, d.id DESC`,
+    )
+    .bind(ownerId, root.id, ownerId, ownerId)
+    .all<DocumentRow>();
+  return { items: (result.results ?? []).map(toSummary) };
+}
+
 export async function createDocument(
   db: D1Database,
   ownerId: number,

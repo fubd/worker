@@ -1,11 +1,17 @@
 import { isPublicId, type PublicId } from '@/shared/ids';
-import type { DocumentRecord, DocumentSummary, FolderSummary } from '@/shared/types';
+import type {
+  DocumentChildrenResponse,
+  DocumentRecord,
+  DocumentSummary,
+  FolderSummary,
+} from '@/shared/types';
 import { api, ApiError } from './api/client';
 import { parseDocumentView, type DocumentView, type FolderScope } from './workspace-utils';
 
 export interface DocsRouteData {
   activeId: PublicId | null;
   document: DocumentRecord | null;
+  documentChildren: Record<PublicId, DocumentSummary[]>;
   documents: DocumentSummary[];
   error: string | null;
   folders: FolderSummary[];
@@ -31,6 +37,7 @@ export function emptyDocsRouteData(request: Request): DocsRouteData {
   return {
     activeId: parseActiveId(url.pathname, view),
     document: null,
+    documentChildren: {},
     documents: [],
     error: null,
     folders: [],
@@ -40,74 +47,94 @@ export function emptyDocsRouteData(request: Request): DocsRouteData {
   };
 }
 
+function buildDocumentChildren(documents: DocumentSummary[]): Record<PublicId, DocumentSummary[]> {
+  const children = new Map<PublicId, DocumentSummary[]>();
+  for (const document of documents) {
+    if (!document.parentId) continue;
+    if (!children.has(document.parentId)) children.set(document.parentId, []);
+    children.get(document.parentId)!.push(document);
+  }
+  return Object.fromEntries(children);
+}
+
+function buildDocumentTree(items: DocumentSummary[]): Record<PublicId, DocumentSummary[]> {
+  const descendants = new Map<PublicId, DocumentSummary[]>();
+  const parentIds = new Set(items.map((item) => item.parentId).filter((id) => id !== null));
+  for (const parentId of parentIds) {
+    descendants.set(
+      parentId,
+      items.filter((item) => item.parentId === parentId),
+    );
+  }
+  return Object.fromEntries(descendants);
+}
+
 export async function loadDocsRouteData(request: Request): Promise<DocsRouteData> {
   const url = new URL(request.url);
-  const view = parseDocumentView(url.searchParams.get('view'));
+  const routeView = parseDocumentView(url.searchParams.get('view'));
   const folderScope = parseFolderScope(url.searchParams.get('folder'));
   const searchQuery = url.searchParams.get('q')?.trim() ?? '';
-  const activeId = parseActiveId(url.pathname, view);
+  const activeId = parseActiveId(url.pathname, routeView);
   const folderId =
     folderScope === 'all' ? undefined : folderScope === 'unfiled' ? null : folderScope;
 
   try {
-    const [folderResponse, listResponse, documentResult] = await Promise.all([
+    const [folderResponse, listResponse, document] = await Promise.all([
       api.listFolders(),
-      view === 'trash'
+      routeView === 'trash'
         ? api.listTrashDocuments()
-        : api.listDocuments({
-            folderId: view === 'documents' ? folderId : undefined,
-            query: searchQuery,
-            favoriteOnly: view === 'favorites',
-            recentOnly: view === 'recent',
-            sort: view === 'recent' ? 'activity' : 'edited',
-          }),
-      activeId
-        ? api
-            .getDocument(activeId)
-            .then((document) => ({ document, error: null as string | null }))
-            .catch((error: unknown) => {
-              if (error instanceof ApiError && error.status === 401) throw error;
-              return {
-                document: null,
-                error: error instanceof Error ? error.message : '文档加载失败',
-              };
-            })
-        : Promise.resolve({ document: null, error: null }),
+        : typeof window === 'undefined'
+          ? Promise.resolve({ items: [], nextCursor: null })
+          : api.listDocuments({
+              folderId: routeView === 'documents' ? folderId : undefined,
+              query: searchQuery,
+              favoriteOnly: routeView === 'favorites',
+              recentOnly: routeView === 'recent',
+              sort: routeView === 'recent' ? 'activity' : 'edited',
+            }),
+      activeId ? api.getDocument(activeId) : Promise.resolve(null),
     ]);
-
+    let documentChildren = buildDocumentChildren(listResponse.items);
+    if (routeView === 'documents' && document && document.childCount > 0) {
+      const tree: DocumentChildrenResponse = await api.listDocumentTree(document.id);
+      documentChildren = { ...documentChildren, ...buildDocumentTree(tree.items) };
+    }
     return {
       activeId,
-      document: documentResult.document,
+      document,
+      documentChildren,
       documents: listResponse.items,
-      error: documentResult.error,
+      error: null,
       folders: folderResponse.items,
       nextCursor: listResponse.nextCursor,
       unauthorized: false,
-      view,
+      view: routeView,
     };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       return {
         activeId,
         document: null,
+        documentChildren: {},
         documents: [],
         error: null,
         folders: [],
         nextCursor: null,
         unauthorized: true,
-        view,
+        view: routeView,
       };
     }
 
     return {
       activeId,
       document: null,
+      documentChildren: {},
       documents: [],
       error: error instanceof Error ? error.message : '工作区加载失败',
       folders: [],
       nextCursor: null,
       unauthorized: false,
-      view,
+      view: routeView,
     };
   }
 }

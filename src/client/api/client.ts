@@ -143,6 +143,12 @@ export const api = {
       signal: options.signal,
     }),
 
+  listDocumentTree: (id: PublicId, options: { signal?: AbortSignal } = {}) =>
+    request<DocumentChildrenResponse>(`/documents/${id}/tree`, {
+      cache: 'no-store',
+      signal: options.signal,
+    }),
+
   createDocument: (
     title = '无标题文档',
     folderId: PublicId | null = null,
