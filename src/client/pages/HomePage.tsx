@@ -3,17 +3,9 @@ import { ArrowRight } from 'lucide-react';
 
 import { BRAND } from '@/shared/brand';
 import { BrandMark } from '../components/BrandMark';
-import { HOME_SESSION_TEXT } from '../public-shell';
+import { HOME_VISITOR_TEXT } from '../public-shell';
 
 const enableSpeedInsights = import.meta.env.PROD;
-
-declare global {
-  interface Window {
-    swanPublicHomePrimary?: boolean;
-    swanPublicHomeNav?: boolean;
-    swanPublicHomeFooter?: boolean;
-  }
-}
 
 function HomePaperScene() {
   return (
@@ -51,10 +43,6 @@ function HomePaperScene() {
 }
 
 export default function HomePage() {
-  const primaryPath = HOME_SESSION_TEXT.path;
-
-  const primaryLabel = HOME_SESSION_TEXT.primary;
-
   return (
     <div className="swan-home">
       <header className="swan-public-header">
@@ -67,8 +55,12 @@ export default function HomePage() {
         </a>
         <nav className="swan-public-nav" aria-label="首页导航">
           <a href="#about-yuyan">为什么是雨燕</a>
-          <a className="swan-public-login" href={primaryPath} data-swan-public-home="nav">
-            {HOME_SESSION_TEXT.nav}
+          <a
+            className="swan-public-login"
+            href={HOME_VISITOR_TEXT.path}
+            data-swan-public-home="nav"
+          >
+            {HOME_VISITOR_TEXT.nav}
           </a>
         </nav>
       </header>
@@ -86,10 +78,10 @@ export default function HomePage() {
             <div className="swan-home-actions">
               <a
                 className="swan-public-button is-primary"
-                href={primaryPath}
+                href={HOME_VISITOR_TEXT.path}
                 data-swan-public-home="primary"
               >
-                {primaryLabel}
+                {HOME_VISITOR_TEXT.primary}
                 <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
               </a>
               <a className="swan-public-button is-secondary" href="#about-yuyan">
@@ -131,8 +123,8 @@ export default function HomePage() {
         <span>
           {BRAND.name} · {BRAND.tagline}
         </span>
-        <a href={primaryPath} data-swan-public-home="footer">
-          {HOME_SESSION_TEXT.footer}
+        <a href={HOME_VISITOR_TEXT.path} data-swan-public-home="footer">
+          {HOME_VISITOR_TEXT.footer}
         </a>
       </footer>
       {enableSpeedInsights && <SpeedInsights route="/" />}

@@ -182,6 +182,8 @@ docs/API.md                         API、分页、配额与恢复限制
 3. 组装 `dist/vercel/`，包含同源 API rewrite 和旧路径跳转。
 4. 校验本地静态引用和禁止使用外部静态源。
 
+公共首页的登录态和按钮跳转由 `/api/auth/me` 决定。
+
 GitHub Actions 在推送到 `main` 后执行格式、类型、单元测试、Playwright、构建和体积预算，然后按以下顺序发布：
 
 1. 应用远端 D1 迁移。

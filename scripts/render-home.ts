@@ -60,7 +60,6 @@ const shell = `<!doctype html>
   <body>
     <div id="root">${publicHtml}</div>
     <script data-yuyan-public-shell>window.__staticRouterHydrationData=${JSON.stringify({ loaderData: context.loaderData, actionData: context.actionData }).replaceAll('<', '\\u003c')}</script>
-    <script data-yuyan-public-shell>var c=document.cookie,s=c.indexOf("yuyan_has_session=1")>=0,p=s?"/docs":"/login",t=s?["进入文档","进入文档","打开文档"]:["开始写作","登录","登录雨燕"];window.swanPublicHomePrimary=!s;window.swanPublicHomeNav=!s;window.swanPublicHomeFooter=!s;for(var k of ["primary","nav","footer"]){var a=document.querySelector('[data-swan-public-home="'+k+'"]'),n=a&&a.firstChild;a&&(a.href=p);n&&n.nodeType===3&&(n.textContent=t[["primary","nav","footer"].indexOf(k)])}</script>
     <script type="module" src="${staticNames.find((asset) => /index\.[a-z0-9]+\.mjs$/.test(asset))}"></script>
   </body>
 </html>`;

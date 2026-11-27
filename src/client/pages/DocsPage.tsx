@@ -400,7 +400,7 @@ function DocsPageContent() {
   const navigateRef = useRef(navigate);
   const createdDocumentIdRef = useRef<PublicId | null>(null);
   const documentModesRef = useRef(loadDocumentModes());
-  const listIdentityRef = useRef<string | null>(null);
+  const autoOpenNavigationRef = useRef(false);
   const requestIdRef = useRef(0);
   const documentChildrenActivityRef = useRef(new Map<PublicId, number>());
   const routeIdentityRef = useRef<RouteIdentity>({ view, folderScope, searchQuery });
@@ -729,22 +729,15 @@ function DocsPageContent() {
       markUnauthenticated();
       return;
     }
-
     setFolders(loaderData.folders);
-    if (listIdentityRef.current !== listIdentity) {
-      const firstVisit = listIdentityRef.current === null;
-      listIdentityRef.current = listIdentity;
-      setDocumentChildren((current) => {
-        const merged = firstVisit
-          ? { ...loaderData.documentChildren, ...current }
-          : { ...current, ...loaderData.documentChildren };
-        documentChildrenRef.current = merged;
-        return merged;
-      });
-      setDocuments(loaderData.documents);
-      documentsRef.current = loaderData.documents;
-      setNextCursor(loaderData.nextCursor);
-    }
+    setDocumentChildren((current) => {
+      const merged = { ...current, ...loaderData.documentChildren };
+      documentChildrenRef.current = merged;
+      return merged;
+    });
+    setDocuments(loaderData.documents);
+    documentsRef.current = loaderData.documents;
+    setNextCursor(loaderData.nextCursor);
     setListLoading(false);
     setLoadError(loaderData.error);
     selectingDocumentRef.current = false;
@@ -752,9 +745,10 @@ function DocsPageContent() {
     if (loaderData.view === 'trash' || searchQuery || activeId) return;
     if (loaderData.view === 'favorites' || loaderData.view === 'recent') return;
     if (view === 'favorites' || view === 'recent') return;
-    if (listIdentityRef.current !== listIdentity) return;
+    if (autoOpenNavigationRef.current) return;
     const firstDocument = loaderData.documents[0];
     if (!firstDocument) return;
+    autoOpenNavigationRef.current = true;
     const next = new URLSearchParams(searchParams);
     next.delete('id');
     navigateRef.current(docsRoute(firstDocument.id, next), { replace: true });

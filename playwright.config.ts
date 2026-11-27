@@ -19,7 +19,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'bun run db:migrate:local && bun run db:reset:e2e && bun run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3000/api/health',
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',

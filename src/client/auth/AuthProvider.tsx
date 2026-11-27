@@ -1,15 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { api, ApiError } from '../api/client';
-import type { AuthUser } from '@/shared/types';
-
-const SESSION_HINT_COOKIE = 'yuyan_has_session';
-
-function hasSessionHint(): boolean {
-  if (document.cookie.includes(`${SESSION_HINT_COOKIE}=1`)) return true;
-  return !document.cookie.includes(`${SESSION_HINT_COOKIE}=`);
-}
+import { syncHomeSession } from '../public-shell';
+import type { AuthSessionResponse, AuthUser } from '@/shared/types';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 type LoginProvider = 'google' | 'github';
@@ -30,18 +32,22 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const session = useRef<Promise<AuthSessionResponse> | null>(null);
   const [status, setStatus] = useState<AuthStatus>(() =>
-    import.meta.env.SSR ? 'loading' : hasSessionHint() ? 'loading' : 'unauthenticated',
+    import.meta.env.SSR || typeof document === 'undefined' ? 'loading' : 'unauthenticated',
   );
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const refresh = useCallback(async () => {
     setStatus('loading');
+    const response = (session.current ??= api.getSession());
     try {
-      const session = await api.getSession();
-      setUser(session.user);
+      await syncHomeSession(() => response);
+      const result = await response;
+      setUser(result.user);
       setStatus('authenticated');
     } catch (error) {
+      session.current = null;
       setUser(null);
       setStatus('unauthenticated');
       if (!(error instanceof ApiError) || error.status !== 401) {

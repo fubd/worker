@@ -671,6 +671,8 @@ test('mobile public entry controls keep 44px touch targets', async ({ page }) =>
 test('permanently deletes a trashed document and its attachment metadata', async ({ page }) => {
   await isolateClient(page);
   await registerByApi(page);
+  await page.goto('/docs');
+  await expect(page.getByRole('link', { name: '回收站' })).toBeVisible();
   const created = await page.context().request.post('/api/documents', {
     data: { title: '永久删除验收', folderId: null },
   });
@@ -692,6 +694,8 @@ test('permanently deletes a trashed document and its attachment metadata', async
   expect(deleted.status()).toBe(200);
 
   await page.goto('/docs?view=trash');
+  await expect(page.getByRole('link', { name: '回收站' })).toBeVisible();
+  await page.getByRole('link', { name: '回收站' }).click();
   const row = page.locator('.swan-sidebar-doc.is-trash').filter({ hasText: '永久删除验收' });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: '永久删除 永久删除验收' }).click();
