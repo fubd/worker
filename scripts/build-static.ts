@@ -4,6 +4,7 @@
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 type StaticRender = {
@@ -21,6 +22,10 @@ type ServerEntry = {
 
 const DIST = 'dist';
 const SERVER_ENTRY = resolve(DIST, 'server/server.mjs');
+const HOME_SERVER_ENTRY = resolve(DIST, 'server/home.mjs');
+type HomeServer = ServerEntry & { homeShell: string };
+
+execFileSync(process.execPath, ['scripts/render-home.ts'], { stdio: 'inherit' });
 
 function injectRender(template: string, render: StaticRender): string {
   if (!template.includes('<div id="root"></div>')) {
@@ -43,9 +48,13 @@ if (!existsSync(`${DIST}/index.html`)) {
 if (!existsSync(SERVER_ENTRY)) {
   throw new Error('dist/server/server.mjs is missing; enable the Rsbuild node environment');
 }
+if (!existsSync(HOME_SERVER_ENTRY)) {
+  throw new Error('dist/server/home.mjs is missing; enable the Rsbuild node environment');
+}
 
 const template = readFileSync(`${DIST}/index.html`, 'utf8');
 const server = (await import(pathToFileURL(SERVER_ENTRY).href)) as ServerEntry;
+const homeServer = (await import(pathToFileURL(HOME_SERVER_ENTRY).href)) as HomeServer;
 const pages = [
   { path: '/', output: 'index.html' },
   { path: '/login', output: 'login.html' },
@@ -54,8 +63,14 @@ const pages = [
 ] as const;
 
 for (const page of pages) {
-  const render = await server.renderStaticRoute({ path: page.path });
   const output = `${DIST}/${page.output}`;
-  writeFileSync(output, injectRender(template, render));
+  if (page.path === '/') {
+    writeFileSync(output, homeServer.homeShell);
+  } else {
+    writeFileSync(
+      output,
+      injectRender(template, await server.renderStaticRoute({ path: page.path })),
+    );
+  }
   console.log(`[static] wrote dist/${page.output} (${statSync(output).size} bytes)`);
 }

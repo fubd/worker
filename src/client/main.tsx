@@ -8,6 +8,7 @@ import './styles/public.css';
 
 import { AppProviders } from './app-providers';
 import { createAppRouter } from './router';
+import './public-shell';
 
 const container = document.getElementById('root');
 

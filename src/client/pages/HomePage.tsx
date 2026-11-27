@@ -2,12 +2,10 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ArrowRight } from 'lucide-react';
 
 import { BRAND } from '@/shared/brand';
-import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 
 const enableSpeedInsights = import.meta.env.PROD;
-const hasSessionHint =
-  typeof document !== 'undefined' && document.cookie.split('; ').includes('yuyan_has_session=1');
+const signedIn = typeof document === 'undefined' || document.cookie.includes('yuyan_has_session=1');
 
 function HomePaperScene() {
   return (
@@ -45,9 +43,7 @@ function HomePaperScene() {
 }
 
 export default function HomePage() {
-  const { status } = useAuth();
-  const signedIn = status === 'authenticated' || (status === 'loading' && hasSessionHint);
-  const primaryPath = status === 'authenticated' ? '/docs' : '/login';
+  const primaryPath = signedIn ? '/docs' : '/login';
 
   const primaryLabel = signedIn ? '进入文档' : '开始写作';
 
@@ -63,12 +59,14 @@ export default function HomePage() {
         </a>
         <nav className="swan-public-nav" aria-label="首页导航">
           <a href="#about-yuyan">为什么是雨燕</a>
-          {signedIn || status !== 'loading' ? (
-            <a className="swan-public-login" href={primaryPath}>
-              {signedIn ? '进入文档' : '登录'}
+          {signedIn ? (
+            <a className="swan-public-login" href="/docs">
+              进入文档
             </a>
           ) : (
-            <span className="swan-public-login-placeholder" aria-hidden="true" />
+            <a className="swan-public-login" href="/login">
+              登录
+            </a>
           )}
         </nav>
       </header>
@@ -84,11 +82,7 @@ export default function HomePage() {
             </h1>
             <p>给还没写完的念头留一处安静的地方。打开就能写，离开也会保存，下一次回来继续往前。</p>
             <div className="swan-home-actions">
-              <a
-                className="swan-public-button is-primary"
-                href={primaryPath}
-                aria-busy={status === 'loading' && !signedIn}
-              >
+              <a className="swan-public-button is-primary" href={primaryPath}>
                 {primaryLabel}
                 <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
               </a>
@@ -131,11 +125,7 @@ export default function HomePage() {
         <span>
           {BRAND.name} · {BRAND.tagline}
         </span>
-        {signedIn || status !== 'loading' ? (
-          <a href={primaryPath}>{signedIn ? '打开文档' : '登录雨燕'}</a>
-        ) : (
-          <span className="swan-public-login-placeholder is-footer" aria-hidden="true" />
-        )}
+        <a href={primaryPath}>{signedIn ? '打开文档' : '登录雨燕'}</a>
       </footer>
       {enableSpeedInsights && <SpeedInsights route="/" />}
     </div>
