@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ArrowRight } from 'lucide-react';
 
@@ -44,14 +43,9 @@ function HomePaperScene() {
 }
 
 export default function HomePage() {
-  const { status } = useAuth();
-  const [signedIn, setSignedIn] = useState(status !== 'unauthenticated');
+  const { status, user } = useAuth();
+  const signedIn = user !== null;
   const primaryPath = status === 'authenticated' ? '/docs' : '/login';
-
-  useEffect(() => {
-    if (status === 'loading') return;
-    setSignedIn(status === 'authenticated');
-  }, [status]);
 
   const primaryLabel = signedIn ? '进入文档' : '开始写作';
 
