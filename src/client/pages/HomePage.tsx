@@ -3,9 +3,17 @@ import { ArrowRight } from 'lucide-react';
 
 import { BRAND } from '@/shared/brand';
 import { BrandMark } from '../components/BrandMark';
+import { HOME_SESSION_TEXT } from '../public-shell';
 
 const enableSpeedInsights = import.meta.env.PROD;
-const signedIn = typeof document === 'undefined' || document.cookie.includes('yuyan_has_session=1');
+
+declare global {
+  interface Window {
+    swanPublicHomePrimary?: boolean;
+    swanPublicHomeNav?: boolean;
+    swanPublicHomeFooter?: boolean;
+  }
+}
 
 function HomePaperScene() {
   return (
@@ -43,9 +51,9 @@ function HomePaperScene() {
 }
 
 export default function HomePage() {
-  const primaryPath = signedIn ? '/docs' : '/login';
+  const primaryPath = HOME_SESSION_TEXT.path;
 
-  const primaryLabel = signedIn ? '进入文档' : '开始写作';
+  const primaryLabel = HOME_SESSION_TEXT.primary;
 
   return (
     <div className="swan-home">
@@ -59,15 +67,9 @@ export default function HomePage() {
         </a>
         <nav className="swan-public-nav" aria-label="首页导航">
           <a href="#about-yuyan">为什么是雨燕</a>
-          {signedIn ? (
-            <a className="swan-public-login" href="/docs">
-              进入文档
-            </a>
-          ) : (
-            <a className="swan-public-login" href="/login">
-              登录
-            </a>
-          )}
+          <a className="swan-public-login" href={primaryPath} data-swan-public-home="nav">
+            {HOME_SESSION_TEXT.nav}
+          </a>
         </nav>
       </header>
 
@@ -82,7 +84,11 @@ export default function HomePage() {
             </h1>
             <p>给还没写完的念头留一处安静的地方。打开就能写，离开也会保存，下一次回来继续往前。</p>
             <div className="swan-home-actions">
-              <a className="swan-public-button is-primary" href={primaryPath}>
+              <a
+                className="swan-public-button is-primary"
+                href={primaryPath}
+                data-swan-public-home="primary"
+              >
                 {primaryLabel}
                 <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
               </a>
@@ -125,7 +131,9 @@ export default function HomePage() {
         <span>
           {BRAND.name} · {BRAND.tagline}
         </span>
-        <a href={primaryPath}>{signedIn ? '打开文档' : '登录雨燕'}</a>
+        <a href={primaryPath} data-swan-public-home="footer">
+          {HOME_SESSION_TEXT.footer}
+        </a>
       </footer>
       {enableSpeedInsights && <SpeedInsights route="/" />}
     </div>

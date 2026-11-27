@@ -26,7 +26,10 @@ const app = (
   </StrictMode>
 );
 
-if (rootElement.childElementCount > 0) {
+if (
+  rootElement.childElementCount > 0 &&
+  !document.documentElement.hasAttribute('data-swan-public-shell')
+) {
   // Reuse the build-time DOM and the server-generated Ant Design styles.
   hydrateRoot(rootElement, app);
 } else {
