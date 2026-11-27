@@ -62,6 +62,16 @@ function prepareVisitorNavigation(): void {
   }
 }
 
+function hasSessionUser(session: unknown): boolean {
+  return (
+    typeof session === 'object' &&
+    session !== null &&
+    'user' in session &&
+    typeof session.user === 'object' &&
+    session.user !== null
+  );
+}
+
 async function detectHomeSession(
   requestSession: () => Promise<unknown>,
 ): Promise<'authenticated' | 'unauthenticated'> {
@@ -74,7 +84,7 @@ async function detectHomeSession(
 
   prepareVisitorNavigation();
   try {
-    await requestSession();
+    if (!hasSessionUser(await requestSession())) return 'unauthenticated';
   } catch {
     return 'unauthenticated';
   }

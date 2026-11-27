@@ -3,6 +3,7 @@
  * at /login, and the private workspace at /docs.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 import { BRAND } from '../src/shared/brand';
 
@@ -46,9 +47,15 @@ for (const file of [
 cpSync(`${DIST}/brand`, `${OUT}/brand`, { recursive: true });
 cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 
-if (!readFileSync(`${OUT}/index.html`, 'utf8').includes('swan-home-hero')) {
+const homeHtml = readFileSync(`${OUT}/index.html`, 'utf8');
+if (!homeHtml.includes('swan-home-hero')) {
   throw new Error('/ is missing its public homepage');
 }
+const commit = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim();
+writeFileSync(
+  `${OUT}/index.html`,
+  homeHtml.replace('</head>', `  <meta name="yuyan-build" content="${commit}">\n  </head>`),
+);
 if (!readFileSync(`${OUT}/login.html`, 'utf8').includes('swan-login-card')) {
   throw new Error('/login is missing its login form');
 }

@@ -24,7 +24,11 @@ if (!existsSync(`${OUT}/static`)) {
 }
 
 const homeHtml = readFileSync(`${OUT}/index.html`, 'utf8');
-if (!homeHtml.includes('swan-home-hero') || !homeHtml.includes('让文字')) {
+if (
+  !homeHtml.includes('swan-home-hero') ||
+  !homeHtml.includes('让文字') ||
+  !homeHtml.includes('name="yuyan-build"')
+) {
   throw new Error('/ is missing its public homepage');
 }
 
