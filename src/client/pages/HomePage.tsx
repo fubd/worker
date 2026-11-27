@@ -6,6 +6,8 @@ import { useAuth } from '../auth/AuthProvider';
 import { BrandMark } from '../components/BrandMark';
 
 const enableSpeedInsights = import.meta.env.PROD;
+const hasSessionHint =
+  typeof document !== 'undefined' && document.cookie.split('; ').includes('yuyan_has_session=1');
 
 function HomePaperScene() {
   return (
@@ -43,8 +45,8 @@ function HomePaperScene() {
 }
 
 export default function HomePage() {
-  const { status, user } = useAuth();
-  const signedIn = user !== null;
+  const { status } = useAuth();
+  const signedIn = status === 'authenticated' || (status === 'loading' && hasSessionHint);
   const primaryPath = status === 'authenticated' ? '/docs' : '/login';
 
   const primaryLabel = signedIn ? '进入文档' : '开始写作';

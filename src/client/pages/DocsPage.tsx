@@ -2606,6 +2606,7 @@ function DocsPageContent() {
                   key={activeDocument.id}
                   value={editorTitle}
                   mode={documentMode}
+                  autoFocus={createdDocumentIdRef.current === activeDocument.id}
                   onChange={handleTitleChange}
                 />
                 <div className="swan-editor-submeta">

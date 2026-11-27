@@ -107,10 +107,12 @@ export function SaveStatus({ state, updatedAt }: { state: SaveState; updatedAt: 
 export function DocumentTitleInput({
   value: currentValue,
   mode,
+  autoFocus,
   onChange,
 }: {
   value: string;
   mode: DocumentMode;
+  autoFocus?: boolean;
   onChange: (value: string) => void;
 }) {
   if (mode === 'read') {
@@ -125,6 +127,7 @@ export function DocumentTitleInput({
       value={currentValue}
       maxLength={DOCUMENT_TITLE_MAX_LENGTH}
       placeholder="无标题文档"
+      autoFocus={autoFocus}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.preventDefault();
       }}
