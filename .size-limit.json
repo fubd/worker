@@ -41,10 +41,7 @@
   },
   {
     "name": "share route",
-    "path": [
-      "dist/static/js/async/share-page.*.mjs",
-      "dist/static/js/async/share-dompurify.*.mjs"
-    ],
+    "path": ["dist/static/js/async/share-page.*.mjs", "dist/static/js/async/share-dompurify.*.mjs"],
     "limit": "20 kB"
   },
   {

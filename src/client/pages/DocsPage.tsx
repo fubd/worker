@@ -726,7 +726,6 @@ function DocsPageContent() {
   useEffect(() => {
     if (!loaderData) return;
     if (loaderData.unauthorized) {
-      markUnauthenticated();
       return;
     }
     setFolders(loaderData.folders);

@@ -38,11 +38,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(apiPath(path), {
-    ...init,
-    credentials: 'same-origin',
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(apiPath(path), {
+      ...init,
+      credentials: 'same-origin',
+      headers,
+    });
+  } catch (error) {
+    throw new ApiError(
+      error instanceof Error ? `网络请求失败：${error.message}` : '网络请求失败',
+      0,
+    );
+  }
 
   const text = await response.text();
 

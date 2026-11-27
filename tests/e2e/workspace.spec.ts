@@ -87,6 +87,43 @@ test('registers through the UI, edits, saves, and reloads a document', async ({ 
   await expect(page.getByText('未归档')).toHaveCount(0);
 });
 
+test('home and direct document links keep the active login', async ({ page }) => {
+  await isolateClient(page);
+  await clearSession(page);
+  await page.goto('/login');
+  await page.getByRole('button', { name: '创建账号', exact: true }).click();
+  const username = uniqueUsername('session');
+  await page.getByLabel('账号名').fill(username);
+  await page.getByLabel('密码', { exact: true }).fill('Playwright-pass-2026');
+  await page.getByLabel('确认密码').fill('Playwright-pass-2026');
+  await page.getByRole('button', { name: '创建并进入' }).click();
+  await expect(page).toHaveURL(/\/docs(?:\?|$)/);
+  await createDocumentFromSidebar(page);
+  const documentUrl = new URL(page.url()).pathname;
+
+  await page.goto('/');
+  await expect(page.locator('.swan-public-login')).toHaveText('进入文档');
+  await page.locator('.swan-home-actions').getByRole('link', { name: '进入文档' }).click();
+  await expect(page).toHaveURL(/\/docs(?:\?|$)/);
+  await expect(page.getByRole('button', { name: '新建或导入' })).toBeVisible();
+
+  await page.goto(documentUrl);
+  await expect(page.getByRole('heading', { name: '无标题文档' })).toBeVisible();
+});
+
+test('unauthenticated home resolves to its final login action', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto('/');
+  const primary = page.locator('.swan-home-actions').getByRole('link', { name: '开始写作' });
+  const nav = page.locator('.swan-public-login');
+  await expect(primary).toHaveAttribute('href', '/login');
+  await expect(primary).toHaveText('开始写作');
+  await expect(nav).toHaveAttribute('href', '/login');
+  await expect(nav).toHaveText('登录');
+  await context.close();
+});
+
 test('creating a group preserves the current workspace tree', async ({ page }) => {
   await isolateClient(page);
   await registerByApi(page);
