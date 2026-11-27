@@ -72,6 +72,17 @@
   font-weight: 650;
 }
 
+.swan-public-login-placeholder {
+  width: 76px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(23, 52, 92, 0.07);
+}
+
+.swan-public-login-placeholder.is-footer {
+  width: 64px;
+}
+
 .swan-public-eyebrow {
   display: inline-flex;
   align-items: center;

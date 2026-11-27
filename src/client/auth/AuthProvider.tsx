@@ -4,6 +4,13 @@ import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
 import type { AuthUser } from '@/shared/types';
 
+const SESSION_HINT_COOKIE = 'yuyan_has_session';
+
+function hasSessionHint(): boolean {
+  if (document.cookie.includes(`${SESSION_HINT_COOKIE}=1`)) return true;
+  return !document.cookie.includes(`${SESSION_HINT_COOKIE}=`);
+}
+
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 type LoginProvider = 'google' | 'github';
 
@@ -23,7 +30,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [status, setStatus] = useState<AuthStatus>(() =>
+    import.meta.env.SSR ? 'loading' : hasSessionHint() ? 'loading' : 'unauthenticated',
+  );
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const refresh = useCallback(async () => {

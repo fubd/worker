@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ArrowRight } from 'lucide-react';
 
@@ -44,8 +45,15 @@ function HomePaperScene() {
 
 export default function HomePage() {
   const { status } = useAuth();
+  const [signedIn, setSignedIn] = useState(status !== 'unauthenticated');
   const primaryPath = status === 'authenticated' ? '/docs' : '/login';
-  const primaryLabel = status === 'authenticated' ? '进入文档' : '开始写作';
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    setSignedIn(status === 'authenticated');
+  }, [status]);
+
+  const primaryLabel = signedIn ? '进入文档' : '开始写作';
 
   return (
     <div className="swan-home">
@@ -59,9 +67,13 @@ export default function HomePage() {
         </a>
         <nav className="swan-public-nav" aria-label="首页导航">
           <a href="#about-yuyan">为什么是雨燕</a>
-          <a className="swan-public-login" href={primaryPath}>
-            {status === 'authenticated' ? '进入文档' : '登录'}
-          </a>
+          {signedIn || status !== 'loading' ? (
+            <a className="swan-public-login" href={primaryPath}>
+              {signedIn ? '进入文档' : '登录'}
+            </a>
+          ) : (
+            <span className="swan-public-login-placeholder" aria-hidden="true" />
+          )}
         </nav>
       </header>
 
@@ -76,7 +88,11 @@ export default function HomePage() {
             </h1>
             <p>给还没写完的念头留一处安静的地方。打开就能写，离开也会保存，下一次回来继续往前。</p>
             <div className="swan-home-actions">
-              <a className="swan-public-button is-primary" href={primaryPath}>
+              <a
+                className="swan-public-button is-primary"
+                href={primaryPath}
+                aria-busy={status === 'loading' && !signedIn}
+              >
                 {primaryLabel}
                 <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
               </a>
@@ -119,7 +135,11 @@ export default function HomePage() {
         <span>
           {BRAND.name} · {BRAND.tagline}
         </span>
-        <a href={primaryPath}>{status === 'authenticated' ? '打开文档' : '登录雨燕'}</a>
+        {signedIn || status !== 'loading' ? (
+          <a href={primaryPath}>{signedIn ? '打开文档' : '登录雨燕'}</a>
+        ) : (
+          <span className="swan-public-login-placeholder is-footer" aria-hidden="true" />
+        )}
       </footer>
       {enableSpeedInsights && <SpeedInsights route="/" />}
     </div>

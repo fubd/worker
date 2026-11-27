@@ -5,6 +5,7 @@ import { deleteOtherSessions, deleteSession, getUserBySession } from '../db/auth
 import type { AppEnv } from '../types';
 
 export const SESSION_COOKIE = 'yuyan_session';
+export const SESSION_HINT_COOKIE = 'yuyan_has_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -43,20 +44,24 @@ export async function readSessionUser(c: Context<AppEnv>) {
 }
 
 export function setSessionCookie(c: Context<AppEnv>, token: string): void {
-  setCookie(c, SESSION_COOKIE, token, {
+  const options = {
     httpOnly: true,
     secure: new URL(c.req.url).protocol === 'https:',
     sameSite: 'Lax',
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
-  });
+  } as const;
+  setCookie(c, SESSION_COOKIE, token, options);
+  setCookie(c, SESSION_HINT_COOKIE, '1', { ...options, httpOnly: false });
 }
 
 export function clearSessionCookie(c: Context<AppEnv>): void {
-  deleteCookie(c, SESSION_COOKIE, {
+  const options = {
     path: '/',
     secure: new URL(c.req.url).protocol === 'https:',
-  });
+  } as const;
+  deleteCookie(c, SESSION_COOKIE, options);
+  deleteCookie(c, SESSION_HINT_COOKIE, { ...options, httpOnly: false });
 }
 
 export async function invalidateCurrentSession(c: Context<AppEnv>): Promise<void> {
