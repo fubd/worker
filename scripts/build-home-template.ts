@@ -12,3 +12,7 @@ writeFileSync(
   'dist/server/home-html.txt',
   `${template.visitorShell}\n<!----yuyan-member-home---->\n${template.memberShell}`,
 );
+writeFileSync(
+  'dist/server/home-html-fresh.txt',
+  `${template.visitorShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}\n<!----yuyan-member-home---->\n${template.memberShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}`,
+);

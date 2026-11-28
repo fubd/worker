@@ -32,7 +32,9 @@ for (const file of required) {
   }
 }
 
-rmSync(OUT, { recursive: true, force: true });
+// Rsbuild owns dist/static and outputs here by default. Copy into the bundle
+// so a freshly built Worker can keep serving it while the pages are assembled.
+rmSync(`${OUT}/_home`, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
 for (const file of [

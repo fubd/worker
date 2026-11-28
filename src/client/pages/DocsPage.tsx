@@ -340,6 +340,7 @@ function DocsPageContent() {
   const authUnavailable = status === 'unauthenticated';
 
   const [documents, setDocuments] = useState<DocumentSummary[]>(loaderData?.documents ?? []);
+  const hydratedLoaderDataRef = useRef(loaderData);
   const [nextCursor, setNextCursor] = useState<string | null>(loaderData?.nextCursor ?? null);
   const [folders, setFolders] = useState<FolderSummary[]>(loaderData?.folders ?? []);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
@@ -394,6 +395,7 @@ function DocsPageContent() {
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const saveDocumentRef = useRef<() => Promise<boolean>>(async () => false);
+  const saveDocumentIdRef = useRef<PublicId | null>(null);
   const scheduleSaveRef = useRef<() => void>(() => {});
   const markDirtyRef = useRef<() => void>(() => {});
   const saveQueuedRef = useRef(false);
@@ -414,6 +416,23 @@ function DocsPageContent() {
   loaderDataRef.current = loaderData;
   routeIdentityRef.current = { view, folderScope, searchQuery };
   const listIdentity = `${view}:${folderScope}:${searchQuery}`;
+  const patchDocumentSummaries = (updated: DocumentRecord) => {
+    const summary = toSummary(updated);
+    const mergeSummary = (item: DocumentSummary) => ({ ...item, ...summary });
+    const nextDocuments = documentsRef.current.map((item) =>
+      item.id === updated.id ? mergeSummary(item) : item,
+    );
+    documentsRef.current = nextDocuments;
+    setDocuments(nextDocuments);
+    const nextChildren = Object.fromEntries(
+      Object.entries(documentChildrenRef.current).map(([parentId, items]) => [
+        parentId,
+        items.map((item) => (item.id === updated.id ? mergeSummary(item) : item)),
+      ]),
+    );
+    documentChildrenRef.current = nextChildren;
+    setDocumentChildren(nextChildren);
+  };
 
   useEffect(() => {
     try {
@@ -485,28 +504,12 @@ function DocsPageContent() {
     if (!hasUnsavedChanges && requestId === undefined && hydratedDocumentRef.current) {
       hydratedDocumentRef.current = { id: document.id, data: document };
     }
-    const known = documentsRef.current.some((item) => item.id === document.id);
-    documentsRef.current = known
-      ? documentsRef.current
-      : [toSummary(document), ...documentsRef.current];
     titleRef.current = document.title;
     setEditorTitle(document.title);
     const openInEdit = documentModesRef.current.get(document.id) === 'edit';
     documentModesRef.current.set(document.id, openInEdit ? 'edit' : 'read');
     setDocumentMode(openInEdit ? 'edit' : 'read');
-    setDocuments((items) => {
-      const updated = items.map((item) =>
-        item.id === document.id
-          ? {
-              ...item,
-              title: document.title,
-              excerpt: document.contentText.trim().slice(0, 140),
-            }
-          : item,
-      );
-      if (updated.some((item) => item.id === document.id)) return updated;
-      return [toSummary(document), ...updated];
-    });
+    patchDocumentSummaries(document);
     if (!hasUnsavedChanges) saveQueuedRef.current = false;
     setEditorLoading(false);
     if (!hasUnsavedChanges) {
@@ -741,6 +744,10 @@ function DocsPageContent() {
     setLoadError(loaderData.error);
     selectingDocumentRef.current = false;
 
+    if (hydratedLoaderDataRef.current !== loaderData) {
+      hydratedLoaderDataRef.current = loaderData;
+      return;
+    }
     if (loaderData.view === 'trash' || searchQuery || activeId) return;
     if (loaderData.view === 'favorites' || loaderData.view === 'recent') return;
     if (view === 'favorites' || view === 'recent') return;
@@ -923,12 +930,17 @@ function DocsPageContent() {
   }, [activeId, loadActiveDocument, markUnauthenticated, view]);
 
   saveDocumentRef.current = async (): Promise<boolean> => {
-    const pending = savePromiseRef.current;
-    if (pending) return pending;
-
     const document = activeDocumentRef.current;
     const currentEditor = editorRef.current;
-    if (!document || !currentEditor) return false;
+    const pending = savePromiseRef.current;
+    if (pending) {
+      if (saveDocumentIdRef.current === document?.id) return pending;
+      if (!(await pending)) return false;
+      return saveDocumentRef.current();
+    }
+    if (!document) return false;
+    if (!currentEditor) return false;
+    saveDocumentIdRef.current = document.id;
 
     const revision = revisionRef.current;
     const nextTitle = titleRef.current.trim() || '无标题文档';
@@ -943,23 +955,32 @@ function DocsPageContent() {
 
     const task = (async () => {
       try {
+        const savedContent = currentEditor.getJSON() as Record<string, unknown>;
+        const savedContentHtml = currentEditor.getHTML();
+        const savedContentText = currentEditor.getText();
+        const savedTitle = titleRef.current.trim() || '无标题文档';
         const updated = await api.updateDocument(document.id, {
           version: document.version,
-          title: nextTitle,
-          content: currentEditor.getJSON() as Record<string, unknown>,
-          contentHtml: currentEditor.getHTML(),
-          contentText: currentEditor.getText(),
+          title: savedTitle,
+          content: savedContent,
+          contentHtml: savedContentHtml,
+          contentText: savedContentText,
         });
 
-        setDocuments((items) => {
-          const next = items.map((item) => (item.id === updated.id ? toSummary(updated) : item));
-          documentsRef.current = next;
-          return next;
-        });
+        patchDocumentSummaries(updated);
 
         if (activeIdRef.current === document.id) {
-          activeDocumentRef.current = updated;
-          setActiveDocument(updated);
+          const currentTitle = titleRef.current.trim() || '无标题文档';
+          const current = {
+            ...updated,
+            title: currentTitle,
+            content: savedContent,
+            contentHtml: savedContentHtml,
+            contentText: savedContentText,
+          };
+          activeDocumentRef.current = current;
+          setActiveDocument(current);
+          hydratedDocumentRef.current = { id: current.id, data: current };
           if (revisionRef.current > revision) {
             hydratedDocumentRef.current = { id: updated.id, data: updated };
           }
@@ -989,7 +1010,10 @@ function DocsPageContent() {
     try {
       return await task;
     } finally {
-      if (savePromiseRef.current === task) savePromiseRef.current = null;
+      if (savePromiseRef.current === task) {
+        savePromiseRef.current = null;
+        saveDocumentIdRef.current = null;
+      }
     }
   };
 
@@ -1070,10 +1094,12 @@ function DocsPageContent() {
             childCount: 0,
           });
         }
-        return [
+        const next = [
           ...additions,
           ...items.filter((item) => !additions.some(({ id }) => id === item.id)),
         ];
+        documentsRef.current = next;
+        return next;
       });
       activeIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
@@ -1082,24 +1108,28 @@ function DocsPageContent() {
       next.delete('id');
       navigate(docsRoute(document.id, next));
       setDocumentMode('edit');
-      setDocumentChildren((items) => {
-        const key = parent?.id ?? folderId;
-        if (!key) return items;
-        const siblings = items[key] ?? [];
-        const summary = toSummary(document);
-        return {
-          ...items,
-          [key]: [
-            summary,
-            ...siblings
-              .filter((item) => item.id !== summary.id)
-              .map((item) => {
-                const count = item.parentId === parent?.id ? item.childCount + 1 : item.childCount;
-                return { ...item, childCount: count };
-              }),
-          ],
-        };
-      });
+      if (parent || folderId)
+        setDocumentChildren((currentItems) => {
+          const key = parent?.id ?? folderId;
+          if (!key) return currentItems;
+          const items = currentItems;
+          const siblings = items[key] ?? [];
+          const summary = toSummary(document);
+          const updated = {
+            ...items,
+            [key]: [
+              summary,
+              ...siblings
+                .filter((item) => item.id !== summary.id)
+                .map((item) => ({
+                  ...item,
+                  childCount: item.parentId === parent?.id ? item.childCount + 1 : item.childCount,
+                })),
+            ],
+          };
+          documentChildrenRef.current = updated;
+          return updated;
+        });
       if (parent) {
         setDocumentChildren((items) => {
           const updated = {
@@ -1501,14 +1531,13 @@ function DocsPageContent() {
       activeDocumentRef.current = restored;
       setActiveDocument(restored);
       titleRef.current = restored.title;
+      createdDocumentIdRef.current = null;
       setEditorTitle(restored.title);
       revisionRef.current = 0;
       savedRevisionRef.current = 0;
       setSaveState('idle');
       editor?.commands.setContent(restored.content as JSONContent, { emitUpdate: false });
-      setDocuments((items) =>
-        items.map((item) => (item.id === restored.id ? toSummary(restored) : item)),
-      );
+      patchDocumentSummaries(restored);
     }
   };
 
@@ -1528,9 +1557,7 @@ function DocsPageContent() {
       activeDocumentRef.current = updated;
       setActiveDocument(updated);
     }
-    setDocuments((items) =>
-      items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
-    );
+    patchDocumentSummaries(updated);
   };
 
   const createShareLink = async () => {
@@ -2092,9 +2119,7 @@ function DocsPageContent() {
         activeDocumentRef.current = updated;
         setActiveDocument(updated);
       }
-      setDocuments((items) =>
-        items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
-      );
+      patchDocumentSummaries(updated);
       refreshWorkspace();
       setListRevision((value) => value + 1);
       if (updated.parentId) {
@@ -2119,11 +2144,15 @@ function DocsPageContent() {
         activeDocumentRef.current = updated;
         setActiveDocument(updated);
       }
-      setDocuments((items) => {
-        const next = items.filter((item) => item.id !== updated.id);
-        if (updated.favorite || view !== 'favorites') next.push(toSummary(updated));
-        return sortDocumentSummaries(next, view === 'recent' ? 'activity' : 'edited');
-      });
+      if (view === 'favorites' && !updated.favorite) {
+        setDocuments((items) => {
+          const next = items.filter((item) => item.id !== updated.id);
+          documentsRef.current = next;
+          return next;
+        });
+      } else {
+        patchDocumentSummaries(updated);
+      }
       message.success('已更新');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -2141,12 +2170,7 @@ function DocsPageContent() {
         activeDocumentRef.current = updated;
         setActiveDocument(updated);
       }
-      setDocuments((items) =>
-        sortDocumentSummaries(
-          items.map((item) => (item.id === updated.id ? toSummary(updated) : item)),
-          view === 'recent' ? 'activity' : 'edited',
-        ),
-      );
+      patchDocumentSummaries(updated);
       message.success(updated.pinned ? '文档已置顶' : '已取消置顶');
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -2160,13 +2184,20 @@ function DocsPageContent() {
   const handleTitleChange = (value: string) => {
     titleRef.current = value;
     setEditorTitle(value);
-    setDocuments((items) =>
-      items.map((document) =>
-        document.id === activeIdRef.current
-          ? { ...document, title: value.trim() || '无标题文档' }
-          : document,
-      ),
+    const title = value.trim() || '无标题文档';
+    const nextDocuments = documentsRef.current.map((document) =>
+      document.id === activeIdRef.current ? { ...document, title } : document,
     );
+    documentsRef.current = nextDocuments;
+    setDocuments(nextDocuments);
+    const nextChildren = Object.fromEntries(
+      Object.entries(documentChildrenRef.current).map(([parentId, items]) => [
+        parentId,
+        items.map((item) => (item.id === activeIdRef.current ? { ...item, title } : item)),
+      ]),
+    );
+    documentChildrenRef.current = nextChildren;
+    setDocumentChildren(nextChildren);
     const current = activeDocumentRef.current;
     if (current) {
       const next = { ...current, title: value.trim() || '无标题文档' };

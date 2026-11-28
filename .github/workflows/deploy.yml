@@ -47,11 +47,13 @@ jobs:
       - name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
 
-      - name: E2E tests
-        run: bun run test:e2e
-
+      # E2E and deployment consume the same Worker home template and Vercel
+      # bundle. Build both before Playwright starts Wrangler.
       - name: Build
         run: bun run build
+
+      - name: E2E tests
+        run: bun run test:e2e
 
       - name: Bundle budgets
         run: bun run perf:budget

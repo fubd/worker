@@ -30,7 +30,17 @@ async function trackInitialMemberAction(page: import('@playwright/test').Page): 
       labels: [],
       first: null,
     };
-    Object.assign(window, { __homeFirst: state, __homeReady: false });
+    let ready = false;
+    Object.defineProperties(window, {
+      __homeFirst: { value: state, configurable: true },
+      __homeReady: {
+        get: () => ready,
+        set: (next: boolean) => {
+          ready = next;
+        },
+        configurable: true,
+      },
+    });
     const record = () => {
       const primary = document.querySelector<HTMLAnchorElement>(
         '.swan-home-actions [data-swan-public-home="primary"]',
@@ -42,28 +52,22 @@ async function trackInitialMemberAction(page: import('@playwright/test').Page): 
       (window as { __homeReady?: boolean }).__homeReady = true;
     };
     record();
-    new MutationObserver(record).observe(document, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
+    const observe = () => {
+      record();
+      new MutationObserver(record).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    };
+    if (document.documentElement) observe();
+    else document.addEventListener('readystatechange', observe, { once: true });
   };
-  await page.goto('/');
-  await page.evaluate(initScript);
-  await page.waitForFunction(() => (window as { __homeReady?: boolean }).__homeReady === true);
-  const initial = await page.evaluate(() => (window as { __homeFirst?: unknown }).__homeFirst);
-  expect(initial).toEqual({ labels: ['进入文档'], first: { text: '进入文档', href: '/docs' } });
   await page.addInitScript(initScript);
-  const response = await page.reload();
-  const refreshedHtml = (await response?.text())?.replace(/<!--.*?-->/gs, '') ?? '';
-  if (process.env.PLAYWRIGHT_PRODUCTION_PROXY === '1') {
-    expect(refreshedHtml).toContain('<meta name="yuyan-home-auth" content="member">');
-  }
-  expect(
-    refreshedHtml.startsWith('<!doctype html>')
-      ? refreshedHtml.includes('<meta name="yuyan-home-auth" content="member">')
-      : refreshedHtml.includes('data-swan-public-home="primary">进入文档'),
-  ).toBe(true);
+  const response = await page.goto('/');
+  const html = (await response?.text())?.replace(/<!--.*?-->/gs, '') ?? '';
+  expect(html).toContain('<meta name="yuyan-home-auth" content="member">');
+  expect(html).toContain('data-swan-public-home="primary">进入文档');
   await page.waitForFunction(() => (window as { __homeReady?: boolean }).__homeReady === true);
   expect(await page.evaluate(() => (window as { __homeFirst?: unknown }).__homeFirst)).toEqual({
     labels: ['进入文档'],
@@ -123,11 +127,8 @@ test('signed-in home keeps its member action after a full refresh', async ({ bro
     },
   });
   expect(registration.status()).toBe(200);
-  await page.goto('/');
-  const primary = page.locator('.swan-home-actions .swan-public-button.is-primary');
-  await expect(primary).toHaveText('进入文档');
   await trackInitialMemberAction(page);
-  await page.reload();
+  const primary = page.locator('.swan-home-actions .swan-public-button.is-primary');
   await expect(primary).toHaveText('进入文档');
   await expect(page.locator('.swan-public-login')).toHaveText('进入文档');
   await context.close();

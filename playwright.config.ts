@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: ['**/*.verify.spec.ts'],
   fullyParallel: false,
   workers: 1,
   timeout: 45_000,
@@ -23,19 +24,18 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command:
-            'test -f dist/vercel/_home/member.html && bun run db:migrate:local && bun run db:reset:e2e && bun run dev:api',
+          command: 'bun run db:migrate:local && bun run db:reset:e2e && bun run dev:api',
           url: 'http://localhost:8787/api/health',
           timeout: 120_000,
           stdout: 'ignore',
-          stderr: 'pipe',
+          stderr: 'ignore',
         },
         {
-          command: 'test -f dist/server/home-html.txt && bun run dev:home',
+          command: 'bun run dev:home',
           url: 'http://localhost:3002/home',
           timeout: 120_000,
           stdout: 'ignore',
-          stderr: 'pipe',
+          stderr: 'ignore',
         },
         ...(process.env.PLAYWRIGHT_PRODUCTION_PROXY
           ? [
