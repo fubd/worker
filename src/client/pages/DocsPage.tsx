@@ -741,7 +741,12 @@ function DocsPageContent() {
     }
     setFolders(loaderData.folders);
     setDocumentChildren((current) => {
-      const merged = { ...current, ...loaderData.documentChildren };
+      const merged = { ...current };
+      for (const [parentId, items] of Object.entries(loaderData.documentChildren)) {
+        if (isPublicId(parentId) && (items.length > 0 || merged[parentId] === undefined)) {
+          merged[parentId as PublicId] = items;
+        }
+      }
       documentChildrenRef.current = merged;
       return merged;
     });
@@ -846,15 +851,10 @@ function DocsPageContent() {
       });
       return;
     }
-    setExpandedDocumentIds((current) => new Set(current).add(documentId));
     try {
       await loadDocumentChildren(documentId);
+      setExpandedDocumentIds((current) => new Set(current).add(documentId));
     } catch (error) {
-      setExpandedDocumentIds((current) => {
-        const next = new Set(current);
-        next.delete(documentId);
-        return next;
-      });
       if (isUnauthorized(error)) {
         markUnauthenticated();
         return;
