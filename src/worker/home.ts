@@ -2,34 +2,16 @@ import type { Context } from 'hono';
 
 import homeHtml from 'virtual:yuyan-home-html';
 import freshHomeHtml from 'virtual:yuyan-home-fresh-html';
+import { shellFor, shellParts } from './home-session';
 import { hashSessionToken, readSessionToken } from './auth/session';
 import { getUserBySession } from './db/auth';
 import type { AppEnv } from './types';
 
-const MEMBER_MARKER = '<!----yuyan-member-home---->';
 const MEMBER_META = '<meta name="yuyan-home-auth" content="member">';
-function shellParts(html: string): [string, string] {
-  const memberStart = html.indexOf(MEMBER_MARKER);
-  if (memberStart < 0) throw new Error('Worker home template is missing its member shell');
-  return [html.slice(0, memberStart), html.slice(memberStart + MEMBER_MARKER.length)];
-}
 const [visitorShell, memberShell] = shellParts(homeHtml);
 const [freshVisitorShell, freshMemberShell] = shellParts(freshHomeHtml);
 
-function shellFor(html: string, member: boolean): string {
-  if (member) {
-    return (html === freshVisitorShell ? freshMemberShell : html).replace(
-      ' name="yuyan-home-fresh-auth"',
-      ' name="yuyan-home-auth"',
-    );
-  }
-  return (html === freshMemberShell ? freshVisitorShell : html).replace(
-    ' name="yuyan-home-fresh-auth"',
-    ' name="yuyan-home-auth"',
-  );
-}
-
-function responseFor(html: string, member: boolean): Response {
+export function responseFor(html: string, member: boolean): Response {
   const headers = new Headers({
     'Content-Type': 'text/html; charset=utf-8',
   });
@@ -37,7 +19,11 @@ function responseFor(html: string, member: boolean): Response {
   headers.delete('CDN-Cache-Control');
   headers.set('Vary', 'Cookie');
   headers.set('X-Yuyan-Home-Auth', member ? 'member' : 'visitor');
-  const shell = shellFor(html, member);
+  const shell = shellFor(
+    html === freshMemberShell ? freshVisitorShell : html,
+    html === freshVisitorShell ? freshMemberShell : html,
+    member,
+  );
   if (member && !shell.includes(MEMBER_META)) throw new Error('member home marker is missing');
   if (!member && shell.includes(MEMBER_META)) throw new Error('visitor home marker is invalid');
   return new Response(shell, { status: 200, headers });
