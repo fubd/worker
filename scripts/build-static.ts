@@ -73,7 +73,7 @@ writeFileSync(
 );
 writeFileSync(
   HOME_FRESH_ENTRY,
-  `${homeServer.visitorShell}\n<!----yuyan-member-home---->\n${homeServer.memberShell}`,
+  `${homeServer.visitorShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}\n<!----yuyan-member-home---->\n${homeServer.memberShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}`,
 );
 const pages = [
   { path: '/', output: 'index.html' },

@@ -18,13 +18,15 @@ const [freshVisitorShell, freshMemberShell] = shellParts(freshHomeHtml);
 
 function shellFor(html: string, member: boolean): string {
   if (member) {
-    if (html === freshVisitorShell) return freshMemberShell;
-    if (html === visitorShell) return memberShell;
-    return html;
+    return (html === freshVisitorShell ? freshMemberShell : html).replace(
+      ' name="yuyan-home-fresh-auth"',
+      ' name="yuyan-home-auth"',
+    );
   }
-  if (html === freshMemberShell) return freshVisitorShell;
-  if (html === memberShell) return visitorShell;
-  return html;
+  return (html === freshMemberShell ? freshVisitorShell : html).replace(
+    ' name="yuyan-home-fresh-auth"',
+    ' name="yuyan-home-auth"',
+  );
 }
 
 function responseFor(html: string, member: boolean): Response {
@@ -37,6 +39,7 @@ function responseFor(html: string, member: boolean): Response {
   headers.set('X-Yuyan-Home-Auth', member ? 'member' : 'visitor');
   const shell = shellFor(html, member);
   if (member && !shell.includes(MEMBER_META)) throw new Error('member home marker is missing');
+  if (!member && shell.includes(MEMBER_META)) throw new Error('visitor home marker is invalid');
   return new Response(shell, { status: 200, headers });
 }
 
