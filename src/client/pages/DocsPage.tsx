@@ -1102,6 +1102,13 @@ function DocsPageContent() {
         return next;
       });
       activeIdRef.current = document.id;
+      titleRef.current = document.title;
+      setEditorTitle(document.title);
+      revisionRef.current = 0;
+      savedRevisionRef.current = 0;
+      setSaveState('idle');
+      hydratedDocumentRef.current = { id: document.id, data: document };
+      pendingContentDocumentIdRef.current = document.id;
       const next = new URLSearchParams(searchParams);
       next.delete('view');
       next.delete('q');
