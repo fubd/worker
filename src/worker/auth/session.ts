@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 
 import { deleteOtherSessions, deleteSession, getUserBySession } from '../db/auth';
+import { HOME_COOKIE } from '@/shared/home-session';
 import type { AppEnv } from '../types';
 
 export const SESSION_COOKIE = 'yuyan_session';
@@ -33,8 +34,11 @@ export function sessionExpiresAt(): string {
   return new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
 }
 
-export function readSessionToken(c: Context<AppEnv>): string | null {
-  return getCookie(c, SESSION_COOKIE) ?? null;
+export function readSessionToken(
+  c: Context<AppEnv>,
+  cookieName: string = SESSION_COOKIE,
+): string | null {
+  return getCookie(c, cookieName) ?? null;
 }
 
 export async function readSessionUser(c: Context<AppEnv>) {
@@ -49,10 +53,10 @@ export function setSessionCookie(c: Context<AppEnv>, token: string): void {
     secure: new URL(c.req.url).protocol === 'https:',
     sameSite: 'Lax',
     path: '/',
-    ...(c.env.SESSION_COOKIE_DOMAIN ? { domain: c.env.SESSION_COOKIE_DOMAIN } : {}),
     maxAge: SESSION_TTL_SECONDS,
   } as const;
   setCookie(c, SESSION_COOKIE, token, options);
+  setCookie(c, HOME_COOKIE, token, options);
   setCookie(c, SESSION_HINT_COOKIE, '1', { ...options, httpOnly: false });
 }
 
@@ -60,9 +64,9 @@ export function clearSessionCookie(c: Context<AppEnv>): void {
   const options = {
     path: '/',
     secure: new URL(c.req.url).protocol === 'https:',
-    ...(c.env.SESSION_COOKIE_DOMAIN ? { domain: c.env.SESSION_COOKIE_DOMAIN } : {}),
   } as const;
   deleteCookie(c, SESSION_COOKIE, options);
+  deleteCookie(c, HOME_COOKIE, options);
   deleteCookie(c, SESSION_HINT_COOKIE, { ...options, httpOnly: false });
 }
 

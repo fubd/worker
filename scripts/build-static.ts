@@ -24,7 +24,6 @@ const DIST = 'dist';
 const SERVER_ENTRY = resolve(DIST, 'server/server.mjs');
 const HOME_ENTRY = resolve(DIST, 'server/home-html.mjs');
 const HOME_RENDERED_ENTRY = resolve(DIST, 'server/home-html.txt');
-const HOME_FRESH_ENTRY = resolve(DIST, 'server/home-html-fresh.txt');
 type HomeServer = ServerEntry & {
   homeShell: string;
   memberShell: string;
@@ -68,12 +67,19 @@ mkdirSync(`${DIST}/vercel`, { recursive: true });
 const server = (await import(pathToFileURL(SERVER_ENTRY).href)) as ServerEntry;
 const homeServer = (await import(pathToFileURL(HOME_ENTRY).href)) as HomeServer;
 writeFileSync(
-  HOME_RENDERED_ENTRY,
-  `${homeServer.visitorShell}\n<!----yuyan-member-home---->\n${homeServer.memberShell}`,
+  resolve(DIST, 'server/home-html-fresh.txt'),
+  `${homeServer.visitorShell
+    .replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')
+    .replaceAll(
+      'home?fresh',
+      'home?fresh=visitor',
+    )}\n<!----yuyan-member-home---->\n${homeServer.memberShell
+    .replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')
+    .replaceAll('home?fresh', 'home?fresh=member')}`,
 );
 writeFileSync(
-  HOME_FRESH_ENTRY,
-  `${homeServer.visitorShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}\n<!----yuyan-member-home---->\n${homeServer.memberShell.replace(' name="yuyan-home-auth"', ' name="yuyan-home-fresh-auth"')}`,
+  HOME_RENDERED_ENTRY,
+  `${homeServer.visitorShell}\n<!----yuyan-member-home---->\n${homeServer.memberShell}`,
 );
 const pages = [
   { path: '/', output: 'index.html' },

@@ -8,8 +8,6 @@ export interface Env {
   ATTACHMENTS: R2Bucket;
   /** 站点公开地址，用于 OAuth 回调和登录后跳转 */
   PUBLIC_ORIGIN?: string;
-  /** 可选：让 API 域名的登录 Cookie 同时共享给站点主域名 */
-  SESSION_COOKIE_DOMAIN?: string;
   /** Google OAuth 客户端 */
   GOOGLE_ID?: string;
   GOOGLE_SECRET?: string;

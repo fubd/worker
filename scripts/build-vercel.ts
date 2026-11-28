@@ -11,9 +11,10 @@ const DIST = 'dist';
 const OUT = `${DIST}/vercel`;
 const API_ORIGIN = 'https://api.deephos.com';
 const WORKER_UPLOAD_ORIGIN = 'swan-worker.fubd.workers.dev';
-const HOME_ORIGIN = 'https://api.deephos.com/home?fresh';
+const HOME_ORIGIN = `${API_ORIGIN}/home?fresh`;
 const APP_SHELL_EDGE_CACHE = 'public, s-maxage=60, stale-while-revalidate=300';
 const HOME_EDGE_CACHE = 'public, s-maxage=10, stale-while-revalidate=60';
+const VISITOR_HOME_CACHE = 'public, max-age=0, must-revalidate';
 
 const required = [
   'index.html',
@@ -114,7 +115,10 @@ const config = {
     },
     {
       source: '/_home/visitor.html',
-      headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
+      headers: [
+        { key: 'Cache-Control', value: VISITOR_HOME_CACHE },
+        { key: 'CDN-Cache-Control', value: VISITOR_HOME_CACHE },
+      ],
     },
     ...['/login', '/docs', '/docs/:path*', '/share/:path*'].map((source) => ({
       source,

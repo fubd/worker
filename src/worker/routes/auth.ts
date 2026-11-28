@@ -94,6 +94,14 @@ function publicOrigin(c: Context<AppEnv>): string {
   return (c.env.PUBLIC_ORIGIN ?? new URL(c.req.url).origin).replace(/\/$/, '');
 }
 
+function authDomain(c: Context<AppEnv>): string | null {
+  const origin = new URL(publicOrigin(c));
+  const reserved = ['deephos.com', 'deephos-home.vercel.app', 'deephos-cn-test.vercel.app'];
+  return origin.protocol === 'https:' && !reserved.includes(origin.hostname)
+    ? origin.hostname
+    : null;
+}
+
 function clientIp(c: Context<AppEnv>): string {
   return (
     c.req.header('cf-connecting-ip') ??
@@ -103,12 +111,14 @@ function clientIp(c: Context<AppEnv>): string {
 }
 
 function oauthCookieOptions(c: Context<AppEnv>) {
+  const domain = authDomain(c);
   return {
     httpOnly: true,
     secure: publicOrigin(c).startsWith('https://'),
     sameSite: 'Lax' as const,
     path: '/',
     maxAge: OAUTH_COOKIE_MAX_AGE,
+    ...(domain ? { domain } : {}),
   };
 }
 

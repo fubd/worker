@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 
 import { api, ApiError } from '../api/client';
 import { syncHomeSession } from '../public-shell';
+import { HOME_COOKIE } from '@/shared/home-session';
 import type { AuthSessionResponse, AuthUser } from '@/shared/types';
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -30,6 +31,12 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function mirrorHomeSession(): void {
+  const session = document.cookie.split('; ').find((item) => item.startsWith('yuyan_has_session='));
+  if (!session) return;
+  document.cookie = `${HOME_COOKIE}=1; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax; secure`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useRef<Promise<AuthSessionResponse> | null>(null);
@@ -70,12 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (input: { username: string; password: string }) => {
     const session = await api.register(input);
+    mirrorHomeSession();
     setUser(session.user);
     setStatus('authenticated');
   }, []);
 
   const signInWithPassword = useCallback(async (identifier: string, password: string) => {
     const session = await api.loginWithPassword(identifier, password);
+    mirrorHomeSession();
     setUser(session.user);
     setStatus('authenticated');
   }, []);

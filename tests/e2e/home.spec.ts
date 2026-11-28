@@ -64,7 +64,10 @@ async function trackInitialMemberAction(page: import('@playwright/test').Page): 
     else document.addEventListener('readystatechange', observe, { once: true });
   };
   await page.addInitScript(initScript);
-  const response = await page.goto('/');
+  const response =
+    process.env.PLAYWRIGHT_PRODUCTION_PROXY || !process.env.RUN_FULL_STATIC_BUILD
+      ? await page.goto('/')
+      : await page.goto('http://localhost:8787/home?fresh');
   const html = (await response?.text())?.replace(/<!--.*?-->/gs, '') ?? '';
   expect(html).toContain('<meta name="yuyan-home-auth" content="member">');
   expect(html).toContain('data-swan-public-home="primary">进入文档');
