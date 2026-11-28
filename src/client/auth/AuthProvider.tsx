@@ -40,9 +40,7 @@ function mirrorHomeSession(): void {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useRef<Promise<AuthSessionResponse> | null>(null);
-  const [status, setStatus] = useState<AuthStatus>(() =>
-    import.meta.env.SSR || typeof document === 'undefined' ? 'loading' : 'unauthenticated',
-  );
+  const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const refresh = useCallback(async () => {

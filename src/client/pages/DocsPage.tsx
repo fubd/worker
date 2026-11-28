@@ -129,6 +129,7 @@ type SelectFolder = (scope: FolderScope) => Promise<void>;
 
 export const loader: HydratingLoader = async ({ request }) =>
   typeof window === 'undefined' ? emptyDocsRouteData(request) : loadDocsRouteData(request);
+loader.hydrate = true;
 
 export function shouldRevalidate({
   currentUrl,
@@ -339,23 +340,30 @@ function DocsPageContent() {
   const searchQuery = searchParams.get('q')?.trim() ?? '';
   const authUnavailable = status === 'unauthenticated';
 
-  const [documents, setDocuments] = useState<DocumentSummary[]>(loaderData?.documents ?? []);
-  const hydratedLoaderDataRef = useRef(loaderData);
-  const [nextCursor, setNextCursor] = useState<string | null>(loaderData?.nextCursor ?? null);
-  const [folders, setFolders] = useState<FolderSummary[]>(loaderData?.folders ?? []);
+  const initialLoaderData = loaderData?.initialPlaceholder ? undefined : loaderData;
+  const [documents, setDocuments] = useState<DocumentSummary[]>(initialLoaderData?.documents ?? []);
+  const hydratedLoaderDataRef = useRef(initialLoaderData);
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialLoaderData?.nextCursor ?? null,
+  );
+  const [folders, setFolders] = useState<FolderSummary[]>(initialLoaderData?.folders ?? []);
   const [activeDocument, setActiveDocument] = useState<DocumentRecord | null>(null);
   const [pendingContent, setPendingContent] = useState<JSONContent | null>(
-    () => (loaderData?.document?.content as JSONContent | undefined) ?? EMPTY_CONTENT,
+    () => (initialLoaderData?.document?.content as JSONContent | undefined) ?? EMPTY_CONTENT,
   );
-  const pendingContentDocumentIdRef = useRef<PublicId | null>(loaderData?.document?.id ?? null);
+  const pendingContentDocumentIdRef = useRef<PublicId | null>(
+    initialLoaderData?.document?.id ?? null,
+  );
   const [editorTitle, setEditorTitle] = useState('');
-  const [documentChildren, setDocumentChildren] = useState(loaderData?.documentChildren ?? {});
+  const [documentChildren, setDocumentChildren] = useState(
+    initialLoaderData?.documentChildren ?? {},
+  );
   const documentChildrenRef = useRef(documentChildren);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<PublicId>>(() => new Set());
   const [batchBusy, setBatchBusy] = useState(false);
   const [documentMode, setDocumentMode] = useState<DocumentMode>('read');
-  const [listLoading, setListLoading] = useState(!loaderData);
+  const [listLoading, setListLoading] = useState(!initialLoaderData);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRevision, setListRevision] = useState(0);
   const [expandedDocumentIds, setExpandedDocumentIds] = useState<Set<PublicId>>(() => new Set());
@@ -727,7 +735,7 @@ function DocsPageContent() {
   }, [navigate, searchInput, searchParams, searchQuery]);
 
   useEffect(() => {
-    if (!loaderData) return;
+    if (!loaderData || loaderData.initialPlaceholder) return;
     if (loaderData.unauthorized) {
       return;
     }
@@ -744,10 +752,14 @@ function DocsPageContent() {
     setLoadError(loaderData.error);
     selectingDocumentRef.current = false;
 
-    if (hydratedLoaderDataRef.current !== loaderData) {
+    if (
+      hydratedLoaderDataRef.current !== undefined &&
+      hydratedLoaderDataRef.current !== loaderData
+    ) {
       hydratedLoaderDataRef.current = loaderData;
       return;
     }
+    hydratedLoaderDataRef.current = loaderData;
     if (loaderData.view === 'trash' || searchQuery || activeId) return;
     if (loaderData.view === 'favorites' || loaderData.view === 'recent') return;
     if (view === 'favorites' || view === 'recent') return;
@@ -2250,8 +2262,6 @@ function DocsPageContent() {
         ? activeDocument !== null || (!searchQuery && (listLoading || documents.length > 0))
         : activeDocument?.id !== activeId);
 
-  if (isStaticRender) return <HydrateFallback />;
-
   useEffect(() => {
     if (!documentPending || activeDocument !== null) {
       setShowDocumentLoading(false);
@@ -2261,6 +2271,8 @@ function DocsPageContent() {
     const timer = window.setTimeout(() => setShowDocumentLoading(true), 80);
     return () => window.clearTimeout(timer);
   }, [activeDocument, documentPending]);
+
+  if (isStaticRender) return <HydrateFallback />;
 
   if (status === 'unauthenticated') return <Navigate to="/login" replace />;
   if (!user) return <HydrateFallback />;

@@ -15,6 +15,7 @@ export interface DocsRouteData {
   documents: DocumentSummary[];
   error: string | null;
   folders: FolderSummary[];
+  initialPlaceholder?: boolean;
   nextCursor: string | null;
   unauthorized: boolean;
   view: DocumentView;
@@ -41,6 +42,7 @@ export function emptyDocsRouteData(request: Request): DocsRouteData {
     documents: [],
     error: null,
     folders: [],
+    initialPlaceholder: true,
     nextCursor: null,
     unauthorized: false,
     view,

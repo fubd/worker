@@ -47,6 +47,19 @@ async function expectVisibleTouchTargets(page: Page, selectors: string[]): Promi
   }
 }
 
+async function expectWorkspaceHydratedInPlace(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(async () => page.evaluate(() => document.getElementById('root')?.childElementCount ?? -1))
+    .toBe(1);
+  const rootChild = page.locator('#root > *').first();
+  await expect(rootChild.locator('.swan-workspace')).toHaveCount(1);
+  await expect(rootChild.locator('.swan-workspace-is-loading')).toHaveCount(0);
+  const box = await rootChild.boundingBox();
+  expect(box, 'workspace root bounding box').not.toBeNull();
+  expect(Math.abs(box?.y ?? Number.MAX_SAFE_INTEGER)).toBeLessThanOrEqual(2);
+}
+
 test('registers through the UI, edits, saves, and reloads a document', async ({ page }) => {
   const username = uniqueUsername('ui');
   const password = 'Playwright-pass-2026';
@@ -106,9 +119,29 @@ test('home and direct document links keep the active login', async ({ page }) =>
   await page.locator('.swan-home-actions').getByRole('link', { name: '进入文档' }).click();
   await expect(page).toHaveURL(/\/docs(?:\?|$)/);
   await expect(page.getByRole('button', { name: '新建或导入' })).toBeVisible();
+  await expectWorkspaceHydratedInPlace(page);
 
   await page.goto(documentUrl);
   await expect(page.getByRole('heading', { name: '无标题文档' })).toBeVisible();
+  await expectWorkspaceHydratedInPlace(page);
+});
+
+test('static docs shell hydrates as the only top-level workspace', async ({ page }) => {
+  await isolateClient(page);
+  await registerByApi(page);
+  const created = await page.context().request.post('/api/documents', {
+    data: { title: '水合验证文档', folderId: null },
+  });
+  expect(created.status()).toBe(201);
+
+  await page.goto('/docs');
+  await expect(page).toHaveURL(/\/docs\/[A-Za-z0-9]{24}$/);
+  await expect(page.getByRole('button', { name: '新建或导入' })).toBeVisible();
+  await expectWorkspaceHydratedInPlace(page);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: '新建或导入' })).toBeVisible();
+  await expectWorkspaceHydratedInPlace(page);
 });
 
 test('unauthenticated home resolves to its final login action', async ({ browser }) => {

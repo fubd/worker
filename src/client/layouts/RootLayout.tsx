@@ -8,7 +8,6 @@ import type { WorkspaceOutletContext } from './workspace-context';
 
 const enableSpeedInsights = import.meta.env.PROD;
 const PasswordSettingsModal = lazy(() => import('../components/PasswordSettingsModal'));
-const isStaticRender = typeof window === 'undefined';
 
 export default function RootLayout() {
   const location = useLocation();
@@ -38,26 +37,7 @@ export default function RootLayout() {
     }
   }
   if (!user) {
-    if (isStaticRender) return <Outlet context={context} />;
-    return (
-      <div className="swan-workspace swan-workspace-is-loading" aria-busy="true">
-        <div className="swan-sidebar-loading" aria-hidden="true">
-          <div className="swan-loading-surface">
-            <div className="swan-skeleton-bar is-brand" />
-            <div className="swan-skeleton-bar is-search" />
-            <div className="swan-skeleton-bar is-nav" />
-            <div className="swan-skeleton-bar is-nav" />
-            <div className="swan-skeleton-bar is-nav" />
-          </div>
-        </div>
-        <main className="swan-workspace-main">
-          <div className="swan-topbar-skeleton swan-loading-surface" aria-hidden="true">
-            <div className="swan-skeleton-bar is-breadcrumb" />
-            <div className="swan-skeleton-bar is-action" />
-          </div>
-        </main>
-      </div>
-    );
+    return <Outlet context={context} />;
   }
 
   return (
