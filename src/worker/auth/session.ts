@@ -49,6 +49,7 @@ export function setSessionCookie(c: Context<AppEnv>, token: string): void {
     secure: new URL(c.req.url).protocol === 'https:',
     sameSite: 'Lax',
     path: '/',
+    ...(c.env.SESSION_COOKIE_DOMAIN ? { domain: c.env.SESSION_COOKIE_DOMAIN } : {}),
     maxAge: SESSION_TTL_SECONDS,
   } as const;
   setCookie(c, SESSION_COOKIE, token, options);
@@ -59,6 +60,7 @@ export function clearSessionCookie(c: Context<AppEnv>): void {
   const options = {
     path: '/',
     secure: new URL(c.req.url).protocol === 'https:',
+    ...(c.env.SESSION_COOKIE_DOMAIN ? { domain: c.env.SESSION_COOKIE_DOMAIN } : {}),
   } as const;
   deleteCookie(c, SESSION_COOKIE, options);
   deleteCookie(c, SESSION_HINT_COOKIE, { ...options, httpOnly: false });
