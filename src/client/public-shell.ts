@@ -1,3 +1,7 @@
+import { SERVER_HOME_AUTH_META } from '@/shared/home-session';
+
+import type { AuthSessionResponse } from '@/shared/types';
+
 export const HOME_VISITOR_TEXT = {
   primary: '开始写作',
   nav: '登录',
@@ -15,6 +19,10 @@ export const HOME_MEMBER_TEXT = {
 const PRIMARY_LINK = '[data-swan-public-home="primary"]';
 const NAV_LOGIN = '[data-swan-public-home="nav"]';
 const FOOTER_LOGIN = '[data-swan-public-home="footer"]';
+
+export function isServerVerifiedHome(): boolean {
+  return document.querySelector(SERVER_HOME_AUTH_META) !== null;
+}
 
 function isHome(): boolean {
   const path = window.location.pathname.replace(/\/+$/, '');
@@ -73,34 +81,50 @@ function hasSessionUser(session: unknown): boolean {
 }
 
 async function detectHomeSession(
-  requestSession: () => Promise<unknown>,
+  requestSession: () => Promise<AuthSessionResponse>,
 ): Promise<'authenticated' | 'unauthenticated'> {
   if (typeof window === 'undefined') {
     return 'authenticated';
   }
+  if (isServerVerifiedHome()) {
+    return document.querySelector(SERVER_HOME_AUTH_META) ? 'authenticated' : 'unauthenticated';
+  }
+  if (document.querySelector('meta[name="yuyan-home-auth"]')) return 'unauthenticated';
 
   await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
   if (!isHome()) return 'authenticated';
 
   prepareVisitorNavigation();
+  let memberSession: unknown;
   try {
-    if (!hasSessionUser(await requestSession())) return 'unauthenticated';
+    memberSession = await requestSession();
   } catch {
     return 'unauthenticated';
   }
+  if (!hasSessionUser(memberSession)) return 'unauthenticated';
   if (isHome()) showMemberHome({ navigation: false });
   return 'authenticated';
 }
 
 export function syncHomeSession(
-  requestSession: () => Promise<unknown>,
+  requestSession: () => Promise<AuthSessionResponse>,
 ): Promise<'authenticated' | 'unauthenticated'> {
   const result = detectHomeSession(requestSession);
-  if (typeof window === 'undefined' || !isHome()) return result;
+  if (
+    typeof window === 'undefined' ||
+    !isHome() ||
+    document.querySelector('meta[name="yuyan-home-auth"]')
+  ) {
+    return result;
+  }
   return Promise.race([
     result,
     new Promise<'unauthenticated'>((resolve) => {
       window.setTimeout(() => resolve('unauthenticated'), 3_000);
     }),
   ]);
+}
+
+export function readHomeVariant(): 'member' | 'visitor' {
+  return document.querySelector(SERVER_HOME_AUTH_META) ? 'member' : 'visitor';
 }

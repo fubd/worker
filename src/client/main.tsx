@@ -8,7 +8,9 @@ import './styles/public.css';
 
 import { AppProviders } from './app-providers';
 import { createAppRouter } from './router';
-import './public-shell';
+import { readHomeVariant } from './public-shell';
+
+document.documentElement.dataset.homeVariant ||= readHomeVariant();
 
 const container = document.getElementById('root');
 

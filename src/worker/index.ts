@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth';
 import { documentRoutes } from './routes/documents';
 import { folderRoutes } from './routes/folders';
 import { shareRoutes } from './routes/shares';
+import { resolveHome } from './home';
 import type { AppEnv } from './types';
 
 /**
@@ -52,6 +53,9 @@ app.route('/api/documents', attachmentRoutes);
 app.route('/api/documents', documentRoutes);
 app.route('/api/folders', folderRoutes);
 app.route('/api/shares', shareRoutes);
+
+/** deephos.com 的首页由 Vercel 转发到这里，以便在首屏 HTML 前读取登录态。 */
+for (const path of ['/home', '/api/home']) app.get(path, resolveHome);
 
 /** 直接访问 API 域名根路径时回到主站 */
 app.get('/', (c) => c.redirect('https://deephos.com/', 301));

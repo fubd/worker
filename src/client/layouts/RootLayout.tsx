@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../auth/AuthProvider';
+import { isServerVerifiedHome } from '../public-shell';
 import type { WorkspaceOutletContext } from './workspace-context';
 
 const enableSpeedInsights = import.meta.env.PROD;
@@ -32,7 +33,9 @@ export default function RootLayout() {
   };
 
   if (status === 'unauthenticated') {
-    return <Navigate to="/login" replace />;
+    if (!(location.pathname === '/' && isServerVerifiedHome())) {
+      return <Navigate to="/login" replace />;
+    }
   }
   if (!user) {
     if (isStaticRender) return <Outlet context={context} />;

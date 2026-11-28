@@ -109,7 +109,7 @@ function LoginIllustration() {
 }
 
 export default function LoginPage() {
-  const { status, signIn, register, signInWithPassword } = useAuth();
+  const { status, user, signIn, register, signInWithPassword } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -119,7 +119,7 @@ export default function LoginPage() {
   const authNotice = authErrorMessage(searchParams.get('auth'));
   const registrationUsername = identifierDraft.includes('@') ? '' : identifierDraft;
 
-  if (status === 'authenticated') return <Navigate to="/docs" replace />;
+  if (status === 'authenticated' && user) return <Navigate to="/docs" replace />;
 
   const changeMode = (nextMode: AuthMode) => {
     setMode(nextMode);

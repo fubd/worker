@@ -23,13 +23,20 @@ if (!existsSync(`${OUT}/static`)) {
   throw new Error('Vercel bundle is missing static/');
 }
 
-const homeHtml = readFileSync(`${OUT}/index.html`, 'utf8');
-if (
-  !homeHtml.includes('swan-home-hero') ||
-  !homeHtml.includes('让文字') ||
-  !homeHtml.includes('name="yuyan-build"')
-) {
-  throw new Error('/ is missing its public homepage');
+const homeHtml = readFileSync(`${OUT}/visitor.html`, 'utf8');
+const memberHtml = readFileSync(`${OUT}/member.html`, 'utf8');
+if (!homeHtml.includes('开始写作') || !memberHtml.includes('进入文档')) {
+  throw new Error('homepage variants do not contain the resolved action');
+}
+for (const html of [homeHtml, memberHtml]) {
+  if (
+    !html.includes('swan-home-hero') ||
+    !html.includes('让文字') ||
+    !html.includes('name="yuyan-build"') ||
+    html.includes('__YUYAN_HOME_BUILD__')
+  ) {
+    throw new Error('/ is missing its complete public homepage');
+  }
 }
 
 const loginHtml = readFileSync(`${OUT}/login.html`, 'utf8');
@@ -45,10 +52,31 @@ if (!docsHtml.includes('swan-workspace-is-loading')) {
 const config = JSON.parse(readFileSync(`${OUT}/vercel.json`, 'utf8')) as {
   redirects?: Array<{ source?: string; destination?: string }>;
   rewrites?: Array<{ source?: string; destination?: string }>;
+  headers?: Array<{ source?: string; has?: Array<{ type?: string; key?: string }> }>;
 };
 
-if (config.redirects?.some((redirect) => redirect.source === '/')) {
-  throw new Error('the homepage must not redirect away from /');
+if (
+  !config.rewrites?.some(
+    (item) =>
+      item.source === '/' &&
+      typeof item.destination === 'string' &&
+      item.destination.startsWith('https://api.deephos.com/home'),
+  )
+) {
+  throw new Error('the homepage is missing its server session rewrite');
+}
+for (const path of ['/login', '/docs', '/docs/:path*']) {
+  if (
+    !config.headers?.some(
+      (header) =>
+        header.source === path &&
+        header.has?.some(
+          (condition) => condition.type === 'cookie' && condition.key === 'yuyan_session',
+        ),
+    )
+  ) {
+    throw new Error(`${path} may serve a cached page to a member`);
+  }
 }
 if (!config.redirects?.some((item) => item.source === '/todos' && item.destination === '/docs')) {
   throw new Error('/todos is missing its /docs redirect');
@@ -57,9 +85,9 @@ if (!config.redirects?.some((item) => item.source === '/about' && item.destinati
   throw new Error('/about is missing its homepage redirect');
 }
 for (const [source, destination] of [
-  ['/login', '/login.html'],
-  ['/docs', '/docs.html'],
-  ['/docs/:path*', '/docs.html'],
+  ['/login', '/_home/login.html'],
+  ['/docs', '/_home/docs.html'],
+  ['/docs/:path*', '/_home/docs.html'],
 ]) {
   if (
     !config.rewrites?.some((item) => item.source === source && item.destination === destination)

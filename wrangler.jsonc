@@ -2,8 +2,23 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "swan-worker",
   "main": "src/worker/index.ts",
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["dist/server/home-html.txt"],
+      "fallthrough": true,
+    },
+  ],
+  "assets": {
+    "directory": "./dist/vercel",
+    "run_worker_first": ["/home", "/_home/*"],
+  },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  "alias": {
+    "virtual:yuyan-home-html": "./dist/server/home-html.txt",
+    "virtual:yuyan-home-fresh-html": "./dist/server/home-html-fresh.txt",
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

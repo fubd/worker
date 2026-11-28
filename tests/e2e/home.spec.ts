@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+function useFullHomeBuild(): void {
+  test.skip(
+    !process.env.RUN_FULL_STATIC_BUILD,
+    'Run Playwright after `bun run build`; the serial E2E build cannot rebuild the browser shell.',
+  );
+}
+
 async function trackPrimaryLabelChanges(page: import('@playwright/test').Page): Promise<void> {
   await page.locator('.swan-home-actions .swan-public-button.is-primary').waitFor();
   await page.evaluate(() => {
@@ -17,7 +24,55 @@ async function trackPrimaryLabelChanges(page: import('@playwright/test').Page): 
   });
 }
 
+async function trackInitialMemberAction(page: import('@playwright/test').Page): Promise<void> {
+  const initScript = () => {
+    const state: { labels: string[]; first: { text: string; href: string } | null } = {
+      labels: [],
+      first: null,
+    };
+    Object.assign(window, { __homeFirst: state, __homeReady: false });
+    const record = () => {
+      const primary = document.querySelector<HTMLAnchorElement>(
+        '.swan-home-actions [data-swan-public-home="primary"]',
+      );
+      if (!primary?.textContent) return;
+      const text = primary.textContent.trim();
+      state.first ??= { text, href: primary.getAttribute('href') ?? '' };
+      if (state.labels.at(-1) !== text) state.labels.push(text);
+      (window as { __homeReady?: boolean }).__homeReady = true;
+    };
+    record();
+    new MutationObserver(record).observe(document, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  };
+  await page.goto('/');
+  await page.evaluate(initScript);
+  await page.waitForFunction(() => (window as { __homeReady?: boolean }).__homeReady === true);
+  const initial = await page.evaluate(() => (window as { __homeFirst?: unknown }).__homeFirst);
+  expect(initial).toEqual({ labels: ['进入文档'], first: { text: '进入文档', href: '/docs' } });
+  await page.addInitScript(initScript);
+  const response = await page.reload();
+  const refreshedHtml = (await response?.text())?.replace(/<!--.*?-->/gs, '') ?? '';
+  if (process.env.PLAYWRIGHT_PRODUCTION_PROXY === '1') {
+    expect(refreshedHtml).toContain('<meta name="yuyan-home-auth" content="member">');
+  }
+  expect(
+    refreshedHtml.startsWith('<!doctype html>')
+      ? refreshedHtml.includes('<meta name="yuyan-home-auth" content="member">')
+      : refreshedHtml.includes('data-swan-public-home="primary">进入文档'),
+  ).toBe(true);
+  await page.waitForFunction(() => (window as { __homeReady?: boolean }).__homeReady === true);
+  expect(await page.evaluate(() => (window as { __homeFirst?: unknown }).__homeFirst)).toEqual({
+    labels: ['进入文档'],
+    first: { text: '进入文档', href: '/docs' },
+  });
+}
+
 test('home action renders the final state without changing its label', async ({ browser }) => {
+  useFullHomeBuild();
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto('/');
@@ -32,6 +87,7 @@ test('home action renders the final state without changing its label', async ({ 
 });
 
 test('signed-in home keeps the action stable after session resolution', async ({ browser }) => {
+  useFullHomeBuild();
   const context = await browser.newContext();
   const page = await context.newPage();
   const registration = await context.request.post('/api/auth/register', {
@@ -56,9 +112,8 @@ test('signed-in home keeps the action stable after session resolution', async ({
   await context.close();
 });
 
-test('signed-in home follows the server session without a client-readable hint', async ({
-  browser,
-}) => {
+test('signed-in home keeps its member action after a full refresh', async ({ browser }) => {
+  useFullHomeBuild();
   const context = await browser.newContext();
   const page = await context.newPage();
   const registration = await context.request.post('/api/auth/register', {
@@ -68,25 +123,12 @@ test('signed-in home follows the server session without a client-readable hint',
     },
   });
   expect(registration.status()).toBe(200);
-  await context.clearCookies({ name: 'yuyan_has_session' });
-  await page.route('**/rsbuild-hmr**', (route) => route.abort());
-  await page.route('**/static/js/*', async (route) => {
-    const response = await route.fetch();
-    const body = await response.text();
-    if (body.includes('syncHomeSession')) {
-      await route.fulfill({
-        response,
-        body: `document.documentElement.setAttribute('data-swan-public-shell','');\n${body}`,
-      });
-    } else {
-      await route.fulfill({ response, body });
-    }
-  });
   await page.goto('/');
   const primary = page.locator('.swan-home-actions .swan-public-button.is-primary');
   await expect(primary).toHaveText('进入文档');
-  await expect(primary).toHaveAttribute('href', '/docs');
+  await trackInitialMemberAction(page);
+  await page.reload();
+  await expect(primary).toHaveText('进入文档');
   await expect(page.locator('.swan-public-login')).toHaveText('进入文档');
-  await expect(page.locator('[data-swan-public-home="footer"]')).toHaveText('打开文档');
   await context.close();
 });

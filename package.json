@@ -7,6 +7,8 @@
     "dev": "bun run --parallel dev:api dev:web",
     "dev:api": "wrangler dev",
     "dev:web": "rsbuild dev --environment web",
+    "dev:home": "bun scripts/dev-home.ts",
+    "dev:preview": "bun scripts/dev-preview.ts",
     "build": "rsbuild build && bun run build:static && bun run build:vercel && bun run verify:vercel",
     "build:static": "NODE_ENV=production bun scripts/build-static.ts",
     "build:vercel": "bun scripts/build-vercel.ts",
