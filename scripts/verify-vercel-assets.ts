@@ -43,6 +43,11 @@ const loginHtml = readFileSync(`${OUT}/login.html`, 'utf8');
 if (!loginHtml.includes('swan-login-card') || !loginHtml.includes('继续写作')) {
   throw new Error('/login is missing its login form');
 }
+for (const file of ['login.html', 'docs.html', 'share.html']) {
+  if (!existsSync(`${OUT}/_home/${file}`)) {
+    throw new Error(`Vercel rewrite target /_home/${file} is missing`);
+  }
+}
 
 const docsHtml = readFileSync(`${OUT}/docs.html`, 'utf8');
 if (!docsHtml.includes('swan-workspace-is-loading')) {
@@ -88,6 +93,7 @@ for (const [source, destination] of [
   ['/login', '/_home/login.html'],
   ['/docs', '/_home/docs.html'],
   ['/docs/:path*', '/_home/docs.html'],
+  ['/share/:path*', '/_home/share.html'],
 ]) {
   if (
     !config.rewrites?.some((item) => item.source === source && item.destination === destination)

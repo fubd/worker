@@ -53,6 +53,9 @@ for (const file of [
 cpSync(`${DIST}/brand`, `${OUT}/brand`, { recursive: true });
 cpSync(`${DIST}/static`, `${OUT}/static`, { recursive: true });
 mkdirSync(`${OUT}/_home`, { recursive: true });
+for (const file of ['login.html', 'docs.html', 'share.html']) {
+  cpSync(`${DIST}/${file}`, `${OUT}/_home/${file}`);
+}
 const commit = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim();
 for (const file of ['visitor.html', 'member.html']) {
   writeFileSync(
